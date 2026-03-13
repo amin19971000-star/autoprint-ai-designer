@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 type DesignMode = "sticker" | "playera";
 type DesignSource = "none" | "upload" | "ai";
 
-export default function HomePage() {
+function HomePageInner() {
   const searchParams = useSearchParams();
 
   const [mode, setMode] = useState<DesignMode>("sticker");
@@ -44,9 +44,9 @@ export default function HomePage() {
       setLabels([]);
       setSelectedIndex(null);
 
-     const apiBase = isEmbedded ? "/apps/ppx-ai/api/generate" : "/api/generate";
-    const res = await fetch(apiBase, {
+      const apiBase = isEmbedded ? "/apps/ppx-ai/api/generate" : "/api/generate";
 
+      const res = await fetch(apiBase, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1517,5 +1517,13 @@ export default function HomePage() {
         }
       `}</style>
     </>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={<div style={{ padding: 16 }}>Cargando...</div>}>
+      <HomePageInner />
+    </Suspense>
   );
 }
