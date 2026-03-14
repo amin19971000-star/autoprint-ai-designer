@@ -44,7 +44,10 @@ function HomePageInner() {
       setLabels([]);
       setSelectedIndex(null);
 
-      const apiBase = isEmbedded ? "/apps/ppx-ai/api/generate" : "/api/generate";
+      const apiBase = isEmbedded
+  ? "https://autoprint-ai-designer.vercel.app/api/generate"
+  : "/api/generate";
+
 
       const res = await fetch(apiBase, {
         method: "POST",
