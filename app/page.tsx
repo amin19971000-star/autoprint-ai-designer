@@ -4,30 +4,77 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 type DesignMode = "sticker" | "playera";
-type DesignSource = "none" | "upload" | "ai";
 
 function HomePageInner() {
   const searchParams = useSearchParams();
 
   const [mode, setMode] = useState<DesignMode>("sticker");
-  const [designSource, setDesignSource] = useState<DesignSource>("none");
-
   const [prompt, setPrompt] = useState("");
   const [images, setImages] = useState<string[]>([]);
   const [labels, setLabels] = useState<string[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const isEmbedded = searchParams.get("embed") === "1";
   const canGenerate = prompt.trim().length > 0 && !loading;
+function postEmbedHeight() {
+  if (typeof window === "undefined") return;
+  if (window.parent === window) return;
 
+  const body = document.body;
+  const html = document.documentElement;
+
+  const height = Math.max(
+    body.scrollHeight,
+    body.offsetHeight,
+    html.clientHeight,
+    html.scrollHeight,
+    html.offsetHeight
+  );
+
+  window.parent.postMessage(
+    {
+      type: "AUTOPRINT_AI_RESIZE",
+      height,
+    },
+    "*"
+  );
+}
   useEffect(() => {
     const forcedMode = searchParams.get("mode");
     if (forcedMode === "sticker" || forcedMode === "playera") {
       setMode(forcedMode);
     }
   }, [searchParams]);
+  
+  useEffect(() => {
+  if (!isEmbedded) return;
+
+  const run = () => {
+    window.requestAnimationFrame(() => {
+      postEmbedHeight();
+    });
+  };
+
+  run();
+
+  const resizeObserver = new ResizeObserver(() => {
+    run();
+  });
+
+  resizeObserver.observe(document.body);
+
+  window.addEventListener("load", run);
+  window.addEventListener("resize", run);
+
+  return () => {
+    resizeObserver.disconnect();
+    window.removeEventListener("load", run);
+    window.removeEventListener("resize", run);
+  };
+}, [isEmbedded, images.length, selectedIndex, previewIndex, loading, error]);
 
   async function handleGenerate() {
     const cleanPrompt = prompt.trim();
@@ -43,11 +90,11 @@ function HomePageInner() {
       setImages([]);
       setLabels([]);
       setSelectedIndex(null);
+      setPreviewIndex(null);
 
       const apiBase = isEmbedded
-  ? "https://autoprint-ai-designer.vercel.app/api/generate"
-  : "/api/generate";
-
+        ? "https://autoprint-ai-designer.vercel.app/api/generate"
+        : "/api/generate";
 
       const res = await fetch(apiBase, {
         method: "POST",
@@ -75,22 +122,12 @@ function HomePageInner() {
 
       setImages(generatedImages);
       setLabels(generatedLabels);
+      setTimeout(() => {
+  postEmbedHeight();
+}, 60);
     } catch (err: any) {
       setError(err?.message || "Ocurrió un error.");
     } finally {
-      setLoading(false);
-    }
-  }
-
-  function handleSelectSource(source: DesignSource) {
-    setDesignSource(source);
-
-    if (source !== "ai") {
-      setImages([]);
-      setLabels([]);
-      setSelectedIndex(null);
-      setPrompt("");
-      setError("");
       setLoading(false);
     }
   }
@@ -108,12 +145,6 @@ function HomePageInner() {
 
     if (isEmbedded && window.parent && window.parent !== window) {
       window.parent.postMessage(payload, "*");
-      return;
-    }
-
-    const target = document.getElementById("config-area");
-    if (target) {
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }
 
@@ -125,237 +156,118 @@ function HomePageInner() {
       <main className={`page-shell ${isEmbedded ? "is-embedded" : ""}`}>
         <div className="page-wrap">
           <section className="hero-card">
-            <div className="hero-top">
-              <div className="eyebrow">
-                <span className="eyebrow-dot" />
-                AUTOPRINT AI STUDIO
-              </div>
-
-              {!isEmbedded ? <div className="test-chip">Modo de prueba</div> : null}
-            </div>
-
-            {!isEmbedded ? (
-              <div className="hero-copy">
-                <h1 className="hero-title">Generador IA para impresión</h1>
-                <p className="hero-subtitle">
-                  Primero define cómo quieres trabajar tu diseño. Después lo
-                  llevamos a la configuración del pedido.
-                </p>
-              </div>
-            ) : null}
-
-            <section className="entry-card">
-              <div className="entry-head">
+            <section className="prompt-card">
+              <div className="prompt-head">
                 <div>
-                  <div className="entry-title">¿Ya tienes tu diseño?</div>
-                  <p className="entry-subtitle">
-                    Elige si quieres subir tu arte o crear uno con IA antes de
-                    configurar tu pedido.
+                  <label htmlFor="prompt" className="prompt-label">
+                    Describe tu diseño
+                  </label>
+                  <p className="prompt-subhelp">
+                    Cuéntanos el concepto, estilo, colores, texto o mood que te
+                    gustaría ver.
                   </p>
                 </div>
               </div>
 
-              <div className="entry-grid">
-                <button
-                  type="button"
-                  className={`entry-option ${
-                    designSource === "upload" ? "is-active" : ""
-                  }`}
-                  onClick={() => handleSelectSource("upload")}
-                >
-                  <div className="entry-option__icon">↑</div>
-                  <div className="entry-option__copy">
-                    <div className="entry-option__title">Ya tengo mi diseño</div>
-                    <div className="entry-option__text">
-                      Continúa con tu flujo normal y sube tu archivo.
-                    </div>
-                  </div>
-                </button>
+              <textarea
+                id="prompt"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                placeholder={
+                  mode === "sticker"
+                    ? "Ejemplo: astronauta vaquero adorable con nombre Leo y estilo premium tipo sticker"
+                    : "Ejemplo: astronauta vaquero vintage para playera, composición premium y look impactante"
+                }
+                rows={2}
+                className="prompt-textarea"
+              />
+
+              <div className="prompt-foot">
+                <div className="prompt-note">
+                  La IA interpretará y mejorará tu idea internamente para crear
+                  3 conceptos distintos.
+                </div>
 
                 <button
                   type="button"
-                  className={`entry-option ${
-                    designSource === "ai" ? "is-active" : ""
-                  }`}
-                  onClick={() => handleSelectSource("ai")}
+                  onClick={handleGenerate}
+                  disabled={!canGenerate}
+                  className={`ai-generate-btn ${loading ? "is-loading" : ""}`}
                 >
-                  <div className="entry-option__icon">✦</div>
-                  <div className="entry-option__copy">
-                    <div className="entry-option__title">Crear diseño con IA</div>
-                    <div className="entry-option__text">
-                      Genera 3 conceptos y elige tu favorito.
-                    </div>
-                  </div>
+                  <span className="ai-generate-btn__glow" />
+                  <span className="ai-generate-btn__border" />
+                  <span className="ai-generate-btn__bg" />
+                  <span className="ai-generate-btn__shine" />
+
+                  <span className="ai-generate-btn__content">
+                    <span className="ai-stars" aria-hidden="true">
+                      <span className="ai-star ai-star--big">✦</span>
+                      <span className="ai-star ai-star--mid">✦</span>
+                      <span className="ai-star ai-star--small">✦</span>
+                    </span>
+
+                    <span className="ai-generate-btn__copy">
+                      <span className="ai-generate-btn__label">
+                        {loading ? "Generando diseños..." : "Crear diseños con IA"}
+                      </span>
+                      <span className="ai-generate-btn__sub">
+                        {loading
+                          ? "Creando 3 conceptos..."
+                          : `Genera 3 propuestas para ${
+                              mode === "sticker" ? "stickers" : "playeras"
+                            }`}
+                      </span>
+                    </span>
+                  </span>
                 </button>
               </div>
 
-              {designSource === "upload" ? (
-                <div className="upload-placeholder">
-                  <div className="upload-placeholder__title">
-                    Sigue con tu flujo normal
+              {loading ? (
+                <div className="loading-panel">
+                  <div className="loading-top">
+                    <div className="loading-orbit">
+                      <span className="loading-dot loading-dot--1" />
+                      <span className="loading-dot loading-dot--2" />
+                      <span className="loading-dot loading-dot--3" />
+                    </div>
+
+                    <div className="loading-copy">
+                      <div className="loading-title">
+                        Generando 3 propuestas con IA
+                      </div>
+                      <div className="loading-subtitle">
+                        Estamos construyendo tres conceptos distintos para{" "}
+                        {mode === "sticker" ? "stickers" : "playeras"} con mejor
+                        composición, estilo y enfoque comercial.
+                      </div>
+                    </div>
                   </div>
-                  <div className="upload-placeholder__text">
-                    Aquí Shopify/Globo seguirá manejando la subida de archivos en
-                    la PDP real.
+
+                  <div className="loading-steps">
+                    <div className="loading-step">
+                      <span className="loading-step__bullet" />
+                      Interpretando tu idea
+                    </div>
+                    <div className="loading-step">
+                      <span className="loading-step__bullet" />
+                      Diseñando 3 rutas creativas
+                    </div>
+                    <div className="loading-step">
+                      <span className="loading-step__bullet" />
+                      Renderizando con FLUX
+                    </div>
                   </div>
                 </div>
               ) : null}
+
+              {error ? <div className="error-box">{error}</div> : null}
             </section>
-
-            {designSource === "ai" ? (
-              <section className="prompt-card">
-                <div className="prompt-head">
-                  <div>
-                    <label className="prompt-label">Tipo de producto</label>
-                    <p className="prompt-subhelp">
-                      Temporalmente lo usamos para pruebas. Después se fijará
-                      automáticamente según la página del producto.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mode-switch">
-                  <button
-                    type="button"
-                    className={`mode-btn ${mode === "sticker" ? "is-active" : ""}`}
-                    onClick={() => setMode("sticker")}
-                  >
-                    Sticker
-                  </button>
-
-                  <button
-                    type="button"
-                    className={`mode-btn ${mode === "playera" ? "is-active" : ""}`}
-                    onClick={() => setMode("playera")}
-                  >
-                    Playera
-                  </button>
-                </div>
-
-                <div className="prompt-head prompt-head--second">
-                  <div>
-                    <label htmlFor="prompt" className="prompt-label">
-                      Describe tu diseño
-                    </label>
-                    <p className="prompt-subhelp">
-                      Cuéntanos el concepto, estilo, colores, texto o mood que te
-                      gustaría ver.
-                    </p>
-                  </div>
-                </div>
-
-                <textarea
-                  id="prompt"
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  placeholder={
-                    mode === "sticker"
-                      ? "Ejemplo: astronauta vaquero adorable con nombre Leo y estilo premium tipo sticker"
-                      : "Ejemplo: astronauta vaquero vintage para playera, composición premium y look impactante"
-                  }
-                  rows={6}
-                  className="prompt-textarea"
-                />
-
-                <div className="prompt-foot">
-                  <div className="prompt-note">
-                    La IA interpretará y mejorará tu idea internamente para crear
-                    3 conceptos distintos.
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleGenerate}
-                    disabled={!canGenerate}
-                    className={`ai-generate-btn ${loading ? "is-loading" : ""}`}
-                  >
-                    <span className="ai-generate-btn__glow" />
-                    <span className="ai-generate-btn__border" />
-                    <span className="ai-generate-btn__bg" />
-                    <span className="ai-generate-btn__shine" />
-
-                    <span className="ai-generate-btn__content">
-                      <span className="ai-stars" aria-hidden="true">
-                        <span className="ai-star ai-star--big">✦</span>
-                        <span className="ai-star ai-star--mid">✦</span>
-                        <span className="ai-star ai-star--small">✦</span>
-                      </span>
-
-                      <span className="ai-generate-btn__copy">
-                        <span className="ai-generate-btn__label">
-                          {loading ? "Generando..." : "Enter AI Magic Lab"}
-                        </span>
-                        <span className="ai-generate-btn__sub">
-                          {loading
-                            ? "Creando 3 conceptos..."
-                            : `Genera 3 concepts para ${
-                                mode === "sticker" ? "stickers" : "playeras"
-                              }`}
-                        </span>
-                      </span>
-                    </span>
-                  </button>
-                </div>
-
-                {loading ? (
-                  <div className="loading-panel">
-                    <div className="loading-top">
-                      <div className="loading-orbit">
-                        <span className="loading-dot loading-dot--1" />
-                        <span className="loading-dot loading-dot--2" />
-                        <span className="loading-dot loading-dot--3" />
-                      </div>
-
-                      <div className="loading-copy">
-                        <div className="loading-title">
-                          Generando 3 propuestas con IA
-                        </div>
-                        <div className="loading-subtitle">
-                          Estamos construyendo tres conceptos distintos para{" "}
-                          {mode === "sticker" ? "stickers" : "playeras"} con mejor
-                          composición, estilo y enfoque comercial.
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="loading-steps">
-                      <div className="loading-step">
-                        <span className="loading-step__bullet" />
-                        Interpretando tu idea
-                      </div>
-                      <div className="loading-step">
-                        <span className="loading-step__bullet" />
-                        Diseñando 3 rutas creativas
-                      </div>
-                      <div className="loading-step">
-                        <span className="loading-step__bullet" />
-                        Renderizando con FLUX
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
-
-                {error ? <div className="error-box">{error}</div> : null}
-              </section>
-            ) : null}
           </section>
 
-          {designSource === "ai" && images.length > 0 ? (
+          {images.length > 0 ? (
             <section className="results-block">
               <div className="results-head">
-                <div>
-                  <h2 className="results-title">Elige tu diseño favorito</h2>
-                  <p className="results-subtitle">
-                    Te mostramos 3 conceptos distintos para que elijas el que
-                    más te convenza.
-                  </p>
-                </div>
-
-                <div className="results-status">
-                  {selectedIndex !== null
-                    ? "1 diseño seleccionado"
-                    : "3 propuestas generadas"}
-                </div>
+                <h2 className="results-title">Elige tu diseño favorito</h2>
               </div>
 
               <div className="results-grid results-grid--3">
@@ -364,11 +276,18 @@ function HomePageInner() {
                   const label = labels[index] || `Concepto ${index + 1}`;
 
                   return (
-                    <button
+                    <div
                       key={index}
-                      type="button"
                       className={`design-card ${isSelected ? "is-selected" : ""}`}
                       onClick={() => setSelectedIndex(index)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setSelectedIndex(index);
+                        }
+                      }}
                     >
                       <div className="design-card__image-wrap">
                         <img
@@ -377,104 +296,120 @@ function HomePageInner() {
                           className="design-card__image"
                         />
 
-                        <div className="design-card__badge">Opción {index + 1}</div>
+                        <div className="design-card__badge">{label}</div>
 
-                        {isSelected ? (
-                          <div className="design-card__check">✓</div>
-                        ) : null}
+                        <button
+                          type="button"
+                          className="design-card__zoom"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPreviewIndex(index);
+                          }}
+                          aria-label={`Ver diseño ${index + 1} en grande`}
+                        >
+                          🔍
+                        </button>
+
+                        {isSelected ? <div className="design-card__check">✓</div> : null}
                       </div>
 
                       <div className="design-card__body">
-                        <div className="design-card__kicker">{label}</div>
-
                         <div className="design-card__title">
                           {isSelected ? "Diseño seleccionado" : "Haz clic para elegir"}
                         </div>
-
-                        <div className="design-card__text">
-                          {isSelected
-                            ? "Esta propuesta quedó marcada como favorita."
-                            : "Selecciona esta opción si es la que más te convence visualmente."}
-                        </div>
                       </div>
-                    </button>
+                    </div>
                   );
                 })}
               </div>
 
               {selectedImage ? (
                 <div className="selected-box">
-                  <div className="selected-box__title">
-                    Diseño listo para el siguiente paso
-                  </div>
-                  <div className="selected-box__text">
-                    Elegiste: <b>{selectedLabel || "Concepto seleccionado"}</b>.
-                    {isEmbedded
-                      ? " Ahora lo mandaremos de regreso a tu pedido en Shopify."
-                      : " Ahora llevaremos este diseño a la configuración del pedido."}
-                  </div>
-
                   <button
                     type="button"
                     className="selected-box__btn"
                     onClick={handleContinueWithDesign}
                   >
-                    Continuar con este diseño
+                    Elige tu diseño
                   </button>
                 </div>
               ) : null}
             </section>
           ) : null}
 
-          {!isEmbedded ? (
-            <section className="config-block" id="config-area">
-              <div className="config-block__head">
-                <div>
-                  <div className="config-block__kicker">Siguiente paso</div>
-                  <h3 className="config-block__title">Configuración del pedido</h3>
-                  <p className="config-block__text">
-                    Aquí después conectaremos tamaño, cantidad, material, técnica
-                    y el resto de la configuración real del producto.
-                  </p>
+          {previewIndex !== null ? (
+            <div className="preview-modal" onClick={() => setPreviewIndex(null)}>
+              <div
+                className="preview-modal__dialog"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  className="preview-modal__close"
+                  onClick={() => setPreviewIndex(null)}
+                >
+                  ×
+                </button>
+
+                <button
+                  type="button"
+                  className="preview-modal__nav preview-modal__nav--left"
+                  onClick={() =>
+                    setPreviewIndex((previewIndex - 1 + images.length) % images.length)
+                  }
+                >
+                  ‹
+                </button>
+
+                <div className="preview-modal__image-wrap">
+                  <img
+                    src={images[previewIndex]}
+                    alt={`Vista previa ${previewIndex + 1}`}
+                    className="preview-modal__image"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  className="preview-modal__nav preview-modal__nav--right"
+                  onClick={() =>
+                    setPreviewIndex((previewIndex + 1) % images.length)
+                  }
+                >
+                  ›
+                </button>
+
+                <div className="preview-modal__foot">
+                  <div className="preview-modal__meta">
+                    {labels[previewIndex] || `Concepto ${previewIndex + 1}`}
+                  </div>
+
+                  <button
+                    type="button"
+                    className={`preview-modal__select ${
+                      selectedIndex === previewIndex ? "is-selected" : ""
+                    }`}
+                    onClick={() => {
+                      setSelectedIndex(previewIndex);
+                      setPreviewIndex(null);
+                    }}
+                  >
+                    {selectedIndex === previewIndex
+                      ? "Diseño seleccionado"
+                      : "Seleccionar este diseño"}
+                  </button>
                 </div>
               </div>
-
-              <div className="config-block__grid">
-                <div className="config-mini-card">
-                  <div className="config-mini-card__label">Diseño</div>
-                  <div className="config-mini-card__value">
-                    {selectedLabel
-                      ? `Seleccionaste: ${selectedLabel}`
-                      : "Aún no has elegido un diseño"}
-                  </div>
-                </div>
-
-                <div className="config-mini-card">
-                  <div className="config-mini-card__label">Producto</div>
-                  <div className="config-mini-card__value">
-                    {designSource === "ai"
-                      ? mode === "sticker"
-                        ? "Sticker"
-                        : "Playera"
-                      : "Pendiente"}
-                  </div>
-                </div>
-
-                <div className="config-mini-card">
-                  <div className="config-mini-card__label">Estado</div>
-                  <div className="config-mini-card__value">
-                    {selectedImage
-                      ? "Listo para conectar al flujo del pedido"
-                      : "Primero selecciona un diseño"}
-                  </div>
-                </div>
-              </div>
-            </section>
+            </div>
           ) : null}
         </div>
       </main>
 
       <style jsx>{`
+      html,
+      body {
+      background: #ffffff;
+      }
         .page-shell {
           min-height: 100vh;
           background:
@@ -490,7 +425,7 @@ function HomePageInner() {
         .page-shell.is-embedded {
           min-height: auto;
           padding: 12px;
-          background: transparent;
+          background: #ffffff;
         }
 
         .page-wrap {
@@ -501,8 +436,7 @@ function HomePageInner() {
         }
 
         .hero-card,
-        .results-block,
-        .config-block {
+        .results-block {
           background: rgba(255, 255, 255, 0.94);
           border: 1px solid rgba(17, 24, 39, 0.08);
           border-radius: 30px;
@@ -511,9 +445,9 @@ function HomePageInner() {
         }
 
         .hero-card {
-          padding: 22px;
+          padding: 18px;
           display: grid;
-          gap: 18px;
+          gap: 16px;
         }
 
         .is-embedded .hero-card {
@@ -522,75 +456,6 @@ function HomePageInner() {
           box-shadow: none;
         }
 
-        .hero-top {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 12px;
-          flex-wrap: wrap;
-        }
-
-        .eyebrow {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          width: max-content;
-          padding: 8px 12px;
-          border-radius: 999px;
-          border: 1px solid rgba(0, 184, 169, 0.15);
-          background: rgba(0, 184, 169, 0.06);
-          color: #0f766e;
-          font-size: 12px;
-          font-weight: 900;
-          letter-spacing: 0.04em;
-        }
-
-        .eyebrow-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 999px;
-          background: #00b8a9;
-          box-shadow: 0 0 0 6px rgba(0, 184, 169, 0.12);
-        }
-
-        .test-chip {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          padding: 8px 12px;
-          border-radius: 999px;
-          background: rgba(99, 102, 241, 0.08);
-          border: 1px solid rgba(99, 102, 241, 0.12);
-          color: #4f46e5;
-          font-size: 12px;
-          font-weight: 900;
-          letter-spacing: 0.03em;
-        }
-
-        .hero-copy {
-          display: grid;
-          gap: 8px;
-        }
-
-        .hero-title {
-          margin: 0;
-          font-size: clamp(34px, 5vw, 56px);
-          line-height: 0.98;
-          letter-spacing: -0.045em;
-          font-weight: 1000;
-          color: #0f172a;
-        }
-
-        .hero-subtitle {
-          margin: 0;
-          max-width: 780px;
-          font-size: 18px;
-          line-height: 1.55;
-          color: #6b7280;
-          font-weight: 750;
-        }
-
-        .entry-card,
         .prompt-card {
           border: 1px solid rgba(17, 24, 39, 0.07);
           border-radius: 26px;
@@ -599,22 +464,15 @@ function HomePageInner() {
             linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96));
         }
 
-        .is-embedded .entry-card,
         .is-embedded .prompt-card {
           border-radius: 20px;
           padding: 14px;
         }
 
-        .entry-head,
         .prompt-head {
           margin-bottom: 12px;
         }
 
-        .prompt-head--second {
-          margin-top: 18px;
-        }
-
-        .entry-title,
         .prompt-label {
           display: inline-block;
           font-size: 15px;
@@ -623,7 +481,6 @@ function HomePageInner() {
           margin-bottom: 6px;
         }
 
-        .entry-subtitle,
         .prompt-subhelp {
           margin: 0;
           font-size: 13px;
@@ -632,141 +489,10 @@ function HomePageInner() {
           font-weight: 700;
         }
 
-        .entry-grid {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 12px;
-        }
-
-        .entry-option {
-          appearance: none;
-          border: 1px solid rgba(17, 24, 39, 0.1);
-          background: linear-gradient(180deg, #ffffff, #f8fafc);
-          border-radius: 22px;
-          padding: 18px;
-          text-align: left;
-          cursor: pointer;
-          display: flex;
-          gap: 14px;
-          align-items: flex-start;
-          transition:
-            transform 0.18s ease,
-            border-color 0.18s ease,
-            box-shadow 0.18s ease,
-            background 0.18s ease;
-        }
-
-        .entry-option:hover {
-          transform: translateY(-1px);
-          border-color: rgba(99, 102, 241, 0.22);
-          box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.06);
-        }
-
-        .entry-option.is-active {
-          border-color: rgba(79, 70, 229, 0.42);
-          background: rgba(99, 102, 241, 0.07);
-          box-shadow:
-            0 0 0 4px rgba(99, 102, 241, 0.07),
-            0 14px 24px rgba(79, 70, 229, 0.06);
-        }
-
-        .entry-option__icon {
-          width: 42px;
-          height: 42px;
-          min-width: 42px;
-          border-radius: 14px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: rgba(99, 102, 241, 0.08);
-          color: #4338ca;
-          font-size: 18px;
-          font-weight: 1000;
-        }
-
-        .entry-option__copy {
-          display: grid;
-          gap: 5px;
-        }
-
-        .entry-option__title {
-          font-size: 15px;
-          font-weight: 950;
-          color: #111827;
-        }
-
-        .entry-option__text {
-          font-size: 13px;
-          line-height: 1.5;
-          color: #667085;
-          font-weight: 750;
-        }
-
-        .upload-placeholder {
-          margin-top: 14px;
-          border: 1px dashed rgba(99, 102, 241, 0.28);
-          border-radius: 22px;
-          padding: 18px;
-          background: rgba(99, 102, 241, 0.04);
-        }
-
-        .upload-placeholder__title {
-          font-size: 15px;
-          font-weight: 950;
-          color: #312e81;
-          margin-bottom: 6px;
-        }
-
-        .upload-placeholder__text {
-          font-size: 13px;
-          line-height: 1.5;
-          color: #4b5563;
-          font-weight: 750;
-        }
-
-        .mode-switch {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 10px;
-        }
-
-        .mode-btn {
-          appearance: none;
-          border: 1px solid rgba(17, 24, 39, 0.1);
-          background: linear-gradient(180deg, #ffffff, #f8fafc);
-          color: #111827;
-          border-radius: 18px;
-          min-height: 54px;
-          padding: 12px 14px;
-          font-size: 15px;
-          font-weight: 950;
-          cursor: pointer;
-          transition:
-            border-color 0.18s ease,
-            box-shadow 0.18s ease,
-            transform 0.18s ease,
-            background 0.18s ease;
-        }
-
-        .mode-btn:hover {
-          transform: translateY(-1px);
-          border-color: rgba(99, 102, 241, 0.24);
-          box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.06);
-        }
-
-        .mode-btn.is-active {
-          border-color: rgba(79, 70, 229, 0.48);
-          background: rgba(99, 102, 241, 0.08);
-          color: #312e81;
-          box-shadow:
-            0 0 0 4px rgba(99, 102, 241, 0.08),
-            0 12px 24px rgba(79, 70, 229, 0.08);
-        }
-
         .prompt-textarea {
           width: 100%;
           resize: vertical;
-          min-height: 170px;
+          min-height: 100px;
           border: 1.5px solid #d7dde6;
           border-radius: 22px;
           padding: 18px 18px;
@@ -837,9 +563,9 @@ function HomePageInner() {
           inset: -10px;
           border-radius: 30px;
           background:
-            radial-gradient(circle at 20% 50%, rgba(0, 184, 169, 0.22), transparent 34%),
-            radial-gradient(circle at 80% 40%, rgba(59, 130, 246, 0.24), transparent 36%),
-            radial-gradient(circle at 55% 60%, rgba(139, 92, 246, 0.22), transparent 42%);
+            radial-gradient(circle at 20% 50%, rgba(236, 72, 153, 0.25), transparent 34%),
+            radial-gradient(circle at 80% 40%, rgba(6, 182, 212, 0.25), transparent 36%),
+            radial-gradient(circle at 55% 60%, rgba(139, 92, 246, 0.25), transparent 42%);
           filter: blur(18px);
           opacity: 1;
           z-index: 0;
@@ -851,11 +577,11 @@ function HomePageInner() {
           border-radius: 24px;
           background: linear-gradient(
             90deg,
-            #00d4c5 0%,
-            #38bdf8 22%,
-            #8b5cf6 52%,
-            #60a5fa 74%,
-            #00d4c5 100%
+            #ec4899 0%,
+            #8b5cf6 25%,
+            #3b82f6 50%,
+            #06b6d4 75%,
+            #ec4899 100%
           );
           background-size: 220% 100%;
           animation: borderFlow 4s linear infinite;
@@ -864,15 +590,26 @@ function HomePageInner() {
 
         .ai-generate-btn__bg {
           position: absolute;
-          inset: 1.5px;
+          inset: 2px;
           border-radius: 22px;
           background:
-            radial-gradient(circle at top left, rgba(255,255,255,.08), transparent 30%),
-            linear-gradient(180deg, #0b1120 0%, #0a1020 48%, #070b16 100%);
+            radial-gradient(ellipse at center top, rgba(255, 255, 255, 0.15) 0%, transparent 45%),
+            radial-gradient(circle at center bottom, rgba(139, 92, 246, 0.35) 0%, transparent 60%),
+            linear-gradient(160deg, #1e1b4b 0%, #09090b 100%);
           box-shadow:
-            inset 0 1px 0 rgba(255,255,255,.08),
-            0 18px 34px rgba(15, 23, 42, 0.34);
+            inset 0 2px 2px rgba(255, 255, 255, 0.25),
+            inset 0 -6px 16px rgba(0, 0, 0, 0.6),
+            inset 0 0 10px rgba(139, 92, 246, 0.2),
+            0 4px 10px rgba(0, 0, 0, 0.3);
           z-index: 2;
+          transition: background 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .ai-generate-btn:not(:disabled):hover .ai-generate-btn__bg {
+          background:
+            radial-gradient(ellipse at center top, rgba(255, 255, 255, 0.25) 0%, transparent 50%),
+            radial-gradient(circle at center bottom, rgba(236, 72, 153, 0.4) 0%, transparent 65%),
+            linear-gradient(160deg, #2e1065 0%, #09090b 100%);
         }
 
         .ai-generate-btn__shine {
@@ -1001,12 +738,16 @@ function HomePageInner() {
 
         .loading-panel {
           margin-top: 18px;
-          border: 1px solid rgba(17, 24, 39, 0.08);
+          border: 1px solid rgba(99, 102, 241, 0.14);
           background:
-            linear-gradient(180deg, rgba(255,255,255,.98), rgba(247,249,252,.96));
+            radial-gradient(circle at top left, rgba(79, 70, 229, 0.10), transparent 34%),
+            radial-gradient(circle at bottom right, rgba(0, 184, 169, 0.10), transparent 30%),
+            linear-gradient(180deg, rgba(255,255,255,.98), rgba(245,247,252,.98));
           border-radius: 22px;
           padding: 18px;
-          box-shadow: 0 10px 26px rgba(15, 23, 42, 0.04);
+          box-shadow:
+            0 10px 26px rgba(15, 23, 42, 0.05),
+            0 0 0 1px rgba(255,255,255,.4) inset;
         }
 
         .loading-top {
@@ -1141,39 +882,22 @@ function HomePageInner() {
           letter-spacing: -0.03em;
         }
 
-        .results-subtitle {
-          margin: 8px 0 0;
-          color: #6b7280;
-          font-size: 14px;
-          font-weight: 700;
-        }
-
-        .results-status {
-          font-size: 13px;
-          font-weight: 900;
-          color: #0f766e;
-          border: 1px solid rgba(0, 184, 169, 0.18);
-          background: rgba(0, 184, 169, 0.06);
-          border-radius: 999px;
-          padding: 8px 12px;
-          white-space: nowrap;
-        }
-
         .results-grid {
           display: grid;
           gap: 16px;
         }
 
         .results-grid--3 {
-          grid-template-columns: repeat(3, minmax(0, 1fr));
+          grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+          gap: 12px;
         }
 
         .design-card {
           border: 1px solid rgba(17, 24, 39, 0.08);
           background: #fff;
-          border-radius: 24px;
+          border-radius: 20px;
           overflow: hidden;
-          padding: 12px;
+          padding: 8px;
           cursor: pointer;
           text-align: left;
           transition: 0.18s ease;
@@ -1196,7 +920,7 @@ function HomePageInner() {
         .design-card__image-wrap {
           position: relative;
           aspect-ratio: 1 / 1;
-          border-radius: 18px;
+          border-radius: 14px;
           overflow: hidden;
           background: #f3f4f6;
         }
@@ -1204,98 +928,205 @@ function HomePageInner() {
         .design-card__image {
           width: 100%;
           height: 100%;
-          object-fit: cover;
+          object-fit: contain;
           display: block;
         }
 
         .design-card__badge {
-          position: absolute;
-          top: 12px;
-          left: 12px;
-          border-radius: 999px;
-          padding: 7px 10px;
-          font-size: 11px;
-          font-weight: 950;
-          color: #0f766e;
-          background: rgba(255, 255, 255, 0.92);
-          border: 1px solid rgba(0, 184, 169, 0.14);
-          backdrop-filter: blur(8px);
-        }
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 56px;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1.1;
+  color: #4f46e5;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(0, 184, 169, 0.14);
+  backdrop-filter: blur(8px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
+        .design-card__zoom {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  color: #111827;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+}
         .design-card__check {
           position: absolute;
-          top: 12px;
-          right: 12px;
-          width: 34px;
-          height: 34px;
+          top: 8px;
+          right: 8px;
+          width: 26px;
+          height: 26px;
           border-radius: 999px;
           display: flex;
           align-items: center;
           justify-content: center;
           background: #0ea5a4;
           color: #fff;
-          font-size: 16px;
+          font-size: 13px;
           font-weight: 1000;
           box-shadow: 0 10px 20px rgba(14, 165, 164, 0.28);
         }
 
         .design-card__body {
-          padding: 14px 6px 6px;
-        }
-
-        .design-card__kicker {
-          font-size: 11px;
-          font-weight: 950;
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
-          color: #4f46e5;
-          margin-bottom: 8px;
+          padding: 10px 4px 2px;
         }
 
         .design-card__title {
-          font-size: 17px;
+          font-size: 13px;
           font-weight: 950;
           color: #111827;
           line-height: 1.15;
         }
 
-        .design-card__text {
-          margin-top: 6px;
-          font-size: 13px;
-          font-weight: 750;
-          line-height: 1.5;
-          color: #6b7280;
-        }
-
         .selected-box {
-          margin-top: 16px;
-          border: 1px solid rgba(0, 184, 169, 0.18);
-          background: rgba(0, 184, 169, 0.05);
-          border-radius: 20px;
-          padding: 16px;
-        }
-
-        .selected-box__title {
-          font-size: 15px;
-          font-weight: 950;
-          color: #0f766e;
-          margin-bottom: 6px;
-        }
-
-        .selected-box__text {
-          font-size: 14px;
-          line-height: 1.55;
-          color: #374151;
-          font-weight: 800;
+          margin-top: 24px;
         }
 
         .selected-box__btn {
-          margin-top: 14px;
+          width: 100%;
           appearance: none;
           border: none;
           border-radius: 14px;
           background: linear-gradient(180deg, #111827, #0f172a);
           color: #fff;
+          min-height: 52px;
+          padding: 0 16px;
+          font-size: 15px;
+          font-weight: 950;
+          cursor: pointer;
+          box-shadow: 0 12px 22px rgba(15, 23, 42, 0.18);
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .selected-box__btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 16px 28px rgba(15, 23, 42, 0.22);
+        }
+
+        .preview-modal {
+          position: fixed;
+          inset: 0;
+          z-index: 9999;
+          background: rgba(15, 23, 42, 0.72);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+        }
+
+        .preview-modal__dialog {
+          width: min(920px, 100%);
+          max-height: 90vh;
+          background: #ffffff;
+          border-radius: 24px;
+          overflow: hidden;
+          position: relative;
+          box-shadow: 0 24px 80px rgba(0, 0, 0, 0.22);
+          display: grid;
+        }
+
+        .preview-modal__close {
+          position: absolute;
+          top: 14px;
+          right: 14px;
+          width: 42px;
+          height: 42px;
+          border: none;
+          border-radius: 999px;
+          background: rgba(15, 23, 42, 0.08);
+          color: #111827;
+          font-size: 24px;
+          font-weight: 700;
+          cursor: pointer;
+          z-index: 2;
+        }
+
+        .preview-modal__nav {
+          position: absolute;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 52px;
+          height: 52px;
+          border: none;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.92);
+          color: #111827;
+          font-size: 34px;
+          font-weight: 500;
+          line-height: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
+          z-index: 2;
+        }
+
+        .preview-modal__nav--left {
+          left: 18px;
+        }
+
+        .preview-modal__nav--right {
+          right: 18px;
+        }
+
+        .preview-modal__image-wrap {
+          background: #f8fafc;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 28px;
+          min-height: 420px;
+        }
+
+        .preview-modal__image {
+          max-width: 100%;
+          max-height: 68vh;
+          object-fit: contain;
+          display: block;
+        }
+
+        .preview-modal__foot {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          padding: 18px 20px 20px;
+          border-top: 1px solid rgba(17, 24, 39, 0.06);
+        }
+
+        .preview-modal__meta {
+          font-size: 14px;
+          font-weight: 900;
+          color: #111827;
+        }
+
+        .preview-modal__select {
+          appearance: none;
+          border: none;
+          border-radius: 14px;
+          background: linear-gradient(180deg, #111827, #0f172a);
+          color: #ffffff;
           min-height: 46px;
           padding: 0 16px;
           font-size: 14px;
@@ -1304,68 +1135,9 @@ function HomePageInner() {
           box-shadow: 0 12px 22px rgba(15, 23, 42, 0.18);
         }
 
-        .config-block {
-          padding: 22px;
-        }
-
-        .config-block__head {
-          margin-bottom: 16px;
-        }
-
-        .config-block__kicker {
-          font-size: 11px;
-          font-weight: 950;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          color: #4f46e5;
-          margin-bottom: 8px;
-        }
-
-        .config-block__title {
-          margin: 0 0 8px;
-          font-size: 28px;
-          line-height: 1.05;
-          font-weight: 1000;
-          color: #0f172a;
-          letter-spacing: -0.03em;
-        }
-
-        .config-block__text {
-          margin: 0;
-          color: #6b7280;
-          font-size: 14px;
-          line-height: 1.55;
-          font-weight: 750;
-          max-width: 760px;
-        }
-
-        .config-block__grid {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 14px;
-        }
-
-        .config-mini-card {
-          border: 1px solid rgba(17, 24, 39, 0.08);
-          background: linear-gradient(180deg, #ffffff, #f8fafc);
-          border-radius: 20px;
-          padding: 16px;
-        }
-
-        .config-mini-card__label {
-          font-size: 11px;
-          font-weight: 950;
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
-          color: #0f766e;
-          margin-bottom: 8px;
-        }
-
-        .config-mini-card__value {
-          font-size: 14px;
-          line-height: 1.5;
-          color: #374151;
-          font-weight: 800;
+        .preview-modal__select.is-selected {
+          background: linear-gradient(180deg, #0ea5a4, #0f766e);
+          box-shadow: 0 12px 22px rgba(14, 165, 164, 0.22);
         }
 
         @keyframes sparkleFloat {
@@ -1431,13 +1203,6 @@ function HomePageInner() {
           }
         }
 
-        @media (max-width: 1100px) {
-          .results-grid--3,
-          .config-block__grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-          }
-        }
-
         @media (max-width: 900px) {
           .results-head {
             flex-direction: column;
@@ -1449,42 +1214,24 @@ function HomePageInner() {
           .page-shell {
             padding: 18px 12px 34px;
           }
-
+.design-card__badge {
+  font-size: 9px;
+  padding: 6px 9px;
+  right: 50px;
+}
           .page-shell.is-embedded {
             padding: 8px;
           }
 
           .hero-card,
-          .results-block,
-          .config-block {
+          .results-block {
             border-radius: 22px;
-          }
-
-          .hero-card,
-          .results-block,
-          .config-block {
             padding: 16px;
           }
 
-          .entry-card,
           .prompt-card {
             padding: 14px;
             border-radius: 20px;
-          }
-
-          .hero-title {
-            font-size: 34px;
-          }
-
-          .hero-subtitle {
-            font-size: 15px;
-          }
-
-          .entry-grid,
-          .mode-switch,
-          .results-grid--3,
-          .config-block__grid {
-            grid-template-columns: 1fr;
           }
 
           .prompt-foot {
@@ -1513,8 +1260,7 @@ function HomePageInner() {
             font-size: 12.5px;
           }
 
-          .results-title,
-          .config-block__title {
+          .results-title {
             font-size: 24px;
           }
         }
