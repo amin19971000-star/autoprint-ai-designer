@@ -235,11 +235,7 @@ function postEmbedHeight() {
                       <div className="loading-title">
                         Generando 3 propuestas con IA
                       </div>
-                      <div className="loading-subtitle">
-                        Estamos construyendo tres conceptos distintos para{" "}
-                        {mode === "sticker" ? "stickers" : "playeras"} con mejor
-                        composición, estilo y enfoque comercial.
-                      </div>
+                      
                     </div>
                   </div>
 
@@ -251,10 +247,6 @@ function postEmbedHeight() {
                     <div className="loading-step">
                       <span className="loading-step__bullet" />
                       Diseñando 3 rutas creativas
-                    </div>
-                    <div className="loading-step">
-                      <span className="loading-step__bullet" />
-                      Renderizando con FLUX
                     </div>
                   </div>
                 </div>
@@ -423,10 +415,10 @@ function postEmbedHeight() {
         }
 
         .page-shell.is-embedded {
-          min-height: auto;
-          padding: 12px;
-          background: #ffffff;
-        }
+  min-height: auto;
+  padding: 0;
+  background: #ffffff;
+}
 
         .page-wrap {
           max-width: 1240px;
@@ -434,7 +426,10 @@ function postEmbedHeight() {
           display: grid;
           gap: 22px;
         }
-
+.is-embedded .page-wrap {
+  max-width: none;
+  gap: 14px;
+}
         .hero-card,
         .results-block {
           background: rgba(255, 255, 255, 0.94);
@@ -451,10 +446,13 @@ function postEmbedHeight() {
         }
 
         .is-embedded .hero-card {
-          border-radius: 22px;
-          padding: 14px;
-          box-shadow: none;
-        }
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+}
 
         .prompt-card {
           border: 1px solid rgba(17, 24, 39, 0.07);
@@ -465,9 +463,11 @@ function postEmbedHeight() {
         }
 
         .is-embedded .prompt-card {
-          border-radius: 20px;
-          padding: 14px;
-        }
+  border-radius: 18px;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
 
         .prompt-head {
           margin-bottom: 12px;
@@ -860,10 +860,13 @@ function postEmbedHeight() {
         }
 
         .is-embedded .results-block {
-          border-radius: 22px;
-          padding: 14px;
-          box-shadow: none;
-        }
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 6px 0 0;
+  box-shadow: none;
+  backdrop-filter: none;
+}
 
         .results-head {
           display: flex;
@@ -1220,7 +1223,7 @@ function postEmbedHeight() {
   right: 50px;
 }
           .page-shell.is-embedded {
-            padding: 8px;
+            padding: 0px;
           }
 
           .hero-card,
