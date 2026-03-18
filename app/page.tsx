@@ -138,13 +138,37 @@ win.__lastSentHeight = height;
     }
   }
 
-  function handleContinueWithDesign() {
-    if (selectedIndex === null) return;
+  async function handleContinueWithDesign() {
+  if (selectedIndex === null) return;
+
+  try {
+    const image = images[selectedIndex];
+    const label = selectedLabel || `Concepto ${selectedIndex + 1}`;
+
+    const saveRes = await fetch("/api/save-selected-design", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        image,
+        label,
+        prompt,
+        mode,
+      }),
+    });
+
+    const saved = await saveRes.json();
+
+    if (!saveRes.ok) {
+      throw new Error(saved?.error || "No se pudo guardar el diseño.");
+    }
 
     const payload = {
       type: "AUTOPRINT_AI_DESIGN_SELECTED",
-      image: images[selectedIndex],
-      label: selectedLabel || `Concepto ${selectedIndex + 1}`,
+      imageUrl: saved.imageUrl,
+      designRef: saved.designRef,
+      label,
       prompt,
       mode,
     };
@@ -152,7 +176,10 @@ win.__lastSentHeight = height;
     if (isEmbedded && window.parent && window.parent !== window) {
       window.parent.postMessage(payload, "*");
     }
+  } catch (err: any) {
+    setError(err?.message || "Ocurrió un error al guardar el diseño.");
   }
+}
 
   const selectedImage = selectedIndex !== null ? images[selectedIndex] : null;
   const selectedLabel = selectedIndex !== null ? labels[selectedIndex] : null;
