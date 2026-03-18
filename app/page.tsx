@@ -19,68 +19,69 @@ function HomePageInner() {
 
   const isEmbedded = searchParams.get("embed") === "1";
   const canGenerate = prompt.trim().length > 0 && !loading;
-function postEmbedHeight() {
-  if (typeof window === "undefined") return;
-  if (window.parent === window) return;
 
-  // 1. Buscamos solo la caja del contenido (para que no mida la ventana entera)
-  const wrap = document.querySelector('.page-wrap');
-  if (!wrap) return;
+  function postEmbedHeight() {
+    if (typeof window === "undefined") return;
+    if (window.parent === window) return;
 
-  const height = wrap.scrollHeight + 40; // 40px de margen inferior
+    const wrap = document.querySelector(".page-wrap");
+    if (!wrap) return;
 
-  // 2. Freno de emergencia: si cambió muy poco, no volvemos a enviar
-const win = window as typeof window & { __lastSentHeight?: number };
+    const height = wrap.scrollHeight + 24;
 
-if (
-  typeof win.__lastSentHeight === "number" &&
-  Math.abs(win.__lastSentHeight - height) < 5
-) {
-  return;
-}
+    const win = window as typeof window & { __lastSentHeight?: number };
 
-win.__lastSentHeight = height;
-  window.parent.postMessage(
-    {
-      type: "AUTOPRINT_AI_RESIZE",
-      height,
-    },
-    "*"
-  );
-}
+    if (
+      typeof win.__lastSentHeight === "number" &&
+      Math.abs(win.__lastSentHeight - height) < 5
+    ) {
+      return;
+    }
+
+    win.__lastSentHeight = height;
+
+    window.parent.postMessage(
+      {
+        type: "AUTOPRINT_AI_RESIZE",
+        height,
+      },
+      "*"
+    );
+  }
+
   useEffect(() => {
     const forcedMode = searchParams.get("mode");
     if (forcedMode === "sticker" || forcedMode === "playera") {
       setMode(forcedMode);
     }
   }, [searchParams]);
-  
+
   useEffect(() => {
-  if (!isEmbedded) return;
+    if (!isEmbedded) return;
 
-  const run = () => {
-    window.requestAnimationFrame(() => {
-      postEmbedHeight();
-    });
-  };
+    const run = () => {
+      window.requestAnimationFrame(() => {
+        postEmbedHeight();
+      });
+    };
 
-  run();
-
-  const resizeObserver = new ResizeObserver(() => {
     run();
-  });
 
-  resizeObserver.observe(document.body);
+    const resizeObserver = new ResizeObserver(() => {
+      run();
+    });
 
-  window.addEventListener("load", run);
-  window.addEventListener("resize", run);
+    resizeObserver.observe(document.body);
 
-  return () => {
-    resizeObserver.disconnect();
-    window.removeEventListener("load", run);
-    window.removeEventListener("resize", run);
-  };
-}, [isEmbedded, images.length, selectedIndex, previewIndex, loading, error]);
+    window.addEventListener("load", run);
+    window.addEventListener("resize", run);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("load", run);
+      window.removeEventListener("resize", run);
+    };
+  }, [isEmbedded, images.length, selectedIndex, previewIndex, loading, error]);
 
   async function handleGenerate() {
     const cleanPrompt = prompt.trim();
@@ -128,9 +129,10 @@ win.__lastSentHeight = height;
 
       setImages(generatedImages);
       setLabels(generatedLabels);
+
       setTimeout(() => {
-  postEmbedHeight();
-}, 60);
+        postEmbedHeight();
+      }, 60);
     } catch (err: any) {
       setError(err?.message || "Ocurrió un error.");
     } finally {
@@ -139,47 +141,47 @@ win.__lastSentHeight = height;
   }
 
   async function handleContinueWithDesign() {
-  if (selectedIndex === null) return;
+    if (selectedIndex === null) return;
 
-  try {
-    const image = images[selectedIndex];
-    const label = selectedLabel || `Concepto ${selectedIndex + 1}`;
+    try {
+      const image = images[selectedIndex];
+      const label = selectedLabel || `Concepto ${selectedIndex + 1}`;
 
-    const saveRes = await fetch("/api/save-selected-design", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        image,
+      const saveRes = await fetch("/api/save-selected-design", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          image,
+          label,
+          prompt,
+          mode,
+        }),
+      });
+
+      const saved = await saveRes.json();
+
+      if (!saveRes.ok) {
+        throw new Error(saved?.error || "No se pudo guardar el diseño.");
+      }
+
+      const payload = {
+        type: "AUTOPRINT_AI_DESIGN_SELECTED",
+        imageUrl: saved.imageUrl,
+        designRef: saved.designRef,
         label,
         prompt,
         mode,
-      }),
-    });
+      };
 
-    const saved = await saveRes.json();
-
-    if (!saveRes.ok) {
-      throw new Error(saved?.error || "No se pudo guardar el diseño.");
+      if (isEmbedded && window.parent && window.parent !== window) {
+        window.parent.postMessage(payload, "*");
+      }
+    } catch (err: any) {
+      setError(err?.message || "Ocurrió un error al guardar el diseño.");
     }
-
-    const payload = {
-      type: "AUTOPRINT_AI_DESIGN_SELECTED",
-      imageUrl: saved.imageUrl,
-      designRef: saved.designRef,
-      label,
-      prompt,
-      mode,
-    };
-
-    if (isEmbedded && window.parent && window.parent !== window) {
-      window.parent.postMessage(payload, "*");
-    }
-  } catch (err: any) {
-    setError(err?.message || "Ocurrió un error al guardar el diseño.");
   }
-}
 
   const selectedImage = selectedIndex !== null ? images[selectedIndex] : null;
   const selectedLabel = selectedIndex !== null ? labels[selectedIndex] : null;
@@ -188,105 +190,103 @@ win.__lastSentHeight = height;
     <>
       <main className={`page-shell ${isEmbedded ? "is-embedded" : ""}`}>
         <div className="page-wrap">
-          <section className="hero-card">
-            <section className="prompt-card">
-              <div className="prompt-head">
-                <div>
-                  <label htmlFor="prompt" className="prompt-label">
-                    Describe tu diseño
-                  </label>
-                  <p className="prompt-subhelp">
-                    Cuéntanos el concepto, estilo, colores, texto o mood que te
-                    gustaría ver.
-                  </p>
-                </div>
+          <section className="composer-card">
+            <div className="composer-head">
+              <div>
+                <div className="composer-kicker">AutoPrint AI Studio</div>
+                <h1 className="composer-title">Describe tu diseño</h1>
+                <p className="composer-subhelp">
+                  Cuéntanos el concepto, estilo, colores, texto o mood que te
+                  gustaría ver.
+                </p>
               </div>
+            </div>
 
-              <textarea
-                id="prompt"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                placeholder={
-                  mode === "sticker"
-                    ? "Ejemplo: astronauta vaquero adorable con nombre Leo y estilo premium tipo sticker"
-                    : "Ejemplo: astronauta vaquero vintage para playera, composición premium y look impactante"
-                }
-                rows={2}
-                className="prompt-textarea"
-              />
+            <textarea
+              id="prompt"
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder={
+                mode === "sticker"
+                  ? "Ejemplo: astronauta vaquero adorable con nombre Leo y estilo premium tipo sticker"
+                  : "Ejemplo: astronauta vaquero vintage para playera, composición premium y look impactante"
+              }
+              rows={4}
+              className="prompt-textarea"
+            />
 
-              <div className="prompt-foot">
-                <div className="prompt-note">
-                  La IA interpretará y mejorará tu idea internamente para crear
-                  3 conceptos distintos.
-                </div>
+            <div className="composer-foot">
+              <p className="prompt-note">
+                Generaremos 3 propuestas distintas para ayudarte a elegir más rápido.
+              </p>
 
-                <button
-                  type="button"
-                  onClick={handleGenerate}
-                  disabled={!canGenerate}
-                  className={`ai-generate-btn ${loading ? "is-loading" : ""}`}
-                >
-                  <span className="ai-generate-btn__glow" />
-                  <span className="ai-generate-btn__border" />
-                  <span className="ai-generate-btn__bg" />
-                  <span className="ai-generate-btn__shine" />
+              <button
+                type="button"
+                onClick={handleGenerate}
+                disabled={!canGenerate}
+                className={`ai-generate-btn ${loading ? "is-loading" : ""}`}
+              >
+                <span className="ai-generate-btn__glow" />
+                <span className="ai-generate-btn__border" />
+                <span className="ai-generate-btn__bg" />
+                <span className="ai-generate-btn__shine" />
 
-                  <span className="ai-generate-btn__content">
-                    <span className="ai-stars" aria-hidden="true">
-                      <span className="ai-star ai-star--big">✦</span>
-                      <span className="ai-star ai-star--mid">✦</span>
-                      <span className="ai-star ai-star--small">✦</span>
+                <span className="ai-generate-btn__content">
+                  <span className="ai-stars" aria-hidden="true">
+                    <span className="ai-star ai-star--big">✦</span>
+                    <span className="ai-star ai-star--mid">✦</span>
+                    <span className="ai-star ai-star--small">✦</span>
+                  </span>
+
+                  <span className="ai-generate-btn__copy">
+                    <span className="ai-generate-btn__label">
+                      {loading ? "Generando..." : "Crear con IA"}
                     </span>
-
-                    <span className="ai-generate-btn__copy">
-                      <span className="ai-generate-btn__label">
-                        {loading ? "Generando diseños..." : "Crear diseños con IA"}
-                      </span>
-                      <span className="ai-generate-btn__sub">
-                        {loading
-                          ? "Creando 3 conceptos..."
-                          : `Genera 3 propuestas para ${
-                              mode === "sticker" ? "stickers" : "playeras"
-                            }`}
-                      </span>
+                    <span className="ai-generate-btn__sub">
+                      {loading
+                        ? "3 propuestas en proceso"
+                        : `3 propuestas para ${
+                            mode === "sticker" ? "stickers" : "playeras"
+                          }`}
                     </span>
                   </span>
-                </button>
-              </div>
+                </span>
+              </button>
+            </div>
 
-              {loading ? (
-                <div className="loading-panel">
-                  <div className="loading-top">
-                    <div className="loading-orbit">
-                      <span className="loading-dot loading-dot--1" />
-                      <span className="loading-dot loading-dot--2" />
-                      <span className="loading-dot loading-dot--3" />
-                    </div>
-
-                    <div className="loading-copy">
-                      <div className="loading-title">
-                        Generando 3 propuestas con IA
-                      </div>
-                      
-                    </div>
+            {loading ? (
+              <div className="loading-panel">
+                <div className="loading-top">
+                  <div className="loading-orbit">
+                    <span className="loading-dot loading-dot--1" />
+                    <span className="loading-dot loading-dot--2" />
+                    <span className="loading-dot loading-dot--3" />
                   </div>
 
-                  <div className="loading-steps">
-                    <div className="loading-step">
-                      <span className="loading-step__bullet" />
-                      Interpretando tu idea
+                  <div className="loading-copy">
+                    <div className="loading-title">
+                      Generando 3 propuestas con IA
                     </div>
-                    <div className="loading-step">
-                      <span className="loading-step__bullet" />
-                      Diseñando 3 rutas creativas
+                    <div className="loading-subtitle">
+                      Interpretando tu idea y construyendo rutas visuales.
                     </div>
                   </div>
                 </div>
-              ) : null}
 
-              {error ? <div className="error-box">{error}</div> : null}
-            </section>
+                <div className="loading-steps">
+                  <div className="loading-step">
+                    <span className="loading-step__bullet" />
+                    Interpretando tu idea
+                  </div>
+                  <div className="loading-step">
+                    <span className="loading-step__bullet" />
+                    Diseñando 3 rutas creativas
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {error ? <div className="error-box">{error}</div> : null}
           </section>
 
           {images.length > 0 ? (
@@ -355,7 +355,7 @@ win.__lastSentHeight = height;
                     className="selected-box__btn"
                     onClick={handleContinueWithDesign}
                   >
-                    Elige tu diseño
+                    Usar este diseño
                   </button>
                 </div>
               ) : null}
@@ -431,106 +431,92 @@ win.__lastSentHeight = height;
       </main>
 
       <style jsx>{`
-      :global(html),
-      :global(body) {
-      background: transparent !important;
-      overflow-x: hidden;
-      }
+        :global(html),
+        :global(body) {
+          background: transparent !important;
+          overflow-x: hidden;
+        }
+
         .page-shell {
           min-height: 100vh;
-          background:
-            radial-gradient(circle at top, rgba(99, 102, 241, 0.08), transparent 26%),
-            radial-gradient(circle at top right, rgba(0, 184, 169, 0.06), transparent 24%),
-            linear-gradient(180deg, #f5f7fb 0%, #f3f5f9 100%);
-          padding: 32px 16px 56px;
+          background: #f8fafc;
+          padding: 24px;
           font-family:
             Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
             "Segoe UI", sans-serif;
         }
 
-        
         .page-shell.is-embedded {
-  min-height: auto;
-  padding: 0;
-  background: #ffffff;
-}
+          min-height: auto;
+          padding: 18px;
+          background: #ffffff;
+        }
 
         .page-wrap {
-          max-width: 1240px;
+          max-width: 980px;
           margin: 0 auto;
           display: grid;
-          gap: 22px;
-        }
-.is-embedded .page-wrap {
-  max-width: none;
-  gap: 14px;
-}
-        .hero-card,
-        .results-block {
-          background: rgba(255, 255, 255, 0.94);
-          border: 1px solid rgba(17, 24, 39, 0.08);
-          border-radius: 30px;
-          box-shadow: 0 18px 50px rgba(15, 23, 42, 0.06);
-          backdrop-filter: blur(10px);
+          gap: 18px;
         }
 
-        .hero-card {
-          padding: 18px;
-          display: grid;
+        .is-embedded .page-wrap {
+          max-width: none;
           gap: 16px;
         }
 
-        .is-embedded .hero-card {
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  padding: 0;
-  box-shadow: none;
-  backdrop-filter: none;
-}
+        .composer-card,
+        .results-block {
+          background: #ffffff;
+          border: 1px solid rgba(17, 24, 39, 0.08);
+          border-radius: 24px;
+          padding: 20px;
+          box-shadow: 0 12px 36px rgba(15, 23, 42, 0.06);
+        }
 
-        .prompt-card {
-          border: 1px solid rgba(17, 24, 39, 0.07);
-          border-radius: 26px;
+        .is-embedded .composer-card,
+        .is-embedded .results-block {
+          border-radius: 20px;
           padding: 18px;
-          background:
-            linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96));
+          box-shadow: none;
         }
 
-        .is-embedded .prompt-card {
-  border-radius: 18px;
-  padding: 0;
-  border: none;
-  background: transparent;
-}
-
-        .prompt-head {
-          margin-bottom: 12px;
+        .composer-head {
+          margin-bottom: 14px;
         }
 
-        .prompt-label {
-          display: inline-block;
-          font-size: 15px;
-          font-weight: 950;
+        .composer-kicker {
+          font-size: 11px;
+          font-weight: 900;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: #4f46e5;
+          margin-bottom: 8px;
+        }
+
+        .composer-title {
+          margin: 0 0 8px;
+          font-size: 28px;
+          line-height: 1.05;
+          font-weight: 1000;
           color: #111827;
-          margin-bottom: 6px;
         }
 
-        .prompt-subhelp {
+        .composer-subhelp {
           margin: 0;
-          font-size: 13px;
-          line-height: 1.45;
+          font-size: 14px;
+          line-height: 1.5;
           color: #667085;
           font-weight: 700;
+          max-width: 720px;
         }
 
         .prompt-textarea {
           width: 100%;
           resize: vertical;
-          min-height: 100px;
+          min-height: 120px;
           border: 1.5px solid #d7dde6;
-          border-radius: 22px;
-          padding: 18px 18px;
+          border-radius: 18px;
+          padding: 16px 18px;
           font-size: 16px;
           line-height: 1.55;
           color: #111827;
@@ -545,24 +531,24 @@ win.__lastSentHeight = height;
         .prompt-textarea:focus {
           border-color: rgba(79, 70, 229, 0.46);
           box-shadow: 0 0 0 5px rgba(99, 102, 241, 0.09);
-          background: #ffffff;
         }
 
-        .prompt-foot {
-          margin-top: 18px;
+        .composer-foot {
+          margin-top: 16px;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 16px;
+          gap: 14px;
           flex-wrap: wrap;
         }
 
         .prompt-note {
+          margin: 0;
           font-size: 13px;
           font-weight: 800;
           color: #6b7280;
           line-height: 1.45;
-          max-width: 620px;
+          max-width: 520px;
         }
 
         .ai-generate-btn {
@@ -571,9 +557,9 @@ win.__lastSentHeight = height;
           border: 0;
           background: transparent;
           padding: 0;
-          min-width: 340px;
-          height: 72px;
-          border-radius: 24px;
+          min-width: 260px;
+          height: 60px;
+          border-radius: 18px;
           cursor: pointer;
           transition:
             transform 0.2s ease,
@@ -589,27 +575,26 @@ win.__lastSentHeight = height;
         }
 
         .ai-generate-btn:not(:disabled):hover {
-          transform: translateY(-2px) scale(1.012);
-          filter: saturate(1.08);
+          transform: translateY(-2px) scale(1.01);
+          filter: saturate(1.06);
         }
 
         .ai-generate-btn__glow {
           position: absolute;
-          inset: -10px;
-          border-radius: 30px;
+          inset: -8px;
+          border-radius: 24px;
           background:
-            radial-gradient(circle at 20% 50%, rgba(236, 72, 153, 0.25), transparent 34%),
-            radial-gradient(circle at 80% 40%, rgba(6, 182, 212, 0.25), transparent 36%),
-            radial-gradient(circle at 55% 60%, rgba(139, 92, 246, 0.25), transparent 42%);
-          filter: blur(18px);
-          opacity: 1;
+            radial-gradient(circle at 20% 50%, rgba(236, 72, 153, 0.22), transparent 34%),
+            radial-gradient(circle at 80% 40%, rgba(6, 182, 212, 0.22), transparent 36%),
+            radial-gradient(circle at 55% 60%, rgba(139, 92, 246, 0.22), transparent 42%);
+          filter: blur(16px);
           z-index: 0;
         }
 
         .ai-generate-btn__border {
           position: absolute;
           inset: 0;
-          border-radius: 24px;
+          border-radius: 18px;
           background: linear-gradient(
             90deg,
             #ec4899 0%,
@@ -626,7 +611,7 @@ win.__lastSentHeight = height;
         .ai-generate-btn__bg {
           position: absolute;
           inset: 2px;
-          border-radius: 22px;
+          border-radius: 16px;
           background:
             radial-gradient(ellipse at center top, rgba(255, 255, 255, 0.15) 0%, transparent 45%),
             radial-gradient(circle at center bottom, rgba(139, 92, 246, 0.35) 0%, transparent 60%),
@@ -635,22 +620,14 @@ win.__lastSentHeight = height;
             inset 0 2px 2px rgba(255, 255, 255, 0.25),
             inset 0 -6px 16px rgba(0, 0, 0, 0.6),
             inset 0 0 10px rgba(139, 92, 246, 0.2),
-            0 4px 10px rgba(0, 0, 0, 0.3);
+            0 4px 10px rgba(0, 0, 0, 0.25);
           z-index: 2;
-          transition: background 0.3s ease, box-shadow 0.3s ease;
-        }
-
-        .ai-generate-btn:not(:disabled):hover .ai-generate-btn__bg {
-          background:
-            radial-gradient(ellipse at center top, rgba(255, 255, 255, 0.25) 0%, transparent 50%),
-            radial-gradient(circle at center bottom, rgba(236, 72, 153, 0.4) 0%, transparent 65%),
-            linear-gradient(160deg, #2e1065 0%, #09090b 100%);
         }
 
         .ai-generate-btn__shine {
           position: absolute;
           inset: 2px;
-          border-radius: 22px;
+          border-radius: 16px;
           overflow: hidden;
           z-index: 3;
         }
@@ -680,9 +657,9 @@ win.__lastSentHeight = height;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          gap: 14px;
+          gap: 12px;
           color: #ffffff;
-          padding: 0 22px;
+          padding: 0 18px;
         }
 
         .ai-generate-btn__copy {
@@ -694,28 +671,25 @@ win.__lastSentHeight = height;
         }
 
         .ai-generate-btn__label {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 18px;
+          font-size: 16px;
           font-weight: 1000;
           letter-spacing: -0.02em;
           color: #ffffff;
         }
 
         .ai-generate-btn__sub {
-          margin-top: 6px;
-          font-size: 11px;
+          margin-top: 5px;
+          font-size: 10px;
           font-weight: 900;
           letter-spacing: 0.08em;
           text-transform: uppercase;
-          color: rgba(255,255,255,.7);
+          color: rgba(255,255,255,.72);
         }
 
         .ai-stars {
           position: relative;
-          width: 34px;
-          height: 24px;
+          width: 30px;
+          height: 22px;
           display: inline-block;
           flex-shrink: 0;
         }
@@ -727,75 +701,48 @@ win.__lastSentHeight = height;
         }
 
         .ai-star--big {
-          font-size: 17px;
+          font-size: 15px;
           left: 0;
           top: 3px;
           color: #ffffff;
-          text-shadow:
-            0 0 10px rgba(255,255,255,.52),
-            0 0 22px rgba(56, 189, 248, .32);
-          animation-delay: 0s;
         }
 
         .ai-star--mid {
-          font-size: 11px;
-          left: 14px;
+          font-size: 10px;
+          left: 12px;
           top: 0;
           color: #c4b5fd;
-          text-shadow:
-            0 0 10px rgba(196,181,253,.55),
-            0 0 18px rgba(139,92,246,.26);
-          animation-delay: 0.25s;
         }
 
         .ai-star--small {
-          font-size: 10px;
-          left: 22px;
-          top: 12px;
+          font-size: 9px;
+          left: 20px;
+          top: 11px;
           color: #99f6e4;
-          text-shadow:
-            0 0 10px rgba(153,246,228,.55),
-            0 0 18px rgba(0,184,169,.26);
-          animation-delay: 0.5s;
-        }
-
-        .ai-generate-btn.is-loading .ai-generate-btn__border {
-          animation-duration: 1.3s;
-        }
-
-        .ai-generate-btn.is-loading .ai-generate-btn__shine::before {
-          animation-duration: 1.2s;
-        }
-
-        .ai-generate-btn.is-loading .ai-star {
-          animation-duration: 0.9s;
         }
 
         .loading-panel {
-          margin-top: 18px;
+          margin-top: 16px;
           border: 1px solid rgba(99, 102, 241, 0.14);
           background:
             radial-gradient(circle at top left, rgba(79, 70, 229, 0.10), transparent 34%),
             radial-gradient(circle at bottom right, rgba(0, 184, 169, 0.10), transparent 30%),
             linear-gradient(180deg, rgba(255,255,255,.98), rgba(245,247,252,.98));
-          border-radius: 22px;
-          padding: 18px;
-          box-shadow:
-            0 10px 26px rgba(15, 23, 42, 0.05),
-            0 0 0 1px rgba(255,255,255,.4) inset;
+          border-radius: 18px;
+          padding: 16px;
         }
 
         .loading-top {
           display: flex;
           align-items: center;
-          gap: 16px;
+          gap: 14px;
         }
 
         .loading-orbit {
           position: relative;
-          width: 52px;
-          height: 52px;
-          min-width: 52px;
+          width: 48px;
+          height: 48px;
+          min-width: 48px;
           border-radius: 999px;
           border: 1px solid rgba(99, 102, 241, 0.12);
           background: radial-gradient(circle at center, rgba(99, 102, 241, 0.06), rgba(255,255,255,.9));
@@ -811,26 +758,20 @@ win.__lastSentHeight = height;
 
         .loading-dot--1 {
           top: 6px;
-          left: 21px;
+          left: 19px;
           background: #38bdf8;
-          box-shadow: 0 0 14px rgba(56,189,248,.45);
-          animation-delay: 0s;
         }
 
         .loading-dot--2 {
           right: 7px;
-          bottom: 11px;
+          bottom: 10px;
           background: #8b5cf6;
-          box-shadow: 0 0 14px rgba(139,92,246,.38);
-          animation-delay: 0.2s;
         }
 
         .loading-dot--3 {
           left: 8px;
           bottom: 10px;
           background: #00b8a9;
-          box-shadow: 0 0 14px rgba(0,184,169,.42);
-          animation-delay: 0.4s;
         }
 
         .loading-copy {
@@ -839,7 +780,7 @@ win.__lastSentHeight = height;
         }
 
         .loading-title {
-          font-size: 16px;
+          font-size: 15px;
           font-weight: 950;
           color: #111827;
           line-height: 1.15;
@@ -849,14 +790,13 @@ win.__lastSentHeight = height;
           font-size: 13px;
           font-weight: 750;
           color: #6b7280;
-          line-height: 1.5;
-          max-width: 720px;
+          line-height: 1.45;
         }
 
         .loading-steps {
-          margin-top: 16px;
+          margin-top: 14px;
           display: grid;
-          gap: 10px;
+          gap: 8px;
         }
 
         .loading-step {
@@ -869,21 +809,19 @@ win.__lastSentHeight = height;
         }
 
         .loading-step__bullet {
-          width: 9px;
-          height: 9px;
+          width: 8px;
+          height: 8px;
           border-radius: 999px;
           background: linear-gradient(180deg, #38bdf8, #8b5cf6);
-          box-shadow: 0 0 12px rgba(99,102,241,.22);
           flex-shrink: 0;
-          animation: pulseStep 1.4s ease-in-out infinite;
         }
 
         .error-box {
-          margin-top: 16px;
+          margin-top: 14px;
           border: 1px solid rgba(239, 68, 68, 0.16);
           background: rgba(239, 68, 68, 0.06);
           color: #b91c1c;
-          border-radius: 16px;
+          border-radius: 14px;
           padding: 13px 14px;
           font-size: 14px;
           font-weight: 800;
@@ -891,29 +829,16 @@ win.__lastSentHeight = height;
         }
 
         .results-block {
-          padding: 22px;
+          padding: 20px;
         }
 
-        .is-embedded .results-block {
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  padding: 6px 0 0;
-  box-shadow: none;
-  backdrop-filter: none;
-}
-
         .results-head {
-          display: flex;
-          align-items: flex-end;
-          justify-content: space-between;
-          gap: 12px;
-          margin-bottom: 16px;
+          margin-bottom: 14px;
         }
 
         .results-title {
           margin: 0;
-          font-size: 28px;
+          font-size: 24px;
           line-height: 1.05;
           font-weight: 1000;
           color: #0f172a;
@@ -922,24 +847,22 @@ win.__lastSentHeight = height;
 
         .results-grid {
           display: grid;
-          gap: 16px;
+          gap: 14px;
         }
 
         .results-grid--3 {
-          grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-          gap: 12px;
+          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
         }
 
         .design-card {
           border: 1px solid rgba(17, 24, 39, 0.08);
           background: #fff;
-          border-radius: 20px;
+          border-radius: 18px;
           overflow: hidden;
           padding: 8px;
           cursor: pointer;
           text-align: left;
           transition: 0.18s ease;
-          box-shadow: 0 10px 26px rgba(15, 23, 42, 0.04);
         }
 
         .design-card:hover {
@@ -951,7 +874,7 @@ win.__lastSentHeight = height;
         .design-card.is-selected {
           border-color: #0ea5a4;
           box-shadow:
-            0 0 0 5px rgba(14, 165, 164, 0.1),
+            0 0 0 4px rgba(14, 165, 164, 0.1),
             0 16px 34px rgba(15, 23, 42, 0.08);
         }
 
@@ -971,43 +894,43 @@ win.__lastSentHeight = height;
         }
 
         .design-card__badge {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  right: 56px;
-  border-radius: 999px;
-  padding: 6px 10px;
-  font-size: 10px;
-  font-weight: 900;
-  line-height: 1.1;
-  color: #4f46e5;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(0, 184, 169, 0.14);
-  backdrop-filter: blur(8px);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+          position: absolute;
+          top: 10px;
+          left: 10px;
+          right: 52px;
+          border-radius: 999px;
+          padding: 6px 10px;
+          font-size: 10px;
+          font-weight: 900;
+          line-height: 1.1;
+          color: #4f46e5;
+          background: rgba(255, 255, 255, 0.92);
+          border: 1px solid rgba(0, 184, 169, 0.14);
+          backdrop-filter: blur(8px);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
 
         .design-card__zoom {
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
-  width: 34px;
-  height: 34px;
-  border: none;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(17, 24, 39, 0.08);
-  color: #111827;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  backdrop-filter: blur(8px);
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
-}
+          position: absolute;
+          right: 10px;
+          bottom: 10px;
+          width: 34px;
+          height: 34px;
+          border: none;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.92);
+          border: 1px solid rgba(17, 24, 39, 0.08);
+          color: #111827;
+          font-size: 14px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+        }
+
         .design-card__check {
           position: absolute;
           top: 8px;
@@ -1022,7 +945,6 @@ win.__lastSentHeight = height;
           color: #fff;
           font-size: 13px;
           font-weight: 1000;
-          box-shadow: 0 10px 20px rgba(14, 165, 164, 0.28);
         }
 
         .design-card__body {
@@ -1037,7 +959,7 @@ win.__lastSentHeight = height;
         }
 
         .selected-box {
-          margin-top: 24px;
+          margin-top: 18px;
         }
 
         .selected-box__btn {
@@ -1047,18 +969,12 @@ win.__lastSentHeight = height;
           border-radius: 14px;
           background: linear-gradient(180deg, #111827, #0f172a);
           color: #fff;
-          min-height: 52px;
+          min-height: 50px;
           padding: 0 16px;
           font-size: 15px;
           font-weight: 950;
           cursor: pointer;
           box-shadow: 0 12px 22px rgba(15, 23, 42, 0.18);
-          transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .selected-box__btn:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 16px 28px rgba(15, 23, 42, 0.22);
         }
 
         .preview-modal {
@@ -1175,12 +1091,10 @@ win.__lastSentHeight = height;
 
         .preview-modal__select.is-selected {
           background: linear-gradient(180deg, #0ea5a4, #0f766e);
-          box-shadow: 0 12px 22px rgba(14, 165, 164, 0.22);
         }
 
         @keyframes sparkleFloat {
-          0%,
-          100% {
+          0%, 100% {
             transform: scale(1) translateY(0);
             opacity: 0.9;
           }
@@ -1218,8 +1132,7 @@ win.__lastSentHeight = height;
         }
 
         @keyframes orbitPulse {
-          0%,
-          100% {
+          0%, 100% {
             transform: scale(1);
             opacity: 0.8;
           }
@@ -1229,77 +1142,64 @@ win.__lastSentHeight = height;
           }
         }
 
-        @keyframes pulseStep {
-          0%,
-          100% {
-            transform: scale(1);
-            opacity: 0.85;
-          }
-          50% {
-            transform: scale(1.2);
-            opacity: 1;
-          }
-        }
-
-        @media (max-width: 900px) {
-          .results-head {
-            flex-direction: column;
-            align-items: flex-start;
-          }
-        }
-
-        @media (max-width: 680px) {
+        @media (max-width: 760px) {
           .page-shell {
-            padding: 18px 12px 34px;
-          }
-.design-card__badge {
-  font-size: 9px;
-  padding: 6px 9px;
-  right: 50px;
-}
-          .page-shell.is-embedded {
-            padding: 0px;
-          }
-
-          .hero-card,
-          .results-block {
-            border-radius: 22px;
-            padding: 16px;
-          }
-
-          .prompt-card {
             padding: 14px;
-            border-radius: 20px;
           }
 
-          .prompt-foot {
+          .page-shell.is-embedded {
+            padding: 12px;
+          }
+
+          .composer-card,
+          .results-block {
+            border-radius: 18px;
+            padding: 14px;
+          }
+
+          .composer-title {
+            font-size: 24px;
+          }
+
+          .composer-subhelp {
+            font-size: 13px;
+          }
+
+          .prompt-textarea {
+            min-height: 110px;
+            border-radius: 16px;
+          }
+
+          .composer-foot {
             align-items: stretch;
           }
 
           .ai-generate-btn {
             width: 100%;
             min-width: 0;
-            height: 68px;
+            height: 56px;
           }
 
           .ai-generate-btn__label {
-            font-size: 17px;
+            font-size: 15px;
           }
 
           .ai-generate-btn__sub {
-            font-size: 10px;
+            font-size: 9px;
           }
 
-          .loading-top {
-            align-items: flex-start;
+          .results-grid--3 {
+            grid-template-columns: 1fr;
           }
 
-          .loading-subtitle {
-            font-size: 12.5px;
+          .preview-modal__dialog {
+            width: 100%;
+            max-height: 92vh;
           }
 
-          .results-title {
-            font-size: 24px;
+          .preview-modal__foot {
+            flex-direction: column;
+            align-items: stretch;
           }
         }
       `}</style>
