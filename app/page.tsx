@@ -23,17 +23,23 @@ function postEmbedHeight() {
   if (typeof window === "undefined") return;
   if (window.parent === window) return;
 
-  const body = document.body;
-  const html = document.documentElement;
+  // 1. Buscamos solo la caja del contenido (para que no mida la ventana entera)
+  const wrap = document.querySelector('.page-wrap');
+  if (!wrap) return;
 
-  const height = Math.max(
-    body.scrollHeight,
-    body.offsetHeight,
-    html.clientHeight,
-    html.scrollHeight,
-    html.offsetHeight
-  );
+  const height = wrap.scrollHeight + 40; // 40px de margen inferior
 
+  // 2. Freno de emergencia: si cambió muy poco, no volvemos a enviar
+const win = window as typeof window & { __lastSentHeight?: number };
+
+if (
+  typeof win.__lastSentHeight === "number" &&
+  Math.abs(win.__lastSentHeight - height) < 5
+) {
+  return;
+}
+
+win.__lastSentHeight = height;
   window.parent.postMessage(
     {
       type: "AUTOPRINT_AI_RESIZE",
@@ -398,9 +404,10 @@ function postEmbedHeight() {
       </main>
 
       <style jsx>{`
-      html,
-      body {
-      background: #ffffff;
+      :global(html),
+      :global(body) {
+      background: transparent !important;
+      overflow-x: hidden;
       }
         .page-shell {
           min-height: 100vh;
@@ -414,6 +421,7 @@ function postEmbedHeight() {
             "Segoe UI", sans-serif;
         }
 
+        
         .page-shell.is-embedded {
   min-height: auto;
   padding: 0;
