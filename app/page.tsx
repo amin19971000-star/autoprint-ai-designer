@@ -49,7 +49,7 @@ const STICKER_CHIPS: ChipDef[] = [
   {
     id: "vintage",
     label: "Vintage",
-    helper: "Le da una dirección retro más trabajada, no solo una palabra.",
+    helper: "Le da una dirección retro más trabajada.",
   },
   {
     id: "street",
@@ -59,7 +59,7 @@ const STICKER_CHIPS: ChipDef[] = [
   {
     id: "premium",
     label: "Premium",
-    helper: "Sube el acabado visual y la sensación de producto premium.",
+    helper: "Sube el acabado visual y la sensación premium.",
   },
   {
     id: "colores_vivos",
@@ -74,7 +74,7 @@ const STICKER_CHIPS: ChipDef[] = [
   {
     id: "minimal",
     label: "Minimal",
-    helper: "Reduce ruido, detalle y elementos innecesarios.",
+    helper: "Reduce ruido y elementos innecesarios.",
   },
   {
     id: "divertido",
@@ -84,7 +84,7 @@ const STICKER_CHIPS: ChipDef[] = [
   {
     id: "feroz",
     label: "Feroz",
-    helper: "Le mete más agresividad, fuerza o presencia.",
+    helper: "Le mete más agresividad y fuerza.",
   },
   {
     id: "elegante",
@@ -117,7 +117,7 @@ const PLAYERA_CHIPS: ChipDef[] = [
   {
     id: "vintage",
     label: "Vintage",
-    helper: "Retro trabajado con lógica de prenda, no solo un adjetivo.",
+    helper: "Retro trabajado con lógica de prenda.",
   },
   {
     id: "premium",
@@ -137,7 +137,7 @@ const PLAYERA_CHIPS: ChipDef[] = [
   {
     id: "minimal",
     label: "Minimal",
-    helper: "Reduce ruido, detalle y carga visual.",
+    helper: "Reduce ruido y carga visual.",
   },
   {
     id: "divertido",
@@ -152,7 +152,7 @@ const PLAYERA_CHIPS: ChipDef[] = [
   {
     id: "elegante",
     label: "Elegante",
-    helper: "Más refinado, más limpio, más sofisticado.",
+    helper: "Más refinado y sofisticado.",
   },
 ];
 
@@ -167,7 +167,7 @@ const MODE_CONTENT = {
       "Ejemplo: tigre feroz con corona y nombre Leo, look premium, fuerte y muy icónico",
     chipTitle: "Dirección creativa sugerida",
     chipHelp:
-      "Tócalos para orientar composición, energía, paleta y estilo. No son adorno: sí influyen en la generación.",
+      "Tócalos para orientar composición, energía, paleta y estilo. Sí influyen en la generación.",
     note: "Generaremos 3 rutas pensadas para verse fuertes, compactas y más vendibles como sticker.",
     generateLabel: "Explorar propuestas",
     generateSub: "3 rutas listas para sticker",
@@ -180,7 +180,7 @@ const MODE_CONTENT = {
       "Cada propuesta fue pensada para leerse mejor como arte comercial, no solo como imagen bonita.",
     directionPanelTitle: "Dirección aplicada",
     directionPanelSub:
-      "El estudio tomará tu idea base y la refinirá internamente con esta dirección.",
+      "El estudio tomará tu idea base y la refinará internamente con esta dirección.",
     selectionReady: "Lista para aplicarse a tu sticker.",
     primaryCta: "Usar este diseño en mi sticker",
     previewSelect: "Seleccionar este diseño para sticker",
@@ -208,7 +208,7 @@ const MODE_CONTENT = {
       "Cada propuesta fue pensada como una graphic tee más usable y vendible, no solo como imagen generada.",
     directionPanelTitle: "Dirección aplicada",
     directionPanelSub:
-      "El estudio tomará tu idea base y la refinirá internamente con esta dirección.",
+      "El estudio tomará tu idea base y la refinará internamente con esta dirección.",
     selectionReady: "Lista para aplicarse a tu playera.",
     primaryCta: "Usar este diseño en mi playera",
     previewSelect: "Seleccionar este diseño para playera",
@@ -240,7 +240,6 @@ function HomePageInner() {
 
   const selectedImage = selectedIndex !== null ? images[selectedIndex] : null;
   const selectedLabel = selectedIndex !== null ? labels[selectedIndex] : null;
-
   const canGenerate = prompt.trim().length > 0 && !loading;
 
   function postEmbedHeight() {
@@ -443,8 +442,12 @@ function HomePageInner() {
         <div className="page-wrap">
           <section className="composer-card">
             <div className="studio-topbar">
-              <div className="studio-brandline">
-                <div className="composer-kicker">AutoPrint AI Studio</div>
+              <div className="studio-brand-wrap">
+                <div className="studio-brandmark" aria-label="AutoPrint AI Studio">
+                  <span className="studio-brandmark__core">AUTOPRINT</span>
+                  <span className="studio-brandmark__accent">AI STUDIO</span>
+                </div>
+
                 <div className="studio-mode-pill">{modeContent.modePill}</div>
               </div>
 
@@ -484,6 +487,10 @@ function HomePageInner() {
                     <div className="chips-title">{modeContent.chipTitle}</div>
                     <div className="chips-sub">{modeContent.chipHelp}</div>
                   </div>
+                </div>
+
+                <div className="chips-scroll-hint">
+                  Desliza para ver más estilos
                 </div>
 
                 <div className="chips-grid">
@@ -782,9 +789,9 @@ function HomePageInner() {
           min-height: 100vh;
           padding: 24px;
           background:
-            radial-gradient(circle at top left, rgba(129, 140, 248, 0.18), transparent 24%),
-            radial-gradient(circle at top right, rgba(34, 211, 238, 0.14), transparent 22%),
-            linear-gradient(180deg, #eef2ff 0%, #f8fafc 36%, #eef2ff 100%);
+            radial-gradient(circle at 14% 0%, rgba(124, 58, 237, 0.2), transparent 22%),
+            radial-gradient(circle at 100% 10%, rgba(6, 182, 212, 0.18), transparent 22%),
+            linear-gradient(180deg, #090b14 0%, #0b1020 45%, #0a0f1d 100%);
           font-family:
             Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
             "Segoe UI", sans-serif;
@@ -794,9 +801,9 @@ function HomePageInner() {
           min-height: auto;
           padding: 18px;
           background:
-            radial-gradient(circle at top left, rgba(129, 140, 248, 0.13), transparent 26%),
-            radial-gradient(circle at top right, rgba(34, 211, 238, 0.12), transparent 24%),
-            linear-gradient(180deg, #f8fafc 0%, #ffffff 55%, #f8fafc 100%);
+            radial-gradient(circle at 14% 0%, rgba(124, 58, 237, 0.17), transparent 24%),
+            radial-gradient(circle at 100% 10%, rgba(6, 182, 212, 0.16), transparent 24%),
+            linear-gradient(180deg, #0a0e19 0%, #0b1020 55%, #0a0f1d 100%);
         }
 
         .page-wrap {
@@ -814,26 +821,38 @@ function HomePageInner() {
         .composer-card,
         .results-block {
           position: relative;
-          background: rgba(255, 255, 255, 0.9);
-          border: 1px solid rgba(15, 23, 42, 0.08);
+          background:
+            linear-gradient(180deg, rgba(15, 20, 35, 0.92), rgba(10, 14, 25, 0.94));
+          border: 1px solid rgba(255, 255, 255, 0.08);
           border-radius: 28px;
           padding: 22px;
           box-shadow:
-            0 18px 48px rgba(15, 23, 42, 0.09),
-            inset 0 1px 0 rgba(255, 255, 255, 0.7);
+            0 24px 70px rgba(0, 0, 0, 0.34),
+            inset 0 1px 0 rgba(255, 255, 255, 0.06);
           backdrop-filter: blur(18px);
+          overflow: hidden;
+        }
+
+        .composer-card::before,
+        .results-block::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          background:
+            radial-gradient(circle at top left, rgba(124, 58, 237, 0.08), transparent 28%),
+            radial-gradient(circle at top right, rgba(6, 182, 212, 0.07), transparent 26%);
         }
 
         .is-embedded .composer-card,
         .is-embedded .results-block {
           border-radius: 24px;
           padding: 18px;
-          box-shadow:
-            0 10px 26px rgba(15, 23, 42, 0.05),
-            inset 0 1px 0 rgba(255, 255, 255, 0.65);
         }
 
         .studio-topbar {
+          position: relative;
+          z-index: 1;
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -842,19 +861,33 @@ function HomePageInner() {
           margin-bottom: 16px;
         }
 
-        .studio-brandline {
+        .studio-brand-wrap {
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 12px;
           flex-wrap: wrap;
         }
 
-        .composer-kicker {
-          font-size: 11px;
-          font-weight: 950;
+        .studio-brandmark {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 12px;
+          font-weight: 1000;
           letter-spacing: 0.1em;
           text-transform: uppercase;
-          color: #4f46e5;
+        }
+
+        .studio-brandmark__core {
+          color: #ffffff;
+        }
+
+        .studio-brandmark__accent {
+          background: linear-gradient(90deg, #8b5cf6 0%, #22d3ee 100%);
+          -webkit-background-clip: text;
+          background-clip: text;
+          color: transparent;
+          text-shadow: 0 0 24px rgba(124, 58, 237, 0.18);
         }
 
         .studio-mode-pill,
@@ -872,19 +905,21 @@ function HomePageInner() {
         }
 
         .studio-mode-pill {
-          color: #111827;
-          background: rgba(255, 255, 255, 0.78);
-          border: 1px solid rgba(79, 70, 229, 0.14);
-          box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+          color: #e5e7eb;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(139, 92, 246, 0.24);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
         }
 
         .studio-proof {
-          color: #475569;
-          background: rgba(15, 23, 42, 0.04);
-          border: 1px solid rgba(15, 23, 42, 0.06);
+          color: #cbd5e1;
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.08);
         }
 
         .composer-head {
+          position: relative;
+          z-index: 1;
           margin-bottom: 16px;
         }
 
@@ -894,26 +929,28 @@ function HomePageInner() {
           line-height: 0.98;
           letter-spacing: -0.04em;
           font-weight: 1000;
-          color: #0f172a;
-          max-width: 820px;
+          color: #f8fafc;
+          max-width: 840px;
         }
 
         .composer-subhelp {
           margin: 0;
           font-size: 14px;
           line-height: 1.58;
-          color: #64748b;
+          color: #a7b3c7;
           font-weight: 700;
           max-width: 780px;
         }
 
         .brief-shell {
-          border: 1px solid rgba(15, 23, 42, 0.06);
+          position: relative;
+          z-index: 1;
+          border: 1px solid rgba(255, 255, 255, 0.08);
           border-radius: 24px;
           background:
-            radial-gradient(circle at top left, rgba(255, 255, 255, 0.85), transparent 38%),
-            linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,250,252,0.95));
+            linear-gradient(180deg, rgba(18, 24, 40, 0.86), rgba(12, 16, 28, 0.9));
           padding: 18px;
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
         }
 
         .brief-head {
@@ -930,38 +967,45 @@ function HomePageInner() {
           font-weight: 950;
           letter-spacing: 0.1em;
           text-transform: uppercase;
-          color: #0f172a;
+          color: #e2e8f0;
         }
 
         .brief-note {
           font-size: 12px;
-          font-weight: 850;
-          color: #64748b;
+          font-weight: 800;
+          color: #7f8ca4;
         }
 
         .prompt-textarea {
           width: 100%;
           resize: vertical;
           min-height: 132px;
-          border: 1.5px solid #d8dee8;
+          border: 1.5px solid rgba(255, 255, 255, 0.1);
           border-radius: 20px;
           padding: 16px 18px;
           font-size: 16px;
           line-height: 1.6;
-          color: #111827;
-          background: rgba(255, 255, 255, 0.95);
+          color: #f8fafc;
+          background:
+            linear-gradient(180deg, rgba(8, 12, 22, 0.92), rgba(12, 16, 28, 0.95));
           outline: none;
           transition:
             border-color 0.18s ease,
             box-shadow 0.18s ease,
-            transform 0.18s ease,
             background 0.18s ease;
         }
 
+        .prompt-textarea::placeholder {
+          color: #73829b;
+        }
+
         .prompt-textarea:focus {
-          border-color: rgba(79, 70, 229, 0.42);
-          box-shadow: 0 0 0 5px rgba(99, 102, 241, 0.1);
-          background: #ffffff;
+          border-color: rgba(139, 92, 246, 0.44);
+          box-shadow:
+            0 0 0 5px rgba(99, 102, 241, 0.14),
+            0 0 32px rgba(124, 58, 237, 0.12);
+          background:
+            linear-gradient(180deg, rgba(10, 14, 25, 0.96), rgba(12, 16, 28, 0.98));
         }
 
         .chips-zone {
@@ -969,22 +1013,32 @@ function HomePageInner() {
         }
 
         .chips-head {
-          margin-bottom: 12px;
+          margin-bottom: 10px;
         }
 
         .chips-title {
           font-size: 13px;
           font-weight: 950;
-          color: #0f172a;
+          color: #f8fafc;
           margin-bottom: 4px;
         }
 
         .chips-sub {
           font-size: 13px;
           line-height: 1.45;
-          color: #64748b;
+          color: #94a3b8;
           font-weight: 700;
           max-width: 760px;
+        }
+
+        .chips-scroll-hint {
+          display: none;
+          margin-bottom: 10px;
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: #7f8ca4;
         }
 
         .chips-grid {
@@ -995,9 +1049,10 @@ function HomePageInner() {
 
         .chip-btn {
           appearance: none;
-          border: 1px solid rgba(15, 23, 42, 0.09);
-          background: rgba(255, 255, 255, 0.88);
-          color: #111827;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          background:
+            linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
+          color: #f8fafc;
           min-height: 40px;
           padding: 0 14px;
           border-radius: 999px;
@@ -1011,21 +1066,25 @@ function HomePageInner() {
             border-color 0.18s ease,
             background 0.18s ease,
             color 0.18s ease;
-          box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+          box-shadow:
+            0 10px 20px rgba(0, 0, 0, 0.18),
+            inset 0 1px 0 rgba(255, 255, 255, 0.04);
+          white-space: nowrap;
         }
 
         .chip-btn:hover {
           transform: translateY(-1px);
-          border-color: rgba(79, 70, 229, 0.18);
+          border-color: rgba(139, 92, 246, 0.22);
         }
 
         .chip-btn.is-active {
           color: #ffffff;
-          border-color: transparent;
+          border-color: rgba(255, 255, 255, 0.12);
           background:
-            linear-gradient(135deg, #4f46e5 0%, #7c3aed 52%, #0891b2 100%);
+            linear-gradient(135deg, #7c3aed 0%, #8b5cf6 44%, #06b6d4 100%);
           box-shadow:
-            0 14px 28px rgba(79, 70, 229, 0.24),
+            0 16px 30px rgba(88, 28, 135, 0.36),
+            0 0 26px rgba(6, 182, 212, 0.16),
             inset 0 1px 0 rgba(255, 255, 255, 0.18);
         }
 
@@ -1037,10 +1096,10 @@ function HomePageInner() {
 
         .direction-panel {
           margin-top: 14px;
-          border: 1px solid rgba(79, 70, 229, 0.12);
+          border: 1px solid rgba(139, 92, 246, 0.16);
           background:
-            radial-gradient(circle at top left, rgba(99, 102, 241, 0.09), transparent 32%),
-            linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,252,0.96));
+            radial-gradient(circle at top left, rgba(124, 58, 237, 0.14), transparent 34%),
+            linear-gradient(180deg, rgba(17, 22, 36, 0.92), rgba(12, 16, 28, 0.95));
           border-radius: 18px;
           padding: 14px;
         }
@@ -1054,7 +1113,7 @@ function HomePageInner() {
           font-weight: 950;
           letter-spacing: 0.09em;
           text-transform: uppercase;
-          color: #4f46e5;
+          color: #8b5cf6;
           margin-bottom: 4px;
         }
 
@@ -1062,7 +1121,7 @@ function HomePageInner() {
           margin: 0;
           font-size: 13px;
           line-height: 1.45;
-          color: #64748b;
+          color: #a7b3c7;
           font-weight: 700;
         }
 
@@ -1081,9 +1140,9 @@ function HomePageInner() {
           justify-content: center;
           font-size: 12px;
           font-weight: 900;
-          color: #1e1b4b;
-          background: rgba(99, 102, 241, 0.08);
-          border: 1px solid rgba(99, 102, 241, 0.12);
+          color: #f8fafc;
+          background: rgba(255, 255, 255, 0.07);
+          border: 1px solid rgba(255, 255, 255, 0.08);
         }
 
         .composer-foot {
@@ -1099,7 +1158,7 @@ function HomePageInner() {
           margin: 0;
           font-size: 13px;
           font-weight: 800;
-          color: #64748b;
+          color: #94a3b8;
           line-height: 1.5;
           max-width: 560px;
         }
@@ -1275,12 +1334,14 @@ function HomePageInner() {
         }
 
         .loading-panel {
+          position: relative;
+          z-index: 1;
           margin-top: 18px;
-          border: 1px solid rgba(99, 102, 241, 0.14);
+          border: 1px solid rgba(139, 92, 246, 0.16);
           background:
-            radial-gradient(circle at top left, rgba(79, 70, 229, 0.1), transparent 34%),
-            radial-gradient(circle at bottom right, rgba(0, 184, 169, 0.1), transparent 30%),
-            linear-gradient(180deg, rgba(255,255,255,.98), rgba(245,247,252,.98));
+            radial-gradient(circle at top left, rgba(124, 58, 237, 0.14), transparent 36%),
+            radial-gradient(circle at bottom right, rgba(6, 182, 212, 0.1), transparent 30%),
+            linear-gradient(180deg, rgba(17, 22, 36, 0.98), rgba(11, 16, 28, 0.98));
           border-radius: 18px;
           padding: 16px;
         }
@@ -1297,8 +1358,8 @@ function HomePageInner() {
           height: 48px;
           min-width: 48px;
           border-radius: 999px;
-          border: 1px solid rgba(99, 102, 241, 0.12);
-          background: radial-gradient(circle at center, rgba(99, 102, 241, 0.06), rgba(255,255,255,.92));
+          border: 1px solid rgba(139, 92, 246, 0.16);
+          background: radial-gradient(circle at center, rgba(99, 102, 241, 0.1), rgba(15, 20, 35, 0.9));
         }
 
         .loading-dot {
@@ -1335,14 +1396,14 @@ function HomePageInner() {
         .loading-title {
           font-size: 15px;
           font-weight: 950;
-          color: #111827;
+          color: #f8fafc;
           line-height: 1.15;
         }
 
         .loading-subtitle {
           font-size: 13px;
           font-weight: 750;
-          color: #6b7280;
+          color: #94a3b8;
           line-height: 1.45;
         }
 
@@ -1358,7 +1419,7 @@ function HomePageInner() {
           gap: 10px;
           font-size: 13px;
           font-weight: 850;
-          color: #475569;
+          color: #cbd5e1;
         }
 
         .loading-step__bullet {
@@ -1370,10 +1431,12 @@ function HomePageInner() {
         }
 
         .error-box {
+          position: relative;
+          z-index: 1;
           margin-top: 14px;
-          border: 1px solid rgba(239, 68, 68, 0.16);
-          background: rgba(239, 68, 68, 0.06);
-          color: #b91c1c;
+          border: 1px solid rgba(239, 68, 68, 0.18);
+          background: rgba(127, 29, 29, 0.22);
+          color: #fecaca;
           border-radius: 14px;
           padding: 13px 14px;
           font-size: 14px;
@@ -1382,6 +1445,8 @@ function HomePageInner() {
         }
 
         .results-head {
+          position: relative;
+          z-index: 1;
           margin-bottom: 14px;
         }
 
@@ -1390,7 +1455,7 @@ function HomePageInner() {
           font-weight: 950;
           letter-spacing: 0.09em;
           text-transform: uppercase;
-          color: #4f46e5;
+          color: #8b5cf6;
           margin-bottom: 8px;
         }
 
@@ -1399,7 +1464,7 @@ function HomePageInner() {
           font-size: 28px;
           line-height: 1;
           font-weight: 1000;
-          color: #0f172a;
+          color: #f8fafc;
           letter-spacing: -0.04em;
         }
 
@@ -1407,12 +1472,14 @@ function HomePageInner() {
           margin: 0;
           font-size: 13px;
           line-height: 1.5;
-          color: #64748b;
+          color: #94a3b8;
           font-weight: 700;
           max-width: 760px;
         }
 
         .results-grid {
+          position: relative;
+          z-index: 1;
           display: grid;
           gap: 14px;
         }
@@ -1422,9 +1489,9 @@ function HomePageInner() {
         }
 
         .design-card {
-          border: 1px solid rgba(15, 23, 42, 0.08);
+          border: 1px solid rgba(255, 255, 255, 0.08);
           background:
-            linear-gradient(180deg, rgba(255,255,255,0.95), rgba(248,250,252,0.95));
+            linear-gradient(180deg, rgba(17, 22, 36, 0.96), rgba(11, 16, 28, 0.98));
           border-radius: 22px;
           overflow: hidden;
           padding: 8px;
@@ -1434,20 +1501,22 @@ function HomePageInner() {
             transform 0.18s ease,
             border-color 0.18s ease,
             box-shadow 0.18s ease;
-          box-shadow: 0 10px 22px rgba(15, 23, 42, 0.04);
+          box-shadow:
+            0 16px 28px rgba(0, 0, 0, 0.18),
+            inset 0 1px 0 rgba(255, 255, 255, 0.03);
         }
 
         .design-card:hover {
           transform: translateY(-2px);
-          border-color: rgba(79, 70, 229, 0.18);
-          box-shadow: 0 16px 34px rgba(15, 23, 42, 0.08);
+          border-color: rgba(139, 92, 246, 0.24);
+          box-shadow: 0 20px 36px rgba(0, 0, 0, 0.24);
         }
 
         .design-card.is-selected {
-          border-color: rgba(14, 165, 164, 0.42);
+          border-color: rgba(34, 211, 238, 0.42);
           box-shadow:
-            0 0 0 4px rgba(14, 165, 164, 0.1),
-            0 16px 34px rgba(15, 23, 42, 0.09);
+            0 0 0 4px rgba(34, 211, 238, 0.1),
+            0 20px 36px rgba(0, 0, 0, 0.26);
         }
 
         .design-card__image-wrap {
@@ -1456,8 +1525,9 @@ function HomePageInner() {
           border-radius: 16px;
           overflow: hidden;
           background:
-            radial-gradient(circle at top left, rgba(129, 140, 248, 0.08), transparent 28%),
-            linear-gradient(180deg, #f8fafc, #eef2ff);
+            radial-gradient(circle at top left, rgba(124, 58, 237, 0.12), transparent 28%),
+            linear-gradient(180deg, #111827, #0f172a);
+          border: 1px solid rgba(255, 255, 255, 0.05);
         }
 
         .design-card__image {
@@ -1478,9 +1548,9 @@ function HomePageInner() {
           font-size: 10px;
           font-weight: 900;
           line-height: 1.1;
-          color: #4338ca;
-          background: rgba(255, 255, 255, 0.94);
-          border: 1px solid rgba(79, 70, 229, 0.12);
+          color: #e2e8f0;
+          background: rgba(15, 23, 42, 0.72);
+          border: 1px solid rgba(255, 255, 255, 0.08);
           backdrop-filter: blur(8px);
           white-space: nowrap;
           overflow: hidden;
@@ -1495,15 +1565,15 @@ function HomePageInner() {
           height: 34px;
           border: none;
           border-radius: 999px;
-          background: rgba(255, 255, 255, 0.94);
-          border: 1px solid rgba(15, 23, 42, 0.08);
-          color: #111827;
+          background: rgba(15, 23, 42, 0.82);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          color: #f8fafc;
           font-size: 14px;
           display: flex;
           align-items: center;
           justify-content: center;
           cursor: pointer;
-          box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+          box-shadow: 0 8px 18px rgba(0, 0, 0, 0.24);
         }
 
         .design-card__check {
@@ -1516,11 +1586,11 @@ function HomePageInner() {
           display: flex;
           align-items: center;
           justify-content: center;
-          background: linear-gradient(180deg, #14b8a6, #0f766e);
+          background: linear-gradient(180deg, #22d3ee, #0891b2);
           color: #fff;
           font-size: 13px;
           font-weight: 1000;
-          box-shadow: 0 10px 20px rgba(15, 118, 110, 0.25);
+          box-shadow: 0 12px 22px rgba(8, 145, 178, 0.26);
         }
 
         .design-card__body {
@@ -1530,7 +1600,7 @@ function HomePageInner() {
         .design-card__title {
           font-size: 14px;
           font-weight: 950;
-          color: #111827;
+          color: #f8fafc;
           line-height: 1.15;
         }
 
@@ -1538,17 +1608,19 @@ function HomePageInner() {
           margin-top: 5px;
           font-size: 12px;
           line-height: 1.45;
-          color: #64748b;
+          color: #94a3b8;
           font-weight: 700;
         }
 
         .studio-actionbar {
           position: sticky;
           bottom: 0;
+          z-index: 2;
           margin-top: 18px;
-          border: 1px solid rgba(15, 23, 42, 0.08);
-          background: rgba(255, 255, 255, 0.9);
-          backdrop-filter: blur(16px);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          background:
+            linear-gradient(180deg, rgba(16, 21, 34, 0.9), rgba(10, 14, 25, 0.92));
+          backdrop-filter: blur(18px);
           border-radius: 22px;
           padding: 14px;
           display: flex;
@@ -1556,7 +1628,7 @@ function HomePageInner() {
           justify-content: space-between;
           gap: 14px;
           flex-wrap: wrap;
-          box-shadow: 0 18px 34px rgba(15, 23, 42, 0.08);
+          box-shadow: 0 22px 34px rgba(0, 0, 0, 0.24);
         }
 
         .studio-actionbar__meta {
@@ -1569,19 +1641,19 @@ function HomePageInner() {
           font-weight: 950;
           letter-spacing: 0.08em;
           text-transform: uppercase;
-          color: #4f46e5;
+          color: #8b5cf6;
         }
 
         .studio-actionbar__title {
           font-size: 16px;
           line-height: 1.15;
-          color: #0f172a;
+          color: #f8fafc;
         }
 
         .studio-actionbar__sub {
           font-size: 13px;
           line-height: 1.45;
-          color: #64748b;
+          color: #94a3b8;
           font-weight: 700;
         }
 
@@ -1619,61 +1691,71 @@ function HomePageInner() {
           min-height: 46px;
           padding: 0 16px;
           border-radius: 14px;
-          background: #f3f4f6;
-          color: #111827;
+          background: rgba(255, 255, 255, 0.06);
+          color: #f8fafc;
           font-size: 14px;
           font-weight: 900;
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
         }
 
         .studio-primary-btn {
           min-height: 48px;
           padding: 0 18px;
           border-radius: 14px;
-          background: linear-gradient(180deg, #111827, #0f172a);
+          background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 44%, #06b6d4 100%);
           color: #fff;
           font-size: 14px;
           font-weight: 950;
-          box-shadow: 0 14px 24px rgba(15, 23, 42, 0.18);
+          box-shadow:
+            0 14px 28px rgba(88, 28, 135, 0.34),
+            0 0 26px rgba(6, 182, 212, 0.1);
         }
 
         .preview-modal {
           position: fixed;
           inset: 0;
           z-index: 9999;
-          background: rgba(15, 23, 42, 0.72);
+          background: rgba(2, 6, 23, 0.78);
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 20px;
-          backdrop-filter: blur(6px);
+          padding: 18px;
+          backdrop-filter: blur(8px);
+          min-height: 100dvh;
         }
 
         .preview-modal__dialog {
-          width: min(920px, 100%);
-          max-height: 90vh;
-          background: #ffffff;
-          border-radius: 24px;
+          width: min(940px, calc(100vw - 36px));
+          height: min(82dvh, 780px);
+          background:
+            linear-gradient(180deg, rgba(14, 19, 33, 0.98), rgba(8, 12, 22, 0.98));
+          border-radius: 26px;
           overflow: hidden;
           position: relative;
-          box-shadow: 0 24px 80px rgba(0, 0, 0, 0.22);
+          box-shadow:
+            0 30px 90px rgba(0, 0, 0, 0.44),
+            inset 0 1px 0 rgba(255, 255, 255, 0.06);
           display: grid;
+          grid-template-rows: 1fr auto;
+          border: 1px solid rgba(255, 255, 255, 0.08);
         }
 
         .preview-modal__close {
           position: absolute;
           top: 14px;
           right: 14px;
-          width: 42px;
-          height: 42px;
+          width: 44px;
+          height: 44px;
           border: none;
           border-radius: 999px;
-          background: rgba(15, 23, 42, 0.08);
-          color: #111827;
+          background: rgba(255, 255, 255, 0.08);
+          color: #f8fafc;
           font-size: 24px;
           font-weight: 700;
           cursor: pointer;
-          z-index: 2;
+          z-index: 3;
+          border: 1px solid rgba(255, 255, 255, 0.08);
         }
 
         .preview-modal__nav {
@@ -1684,8 +1766,8 @@ function HomePageInner() {
           height: 52px;
           border: none;
           border-radius: 999px;
-          background: rgba(255, 255, 255, 0.94);
-          color: #111827;
+          background: rgba(15, 23, 42, 0.82);
+          color: #f8fafc;
           font-size: 34px;
           font-weight: 500;
           line-height: 1;
@@ -1693,8 +1775,9 @@ function HomePageInner() {
           align-items: center;
           justify-content: center;
           cursor: pointer;
-          box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
+          box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
           z-index: 2;
+          border: 1px solid rgba(255, 255, 255, 0.08);
         }
 
         .preview-modal__nav--left {
@@ -1707,18 +1790,19 @@ function HomePageInner() {
 
         .preview-modal__image-wrap {
           background:
-            radial-gradient(circle at top left, rgba(129, 140, 248, 0.08), transparent 28%),
-            linear-gradient(180deg, #f8fafc, #eef2ff);
+            radial-gradient(circle at top left, rgba(124, 58, 237, 0.12), transparent 28%),
+            radial-gradient(circle at top right, rgba(6, 182, 212, 0.1), transparent 24%),
+            linear-gradient(180deg, #111827, #0f172a);
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 28px;
-          min-height: 420px;
+          padding: 32px;
+          min-height: 0;
         }
 
         .preview-modal__image {
           max-width: 100%;
-          max-height: 68vh;
+          max-height: 100%;
           object-fit: contain;
           display: block;
         }
@@ -1729,31 +1813,34 @@ function HomePageInner() {
           justify-content: space-between;
           gap: 16px;
           padding: 18px 20px 20px;
-          border-top: 1px solid rgba(17, 24, 39, 0.06);
+          border-top: 1px solid rgba(255, 255, 255, 0.08);
+          background: rgba(255, 255, 255, 0.02);
         }
 
         .preview-modal__meta {
           font-size: 14px;
           font-weight: 900;
-          color: #111827;
+          color: #f8fafc;
         }
 
         .preview-modal__select {
           appearance: none;
           border: none;
           border-radius: 14px;
-          background: linear-gradient(180deg, #111827, #0f172a);
+          background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 44%, #06b6d4 100%);
           color: #ffffff;
           min-height: 46px;
           padding: 0 16px;
           font-size: 14px;
           font-weight: 950;
           cursor: pointer;
-          box-shadow: 0 12px 22px rgba(15, 23, 42, 0.18);
+          box-shadow:
+            0 14px 28px rgba(88, 28, 135, 0.3),
+            0 0 26px rgba(6, 182, 212, 0.08);
         }
 
         .preview-modal__select.is-selected {
-          background: linear-gradient(180deg, #0ea5a4, #0f766e);
+          background: linear-gradient(180deg, #22d3ee, #0891b2);
         }
 
         @keyframes sparkleFloat {
@@ -1826,7 +1913,7 @@ function HomePageInner() {
 
           .composer-card,
           .results-block {
-            border-radius: 20px;
+            border-radius: 22px;
             padding: 14px;
           }
 
@@ -1846,6 +1933,45 @@ function HomePageInner() {
           .prompt-textarea {
             min-height: 118px;
             border-radius: 16px;
+          }
+
+          .chips-scroll-hint {
+            display: block;
+          }
+
+          .chips-grid {
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding-bottom: 4px;
+            margin-right: -4px;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            mask-image: linear-gradient(
+              to right,
+              transparent 0,
+              black 14px,
+              black calc(100% - 14px),
+              transparent 100%
+            );
+            -webkit-mask-image: linear-gradient(
+              to right,
+              transparent 0,
+              black 14px,
+              black calc(100% - 14px),
+              transparent 100%
+            );
+          }
+
+          .chips-grid::-webkit-scrollbar {
+            display: none;
+          }
+
+          .chip-btn {
+            flex: 0 0 auto;
+            min-height: 38px;
+            padding: 0 13px;
+            font-size: 12px;
           }
 
           .composer-foot {
@@ -1884,14 +2010,50 @@ function HomePageInner() {
             min-width: 0;
           }
 
+          .preview-modal {
+            padding: 10px;
+            min-height: 100dvh;
+          }
+
           .preview-modal__dialog {
-            width: 100%;
-            max-height: 92vh;
+            width: calc(100vw - 20px);
+            height: min(76dvh, 640px);
+            border-radius: 22px;
+          }
+
+          .preview-modal__image-wrap {
+            padding: 22px 16px 18px;
+          }
+
+          .preview-modal__nav {
+            width: 46px;
+            height: 46px;
+            font-size: 28px;
+          }
+
+          .preview-modal__nav--left {
+            left: 10px;
+          }
+
+          .preview-modal__nav--right {
+            right: 10px;
+          }
+
+          .preview-modal__close {
+            width: 40px;
+            height: 40px;
+            top: 10px;
+            right: 10px;
           }
 
           .preview-modal__foot {
             flex-direction: column;
             align-items: stretch;
+            padding: 14px;
+          }
+
+          .preview-modal__select {
+            width: 100%;
           }
         }
       `}</style>
