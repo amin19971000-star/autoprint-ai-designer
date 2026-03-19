@@ -18,6 +18,25 @@ const FLUX_SAFETY_TOLERANCE = 5;
 
 type DesignMode = "sticker" | "playera";
 
+type ChipId =
+  | "circular"
+  | "iconico"
+  | "compacto"
+  | "vintage"
+  | "street"
+  | "premium"
+  | "colores_vivos"
+  | "alto_contraste"
+  | "minimal"
+  | "divertido"
+  | "feroz"
+  | "elegante"
+  | "composicion_frontal"
+  | "impacto_visual"
+  | "estilo_pecho"
+  | "streetwear"
+  | "tonos_oscuros";
+
 type PromptPack = {
   option_a_label: string;
   option_a_prompt: string;
@@ -63,8 +82,84 @@ type DesignBlueprint = {
   typography_strategy: string;
 };
 
+const STICKER_ALLOWED_CHIPS = new Set<ChipId>([
+  "circular",
+  "iconico",
+  "compacto",
+  "vintage",
+  "street",
+  "premium",
+  "colores_vivos",
+  "alto_contraste",
+  "minimal",
+  "divertido",
+  "feroz",
+  "elegante",
+]);
+
+const PLAYERA_ALLOWED_CHIPS = new Set<ChipId>([
+  "composicion_frontal",
+  "impacto_visual",
+  "estilo_pecho",
+  "streetwear",
+  "vintage",
+  "premium",
+  "alto_contraste",
+  "tonos_oscuros",
+  "minimal",
+  "divertido",
+  "feroz",
+  "elegante",
+]);
+
 function cleanInput(input: string) {
   return String(input || "").trim().replace(/\s+/g, " ");
+}
+
+function appendClause(base: string, addition: string) {
+  const cleanBase = cleanInput(base);
+  const cleanAddition = cleanInput(addition);
+
+  if (!cleanAddition) return cleanBase;
+  if (!cleanBase) return cleanAddition;
+
+  if (cleanBase.toLowerCase().includes(cleanAddition.toLowerCase())) {
+    return cleanBase;
+  }
+
+  return `${cleanBase}, ${cleanAddition}`;
+}
+
+function pushUnique(arr: string[], value: string) {
+  const cleanValue = cleanInput(value);
+  if (!cleanValue) return;
+
+  const exists = arr.some(
+    (item) => cleanInput(item).toLowerCase() === cleanValue.toLowerCase()
+  );
+
+  if (!exists) arr.push(cleanValue);
+}
+
+function normalizeRequestedChips(raw: unknown, mode: DesignMode): ChipId[] {
+  if (!Array.isArray(raw)) return [];
+
+  const allowed =
+    mode === "sticker" ? STICKER_ALLOWED_CHIPS : PLAYERA_ALLOWED_CHIPS;
+
+  const out: ChipId[] = [];
+  const seen = new Set<ChipId>();
+
+  for (const item of raw) {
+    const chip = String(item || "").trim().toLowerCase() as ChipId;
+
+    if (allowed.has(chip) && !seen.has(chip)) {
+      seen.add(chip);
+      out.push(chip);
+    }
+  }
+
+  return out;
 }
 
 function safeJsonParse(text: string): PromptPack | null {
@@ -160,48 +255,6 @@ function normalizeBlueprint(input: any): DesignBlueprint | null {
   return blueprint;
 }
 
-function buildFallbackDirections(userPrompt: string, mode: DesignMode): PromptPack {
-  const base =
-    mode === "sticker"
-      ? [
-          "premium sticker design",
-          "clean vector-inspired merch graphic",
-          "bold outlines",
-          "strong silhouette",
-          "compact composition",
-          "print-friendly color separation",
-          "controlled shading",
-          "pure solid white background",
-          "no fake transparency",
-          "no checkerboard pattern",
-          "no scenery",
-          "no mockup",
-        ].join(", ")
-      : [
-          "premium t-shirt graphic design",
-          "clean vector-inspired apparel graphic",
-          "bold outlines",
-          "strong focal point",
-          "wearable composition",
-          "balanced visual hierarchy",
-          "print-friendly color separation",
-          "controlled shading",
-          "pure solid white background",
-          "no fake transparency",
-          "no checkerboard pattern",
-          "no mockup",
-        ].join(", ");
-
-  return {
-    option_a_label: "Iconic Concept",
-    option_a_prompt: `${base}, safest and most commercially attractive version, centered composition, instantly lovable, high readability, based on: ${userPrompt}`.trim(),
-    option_b_label: "Dynamic Concept",
-    option_b_prompt: `${base}, more energetic and expressive version, stronger movement, more visual impact, high readability, based on: ${userPrompt}`.trim(),
-    option_c_label: "Graphic Concept",
-    option_c_prompt: `${base}, more graphic-design driven version, stronger badge or poster composition, bolder hierarchy, iconic merch identity, based on: ${userPrompt}`.trim(),
-  };
-}
-
 function fallbackBlueprint(userPrompt: string, mode: DesignMode): DesignBlueprint {
   return {
     translated_intent: userPrompt,
@@ -214,7 +267,11 @@ function fallbackBlueprint(userPrompt: string, mode: DesignMode): DesignBlueprin
     support_elements:
       mode === "playera"
         ? ["strong focal point", "clean contour", "balanced support accents"]
-        : ["compact support accents attached to the subject", "clean contour", "cutout-friendly silhouette"],
+        : [
+            "compact support accents attached to the subject",
+            "clean contour",
+            "cutout-friendly silhouette",
+          ],
     palette_direction:
       mode === "playera"
         ? "high-contrast apparel-friendly palette with controlled accent colors"
@@ -292,7 +349,386 @@ Design requirements for t-shirts:
     `.trim();
 }
 
-async function buildDesignBlueprint(userPrompt: string, mode: DesignMode): Promise<DesignBlueprint> {
+function getChipDirective(chip: ChipId): { blueprint: string; prompt: string } {
+  switch (chip) {
+    case "circular":
+      return {
+        blueprint:
+          "The composition MUST be built as a circular badge. The subject must stay centered and all meaningful elements should remain contained within a round perimeter.",
+        prompt:
+          "Strong circular badge composition, centered subject, balanced radial layout, all meaningful elements contained inside the round frame.",
+      };
+
+    case "iconico":
+      return {
+        blueprint:
+          "Prioritize iconic silhouette, simplified memorable forms, and instant recognizability.",
+        prompt:
+          "Iconic graphic treatment, memorable silhouette, simplified commercial forms, high recognizability.",
+      };
+
+    case "compacto":
+      return {
+        blueprint:
+          "Keep the design tightly grouped and condensed. Avoid spread-out or airy layouts.",
+        prompt:
+          "Compact composition, tight visual grouping, condensed layout, no unnecessary empty spread.",
+      };
+
+    case "vintage":
+      return {
+        blueprint:
+          "Use retro-inspired commercial graphic logic, classic illustration sensibility, timeless design language, and any aged feeling only inside the art, never on the background.",
+        prompt:
+          "Retro-inspired commercial illustration, classic old-school graphic language, subtle distressed character inside the art only, timeless vintage merch appeal.",
+      };
+
+    case "street":
+      return {
+        blueprint:
+          "Lean into modern urban sticker culture, graphic edge, bold attitude, and merch-forward visual language.",
+        prompt:
+          "Urban sticker energy, modern graphic edge, bold attitude, merch-forward execution.",
+      };
+
+    case "premium":
+      return {
+        blueprint:
+          "Favor a refined premium merch aesthetic, polished composition, elevated taste, and cleaner execution.",
+        prompt:
+          "Refined premium merch aesthetic, polished composition, elevated taste, clean commercial execution.",
+      };
+
+    case "colores_vivos":
+      return {
+        blueprint:
+          "Use a vivid, saturated, energetic palette while keeping print separation clean.",
+        prompt:
+          "Vivid saturated colors, energetic but controlled palette, clean commercial chroma.",
+      };
+
+    case "alto_contraste":
+      return {
+        blueprint:
+          "Maximize separation between primary shapes for strong readability and print impact.",
+        prompt:
+          "High-contrast palette, bold value separation, strong readability, strong print impact.",
+      };
+
+    case "minimal":
+      return {
+        blueprint:
+          "Reduce detail, simplify shapes, avoid clutter, and keep the design restrained.",
+        prompt:
+          "Minimal visual language, simplified forms, fewer elements, restrained detail.",
+      };
+
+    case "divertido":
+      return {
+        blueprint:
+          "Favor playful energy, charming attitude, approachable expression, and upbeat forms.",
+        prompt:
+          "Playful energy, charming attitude, approachable expression, upbeat graphic language.",
+      };
+
+    case "feroz":
+      return {
+        blueprint:
+          "Favor aggressive energy, intense expression, dominant stance, and sharper presence.",
+        prompt:
+          "Aggressive energy, intense expression, dominant presence, sharper visual language.",
+      };
+
+    case "elegante":
+      return {
+        blueprint:
+          "Favor refined sophistication, graceful forms, tasteful restraint, and a more elevated feel.",
+        prompt:
+          "Refined sophistication, graceful forms, tasteful restraint, elegant visual finish.",
+      };
+
+    case "composicion_frontal":
+      return {
+        blueprint:
+          "The graphic should be built as a centered front-of-shirt design with strong wearable balance.",
+        prompt:
+          "Centered front-of-shirt composition, wearable hierarchy, strong frontal graphic balance.",
+      };
+
+    case "impacto_visual":
+      return {
+        blueprint:
+          "Increase the dramatic focal point, hierarchy, and statement energy without losing print clarity.",
+        prompt:
+          "Statement graphic energy, stronger focal point, bolder hierarchy, more visual punch.",
+      };
+
+    case "estilo_pecho":
+      return {
+        blueprint:
+          "Keep the composition more compact and chest-placement friendly, with tighter central hierarchy.",
+        prompt:
+          "Compact chest-placement composition, tighter central hierarchy, wearable front placement.",
+      };
+
+    case "streetwear":
+      return {
+        blueprint:
+          "Lean into premium streetwear graphics, fashion-tee energy, and bold but wearable design language.",
+        prompt:
+          "Premium streetwear energy, fashion-tee graphic logic, bold yet wearable execution.",
+      };
+
+    case "tonos_oscuros":
+      return {
+        blueprint:
+          "Use a darker palette with controlled accents, premium depth, and strong readable separation.",
+        prompt:
+          "Dark premium palette, controlled highlights, richer shadows, readable accent colors.",
+      };
+
+    default:
+      return {
+        blueprint: "",
+        prompt: "",
+      };
+  }
+}
+
+function buildChipGuidance(
+  chips: ChipId[],
+  kind: "blueprint" | "prompt"
+): string {
+  if (!chips.length) return "- No additional chip direction selected.";
+
+  const lines: string[] = [];
+
+  for (const chip of chips) {
+    const directive = getChipDirective(chip)[kind];
+    if (directive) lines.push(`- ${directive}`);
+  }
+
+  return lines.join("\n");
+}
+
+function applyChipConstraints(
+  blueprint: DesignBlueprint,
+  chips: ChipId[],
+  mode: DesignMode
+): DesignBlueprint {
+  const next: DesignBlueprint = {
+    ...blueprint,
+    support_elements: [...blueprint.support_elements],
+  };
+
+  const has = (chip: ChipId) => chips.includes(chip);
+
+  if (mode === "sticker") {
+    if (has("circular")) {
+      next.composition = "circular_badge";
+      next.visual_style = appendClause(
+        next.visual_style,
+        "round badge logic, centered contained subject, balanced radial composition"
+      );
+      next.print_strategy = appendClause(
+        next.print_strategy,
+        "round sticker-friendly layout with all meaningful elements contained inside a circular perimeter"
+      );
+      pushUnique(
+        next.support_elements,
+        "tightly integrated radial accents contained inside the circle"
+      );
+    }
+
+    if (has("compacto") && !has("circular")) {
+      next.composition = "compact_cutout";
+      next.visual_style = appendClause(
+        next.visual_style,
+        "tighter grouped silhouette with less empty spread"
+      );
+      next.print_strategy = appendClause(
+        next.print_strategy,
+        "condensed sticker layout with tighter grouping and one strong cutout read"
+      );
+    }
+
+    if (has("iconico")) {
+      next.visual_style = appendClause(
+        next.visual_style,
+        "iconic merch silhouette and memorable emblem logic"
+      );
+      next.print_strategy = appendClause(
+        next.print_strategy,
+        "instant recognizability from a distance"
+      );
+    }
+
+    if (has("street")) {
+      next.visual_style = appendClause(
+        next.visual_style,
+        "modern urban sticker attitude and graphic edge"
+      );
+      next.print_strategy = appendClause(
+        next.print_strategy,
+        "bold merch-forward sticker execution"
+      );
+    }
+  }
+
+  if (mode === "playera") {
+    if (has("composicion_frontal")) {
+      next.composition = "centered_chest";
+      next.visual_style = appendClause(
+        next.visual_style,
+        "front-of-shirt centered graphic logic"
+      );
+      next.print_strategy = appendClause(
+        next.print_strategy,
+        "wearable front placement and balanced chest hierarchy"
+      );
+    }
+
+    if (has("estilo_pecho")) {
+      next.composition = "centered_chest";
+      next.visual_style = appendClause(
+        next.visual_style,
+        "more compact chest-placement friendly composition"
+      );
+      next.print_strategy = appendClause(
+        next.print_strategy,
+        "tighter front placement suitable for chest print size"
+      );
+    }
+
+    if (has("impacto_visual")) {
+      if (next.composition === "minimal_horizontal") {
+        next.composition = "stacked_poster";
+      }
+
+      next.visual_style = appendClause(
+        next.visual_style,
+        "stronger focal punch and statement graphic energy"
+      );
+      next.print_strategy = appendClause(
+        next.print_strategy,
+        "bolder hierarchy with stronger visual punch"
+      );
+      pushUnique(next.support_elements, "controlled high-impact accents");
+    }
+
+    if (has("streetwear")) {
+      next.visual_style = appendClause(
+        next.visual_style,
+        "premium streetwear graphic language"
+      );
+      next.print_strategy = appendClause(
+        next.print_strategy,
+        "fashion-tee friendly execution with bold but wearable balance"
+      );
+    }
+  }
+
+  if (has("vintage")) {
+    next.visual_style = appendClause(
+      next.visual_style,
+      "retro-inspired old-school illustration sensibility"
+    );
+    next.print_strategy = appendClause(
+      next.print_strategy,
+      "any distressed or aged feeling must live inside the art only, never on the background"
+    );
+
+    if (!has("colores_vivos") && !has("tonos_oscuros")) {
+      next.palette_direction =
+        "retro-inspired palette with slightly muted but still readable commercial colors";
+    }
+  }
+
+  if (has("premium")) {
+    next.visual_style = appendClause(
+      next.visual_style,
+      "refined premium merch finish"
+    );
+    next.print_strategy = appendClause(
+      next.print_strategy,
+      "polished premium commercial execution"
+    );
+  }
+
+  if (has("colores_vivos")) {
+    next.palette_direction = has("vintage")
+      ? "retro-inspired palette with vivid but controlled colors and clean commercial separation"
+      : "vivid saturated commercial palette with clean separation and strong print readability";
+  }
+
+  if (has("tonos_oscuros")) {
+    next.palette_direction =
+      "dark premium palette with rich shadows, restrained highlights, and readable accent colors";
+  }
+
+  if (has("alto_contraste")) {
+    next.palette_direction = appendClause(
+      next.palette_direction,
+      "high contrast separation between main shapes"
+    );
+    next.print_strategy = appendClause(
+      next.print_strategy,
+      "strong readability through contrast and clear value separation"
+    );
+  }
+
+  if (has("minimal")) {
+    next.detail_level = "low";
+    next.visual_style = appendClause(
+      next.visual_style,
+      "simplified forms, restrained detail, minimal clutter"
+    );
+    next.support_elements = next.support_elements.slice(0, 2);
+  }
+
+  if (has("divertido")) {
+    next.visual_style = appendClause(
+      next.visual_style,
+      "playful and approachable visual energy"
+    );
+    next.print_strategy = appendClause(
+      next.print_strategy,
+      "friendly commercial appeal"
+    );
+  }
+
+  if (has("feroz")) {
+    next.visual_style = appendClause(
+      next.visual_style,
+      "intense aggressive expression and dominant energy"
+    );
+    next.print_strategy = appendClause(
+      next.print_strategy,
+      "stronger visual bite and more assertive presence"
+    );
+  }
+
+  if (has("elegante")) {
+    next.visual_style = appendClause(
+      next.visual_style,
+      "refined sophisticated forms and tasteful restraint"
+    );
+    next.print_strategy = appendClause(
+      next.print_strategy,
+      "elevated refined finish"
+    );
+  }
+
+  return next;
+}
+
+async function buildDesignBlueprint(
+  userPrompt: string,
+  mode: DesignMode,
+  chips: ChipId[]
+): Promise<DesignBlueprint> {
+  const chipBlueprintGuidance = buildChipGuidance(chips, "blueprint");
+
   const completion = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     response_format: { type: "json_object" },
@@ -324,7 +760,14 @@ Rules:
 
 - CHARACTER RECOGNITION & DETAILED DESCRIPTION RULE: If the user requests a specific copyrighted character, cartoon, or celebrity (e.g., Pucca, Plim Plim, Bely y Beto, Superman, Spider-Man), DO NOT pass the trademarked name directly to Flux in the final prompt options. Instead, replace the name with an EXTREMELY DETAILED VISUAL DESCRIPTION of their iconic features, costume, colors, and accessories based on your internal knowledge. The goal is to describe them so accurately that they are instantly recognizable without using the restricted name, thus avoiding API blocking while preserving likeness.
 
-${mode === "sticker" ? `
+Selected chip direction to obey:
+${chipBlueprintGuidance}
+
+Treat selected chips as deliberate art direction from the user. They are NOT optional fluff.
+
+${
+  mode === "sticker"
+    ? `
 STICKER MODE CONSTRAINTS:
 - The user wants a DIE-CUT sticker.
 - The final concept must read as one compact sticker, not as a scene.
@@ -358,7 +801,8 @@ compact_cutout
 circular_badge
 crest_emblem
 minimal_horizontal
-` : `
+`
+    : `
 T-SHIRT MODE CONSTRAINTS:
 - The user wants a wearable apparel graphic.
 - Scenic support can be allowed if it remains printable and visually controlled.
@@ -387,7 +831,8 @@ stacked_poster
 text_top_graphic_center_text_bottom
 minimal_horizontal
 ornamental_symmetry
-`}
+`
+}
 
 Return JSON only with:
 {
@@ -405,18 +850,27 @@ Return JSON only with:
       },
       {
         role: "user",
-        content: `Mode: ${mode}\nUser idea: ${userPrompt}`,
+        content: `Mode: ${mode}\nSelected chips: ${
+          chips.length ? chips.join(", ") : "none"
+        }\nUser idea: ${userPrompt}`,
       },
     ],
   });
 
   const raw = completion.choices[0]?.message?.content?.trim() || "";
   const parsed = normalizeBlueprint(safeBlueprintParse(raw));
-  return parsed || fallbackBlueprint(userPrompt, mode);
+  const baseBlueprint = parsed || fallbackBlueprint(userPrompt, mode);
+
+  return applyChipConstraints(baseBlueprint, chips, mode);
 }
 
-async function buildArtDirections(userPrompt: string, mode: DesignMode): Promise<PromptPack> {
-  const blueprint = await buildDesignBlueprint(userPrompt, mode);
+async function buildArtDirections(
+  userPrompt: string,
+  mode: DesignMode,
+  chips: ChipId[]
+): Promise<PromptPack> {
+  const blueprint = await buildDesignBlueprint(userPrompt, mode, chips);
+  const chipPromptGuidance = buildChipGuidance(chips, "prompt");
 
   const completion = await openai.chat.completions.create({
     model: "gpt-4o-mini",
@@ -428,7 +882,9 @@ async function buildArtDirections(userPrompt: string, mode: DesignMode): Promise
 You are an elite prompt architect for a premium custom print brand.
 
 Your mission:
-Write THREE DISTINCT, HIGH-CONVERTING AI IMAGE PROMPTS in English for a ${mode === "playera" ? "t-shirt" : "sticker"} design.
+Write THREE DISTINCT, HIGH-CONVERTING AI IMAGE PROMPTS in English for a ${
+          mode === "playera" ? "t-shirt" : "sticker"
+        } design.
 
 You are NOT starting from scratch.
 You must use the blueprint provided by the creative director.
@@ -448,7 +904,14 @@ Global rules:
 
 - CHARACTER RECOGNITION & DETAILED DESCRIPTION RULE: If the user requests a specific copyrighted character, cartoon, or celebrity (e.g., Pucca, Plim Plim, Bely y Beto, Superman, Spider-Man), DO NOT pass the trademarked name directly to Flux in the final prompt options. Instead, use your internal knowledge to replace the name with an EXTREMELY DETAILED VISUAL DESCRIPTION of their iconic features, costume, colors, and accessories. Describe them so accurately that they are instantly recognizable without mentioning their restricted name, thus avoiding API moderation while preserving visual likeness.
 
-${mode === "sticker" ? `
+Selected chip direction to obey:
+${chipPromptGuidance}
+
+Treat selected chips as real art-direction constraints, not as optional adjectives.
+
+${
+  mode === "sticker"
+    ? `
 STICKER PROMPT WRITING RULES:
 - Write prompts in a more direct and visual way, not like a long human briefing.
 - Prioritize shape, silhouette, subject, expression, accessories, composition, and cutout-readability.
@@ -462,7 +925,8 @@ STICKER PROMPT WRITING RULES:
 - If the idea started as a scene, write the final prompt as a symbolic die-cut sticker concept.
 - Emblem solutions are allowed only if they stay clean, compact, and non-scenic.
 - Avoid unnecessary decorative extras.
-` : `
+`
+    : `
 T-SHIRT PROMPT WRITING RULES:
 - Write prompts as premium standalone apparel graphics, not as sticker concepts.
 - Prioritize stronger chest-graphic hierarchy, broader composition, and more breathing room around the main subject.
@@ -470,7 +934,8 @@ T-SHIRT PROMPT WRITING RULES:
 - Do not over-compress the composition into a compact cutout unless the user explicitly wants that style.
 - Favor premium graphic-tee energy, statement composition, and apparel-first visual balance.
 - The result must be the artwork only, not a shirt mockup or garment presentation.
-`}
+`
+}
 
 Design blueprint to obey:
 - translated_intent: ${blueprint.translated_intent}
@@ -500,14 +965,18 @@ Each prompt should explicitly include:
 - pure solid white background
 - the right palette direction
 - the intended support elements when useful
-${mode === "sticker" ? `
+${
+  mode === "sticker"
+    ? `
 STICKER OUTPUT RESTRICTIONS:
 - Do not invent extra decorative elements unless they are necessary for silhouette, readability, or the core visual joke.
 - Do not add stars, badges, emblems, rings, halos, frames, or background symbols unless the blueprint clearly requires them.
 - Do not place subtle elements in the background behind the subject.
 - Keep the final sticker prompt focused on the main subject and the primary attached accessory or accent only.
 - Minimize ornamental extras.
-` : ``}
+`
+    : ``
+}
 Return exactly:
 {
   "option_a_label": "...",
@@ -521,7 +990,9 @@ Return exactly:
       },
       {
         role: "user",
-        content: `User original idea: ${userPrompt}`,
+        content: `User original idea: ${userPrompt}\nSelected chips: ${
+          chips.length ? chips.join(", ") : "none"
+        }`,
       },
     ],
   });
@@ -532,6 +1003,7 @@ Return exactly:
   if (parsed) {
     if (DEBUG_PROMPTS) {
       console.log("BLUEPRINT:", blueprint);
+      console.log("CHIPS:", chips);
     }
     return parsed;
   }
@@ -551,15 +1023,17 @@ support elements: ${support},
 palette direction: ${blueprint.palette_direction},
 detail level: ${blueprint.detail_level},
 ${blueprint.print_strategy},
-${mode === "sticker"
-  ? `clean vector-inspired rendering,
+${
+  mode === "sticker"
+    ? `clean vector-inspired rendering,
 bold outlines,
 controlled shading,
 print-friendly color separation,`
-  : `premium apparel graphic rendering,
+    : `premium apparel graphic rendering,
 strong visual hierarchy,
 broader chest-graphic composition,
-controlled shading with more breathing room,`}
+controlled shading with more breathing room,`
+}
 most commercially attractive version,
 clear focal point,
 high readability,
@@ -581,15 +1055,17 @@ ${blueprint.visual_style},
 support elements: ${support},
 palette direction: ${blueprint.palette_direction},
 detail level: ${blueprint.detail_level},
-${mode === "sticker"
-  ? `clean vector-inspired rendering,
+${
+  mode === "sticker"
+    ? `clean vector-inspired rendering,
 bold outlines,
 controlled shading,
 print-friendly color separation,`
-  : `premium apparel graphic rendering,
+    : `premium apparel graphic rendering,
 strong visual hierarchy,
 broader chest-graphic composition,
-controlled shading with more breathing room,`}
+controlled shading with more breathing room,`
+}
 stronger movement,
 more visual impact,
 premium commercial execution,
@@ -612,15 +1088,17 @@ ${blueprint.visual_style},
 support elements: ${support},
 palette direction: ${blueprint.palette_direction},
 detail level: ${blueprint.detail_level},
-${mode === "sticker"
-  ? `clean vector-inspired rendering,
+${
+  mode === "sticker"
+    ? `clean vector-inspired rendering,
 bold outlines,
 controlled shading,
 print-friendly color separation,`
-  : `premium apparel graphic rendering,
+    : `premium apparel graphic rendering,
 strong visual hierarchy,
 broader chest-graphic composition,
-controlled shading with more breathing room,`}
+controlled shading with more breathing room,`
+}
 bold hierarchy,
 stronger merch identity,
 premium apparel graphic aesthetic,
@@ -745,8 +1223,11 @@ async function generateOneImage(prompt: string): Promise<string | null> {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
+
     const userPrompt = cleanInput(body?.prompt);
-    const mode: DesignMode = body?.mode === "playera" ? "playera" : "sticker";
+    const mode: DesignMode =
+      body?.mode === "playera" || body?.mode === "shirt" ? "playera" : "sticker";
+    const chips = normalizeRequestedChips(body?.chips, mode);
 
     if (!userPrompt) {
       return NextResponse.json(
@@ -755,11 +1236,12 @@ export async function POST(req: Request) {
       );
     }
 
-    const compiled = await buildArtDirections(userPrompt, mode);
+    const compiled = await buildArtDirections(userPrompt, mode, chips);
 
     if (DEBUG_PROMPTS) {
       console.log("USER PROMPT:", userPrompt);
       console.log("MODE:", mode);
+      console.log("CHIPS:", chips);
       console.log("A:", compiled.option_a_label, compiled.option_a_prompt);
       console.log("B:", compiled.option_b_label, compiled.option_b_prompt);
       console.log("C:", compiled.option_c_label, compiled.option_c_prompt);
@@ -799,6 +1281,7 @@ export async function POST(req: Request) {
 
     const debugPayload = DEBUG_PROMPTS
       ? {
+          chips,
           prompts: [
             compiled.option_a_prompt,
             compiled.option_b_prompt,

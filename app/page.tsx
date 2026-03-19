@@ -1,15 +1,226 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 type DesignMode = "sticker" | "playera";
+
+type ChipId =
+  | "circular"
+  | "iconico"
+  | "compacto"
+  | "vintage"
+  | "street"
+  | "premium"
+  | "colores_vivos"
+  | "alto_contraste"
+  | "minimal"
+  | "divertido"
+  | "feroz"
+  | "elegante"
+  | "composicion_frontal"
+  | "impacto_visual"
+  | "estilo_pecho"
+  | "streetwear"
+  | "tonos_oscuros";
+
+type ChipDef = {
+  id: ChipId;
+  label: string;
+  helper: string;
+};
+
+const STICKER_CHIPS: ChipDef[] = [
+  {
+    id: "circular",
+    label: "Circular",
+    helper: "Fuerza una composición redonda tipo badge.",
+  },
+  {
+    id: "iconico",
+    label: "Icónico",
+    helper: "Busca una silueta más memorable y reconocible.",
+  },
+  {
+    id: "compacto",
+    label: "Compacto",
+    helper: "Aprieta la composición para que se sienta más sticker.",
+  },
+  {
+    id: "vintage",
+    label: "Vintage",
+    helper: "Le da una dirección retro más trabajada, no solo una palabra.",
+  },
+  {
+    id: "street",
+    label: "Street",
+    helper: "Empuja una energía más urbana y gráfica.",
+  },
+  {
+    id: "premium",
+    label: "Premium",
+    helper: "Sube el acabado visual y la sensación de producto premium.",
+  },
+  {
+    id: "colores_vivos",
+    label: "Colores vivos",
+    helper: "Empuja una paleta más saturada y comercial.",
+  },
+  {
+    id: "alto_contraste",
+    label: "Alto contraste",
+    helper: "Mejora legibilidad y punch visual.",
+  },
+  {
+    id: "minimal",
+    label: "Minimal",
+    helper: "Reduce ruido, detalle y elementos innecesarios.",
+  },
+  {
+    id: "divertido",
+    label: "Divertido",
+    helper: "Hace la propuesta más juguetona o carismática.",
+  },
+  {
+    id: "feroz",
+    label: "Feroz",
+    helper: "Le mete más agresividad, fuerza o presencia.",
+  },
+  {
+    id: "elegante",
+    label: "Elegante",
+    helper: "Refina formas, postura y lenguaje visual.",
+  },
+];
+
+const PLAYERA_CHIPS: ChipDef[] = [
+  {
+    id: "composicion_frontal",
+    label: "Composición frontal",
+    helper: "Piensa el arte como gráfico frontal usable en playera.",
+  },
+  {
+    id: "impacto_visual",
+    label: "Impacto visual",
+    helper: "Empuja una propuesta más fuerte y llamativa.",
+  },
+  {
+    id: "estilo_pecho",
+    label: "Estilo pecho",
+    helper: "Composición más compacta para colocación tipo pecho.",
+  },
+  {
+    id: "streetwear",
+    label: "Streetwear",
+    helper: "Dirección más moda urbana / graphic tee.",
+  },
+  {
+    id: "vintage",
+    label: "Vintage",
+    helper: "Retro trabajado con lógica de prenda, no solo un adjetivo.",
+  },
+  {
+    id: "premium",
+    label: "Premium",
+    helper: "Empuja una lectura más refinada y vendible.",
+  },
+  {
+    id: "alto_contraste",
+    label: "Alto contraste",
+    helper: "Aumenta punch y lectura sobre prenda.",
+  },
+  {
+    id: "tonos_oscuros",
+    label: "Tonos oscuros",
+    helper: "Paleta más profunda y con más peso visual.",
+  },
+  {
+    id: "minimal",
+    label: "Minimal",
+    helper: "Reduce ruido, detalle y carga visual.",
+  },
+  {
+    id: "divertido",
+    label: "Divertido",
+    helper: "Hace la dirección más amigable o juguetona.",
+  },
+  {
+    id: "feroz",
+    label: "Feroz",
+    helper: "Le mete más intensidad y presencia al arte.",
+  },
+  {
+    id: "elegante",
+    label: "Elegante",
+    helper: "Más refinado, más limpio, más sofisticado.",
+  },
+];
+
+const MODE_CONTENT = {
+  sticker: {
+    modePill: "Sticker Studio",
+    modeProof: "Compacto · Comercial · Listo para impresión",
+    title: "Dirige tu sticker como si estuvieras en un estudio",
+    subhelp:
+      "Escribe tu idea base y luego afina la dirección visual. El estudio te devolverá 3 propuestas compactas, pensadas para funcionar mejor como sticker.",
+    placeholder:
+      "Ejemplo: tigre feroz con corona y nombre Leo, look premium, fuerte y muy icónico",
+    chipTitle: "Dirección creativa sugerida",
+    chipHelp:
+      "Tócalos para orientar composición, energía, paleta y estilo. No son adorno: sí influyen en la generación.",
+    note: "Generaremos 3 rutas pensadas para verse fuertes, compactas y más vendibles como sticker.",
+    generateLabel: "Explorar propuestas",
+    generateSub: "3 rutas listas para sticker",
+    loadingTitle: "Generando 3 rutas para sticker",
+    loadingSub:
+      "Interpretando tu idea como una propuesta más compacta, comercial y lista para impresión.",
+    resultsKicker: "Propuestas del estudio",
+    resultsTitle: "Explora tus 3 rutas para sticker",
+    resultsSub:
+      "Cada propuesta fue pensada para leerse mejor como arte comercial, no solo como imagen bonita.",
+    directionPanelTitle: "Dirección aplicada",
+    directionPanelSub:
+      "El estudio tomará tu idea base y la refinirá internamente con esta dirección.",
+    selectionReady: "Lista para aplicarse a tu sticker.",
+    primaryCta: "Usar este diseño en mi sticker",
+    previewSelect: "Seleccionar este diseño para sticker",
+  },
+  playera: {
+    modePill: "Playera Studio",
+    modeProof: "Prenda · Jerarquía · Más presencia visual",
+    title: "Construye una gráfica con más presencia para playera",
+    subhelp:
+      "Escribe tu idea base y afina la dirección visual. El estudio te devolverá 3 propuestas pensadas para verse potentes sobre prenda.",
+    placeholder:
+      "Ejemplo: samurái vintage para playera, composición frontal fuerte, look premium y mucha presencia",
+    chipTitle: "Dirección creativa sugerida",
+    chipHelp:
+      "Úsalos para orientar composición, energía, paleta y estilo en prenda. Sí afectan cómo se arma la propuesta.",
+    note: "Generaremos 3 rutas con más jerarquía, más presencia y mejor lectura sobre tela.",
+    generateLabel: "Explorar propuestas",
+    generateSub: "3 rutas listas para playera",
+    loadingTitle: "Generando 3 rutas para playera",
+    loadingSub:
+      "Traduciendo tu idea a una gráfica con más impacto, jerarquía y mejor lectura sobre prenda.",
+    resultsKicker: "Propuestas del estudio",
+    resultsTitle: "Explora tus 3 rutas para playera",
+    resultsSub:
+      "Cada propuesta fue pensada como una graphic tee más usable y vendible, no solo como imagen generada.",
+    directionPanelTitle: "Dirección aplicada",
+    directionPanelSub:
+      "El estudio tomará tu idea base y la refinirá internamente con esta dirección.",
+    selectionReady: "Lista para aplicarse a tu playera.",
+    primaryCta: "Usar este diseño en mi playera",
+    previewSelect: "Seleccionar este diseño para playera",
+  },
+} as const;
 
 function HomePageInner() {
   const searchParams = useSearchParams();
 
   const [mode, setMode] = useState<DesignMode>("sticker");
   const [prompt, setPrompt] = useState("");
+  const [activeChips, setActiveChips] = useState<ChipId[]>([]);
   const [images, setImages] = useState<string[]>([]);
   const [labels, setLabels] = useState<string[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -18,6 +229,18 @@ function HomePageInner() {
   const [error, setError] = useState("");
 
   const isEmbedded = searchParams.get("embed") === "1";
+
+  const modeContent = MODE_CONTENT[mode];
+  const availableChips = mode === "sticker" ? STICKER_CHIPS : PLAYERA_CHIPS;
+
+  const activeChipDefs = useMemo(
+    () => availableChips.filter((chip) => activeChips.includes(chip.id)),
+    [availableChips, activeChips]
+  );
+
+  const selectedImage = selectedIndex !== null ? images[selectedIndex] : null;
+  const selectedLabel = selectedIndex !== null ? labels[selectedIndex] : null;
+
   const canGenerate = prompt.trim().length > 0 && !loading;
 
   function postEmbedHeight() {
@@ -51,10 +274,22 @@ function HomePageInner() {
 
   useEffect(() => {
     const forcedMode = searchParams.get("mode");
-    if (forcedMode === "sticker" || forcedMode === "playera") {
-      setMode(forcedMode);
+
+    if (forcedMode === "sticker") {
+      setMode("sticker");
+    } else if (forcedMode === "playera" || forcedMode === "shirt") {
+      setMode("playera");
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    setImages([]);
+    setLabels([]);
+    setSelectedIndex(null);
+    setPreviewIndex(null);
+    setActiveChips([]);
+    setError("");
+  }, [mode]);
 
   useEffect(() => {
     if (!isEmbedded) return;
@@ -81,7 +316,25 @@ function HomePageInner() {
       window.removeEventListener("load", run);
       window.removeEventListener("resize", run);
     };
-  }, [isEmbedded, images.length, selectedIndex, previewIndex, loading, error]);
+  }, [
+    isEmbedded,
+    images.length,
+    selectedIndex,
+    previewIndex,
+    loading,
+    error,
+    activeChips.length,
+    prompt.length,
+  ]);
+
+  function toggleChip(chipId: ChipId) {
+    setError("");
+    setActiveChips((current) =>
+      current.includes(chipId)
+        ? current.filter((item) => item !== chipId)
+        : [...current, chipId]
+    );
+  }
 
   async function handleGenerate() {
     const cleanPrompt = prompt.trim();
@@ -111,6 +364,7 @@ function HomePageInner() {
         body: JSON.stringify({
           prompt: cleanPrompt,
           mode,
+          chips: activeChips,
         }),
       });
 
@@ -155,7 +409,7 @@ function HomePageInner() {
         body: JSON.stringify({
           image,
           label,
-          prompt,
+          prompt: prompt.trim(),
           mode,
         }),
       });
@@ -171,7 +425,7 @@ function HomePageInner() {
         imageUrl: saved.imageUrl,
         designRef: saved.designRef,
         label,
-        prompt,
+        prompt: prompt.trim(),
         mode,
       };
 
@@ -183,75 +437,127 @@ function HomePageInner() {
     }
   }
 
-  const selectedImage = selectedIndex !== null ? images[selectedIndex] : null;
-  const selectedLabel = selectedIndex !== null ? labels[selectedIndex] : null;
-
   return (
     <>
       <main className={`page-shell ${isEmbedded ? "is-embedded" : ""}`}>
         <div className="page-wrap">
           <section className="composer-card">
+            <div className="studio-topbar">
+              <div className="studio-brandline">
+                <div className="composer-kicker">AutoPrint AI Studio</div>
+                <div className="studio-mode-pill">{modeContent.modePill}</div>
+              </div>
+
+              <div className="studio-proof">{modeContent.modeProof}</div>
+            </div>
+
             <div className="composer-head">
               <div>
-                <div className="composer-kicker">AutoPrint AI Studio</div>
-                <h1 className="composer-title">Describe tu diseño</h1>
-                <p className="composer-subhelp">
-                  Cuéntanos el concepto, estilo, colores, texto o mood que te
-                  gustaría ver.
-                </p>
+                <h1 className="composer-title">{modeContent.title}</h1>
+                <p className="composer-subhelp">{modeContent.subhelp}</p>
               </div>
             </div>
 
-            <textarea
-              id="prompt"
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder={
-                mode === "sticker"
-                  ? "Ejemplo: astronauta vaquero adorable con nombre Leo y estilo premium tipo sticker"
-                  : "Ejemplo: astronauta vaquero vintage para playera, composición premium y look impactante"
-              }
-              rows={4}
-              className="prompt-textarea"
-            />
+            <div className="brief-shell">
+              <div className="brief-head">
+                <div className="brief-label">Brief creativo</div>
+                <div className="brief-note">
+                  Idea base + dirección visual = mejor resultado
+                </div>
+              </div>
 
-            <div className="composer-foot">
-              <p className="prompt-note">
-                Generaremos 3 propuestas distintas para ayudarte a elegir más rápido.
-              </p>
+              <textarea
+                id="prompt"
+                value={prompt}
+                onChange={(e) => {
+                  setPrompt(e.target.value);
+                  if (error) setError("");
+                }}
+                placeholder={modeContent.placeholder}
+                rows={4}
+                className="prompt-textarea"
+              />
 
-              <button
-                type="button"
-                onClick={handleGenerate}
-                disabled={!canGenerate}
-                className={`ai-generate-btn ${loading ? "is-loading" : ""}`}
-              >
-                <span className="ai-generate-btn__glow" />
-                <span className="ai-generate-btn__border" />
-                <span className="ai-generate-btn__bg" />
-                <span className="ai-generate-btn__shine" />
+              <div className="chips-zone">
+                <div className="chips-head">
+                  <div>
+                    <div className="chips-title">{modeContent.chipTitle}</div>
+                    <div className="chips-sub">{modeContent.chipHelp}</div>
+                  </div>
+                </div>
 
-                <span className="ai-generate-btn__content">
-                  <span className="ai-stars" aria-hidden="true">
-                    <span className="ai-star ai-star--big">✦</span>
-                    <span className="ai-star ai-star--mid">✦</span>
-                    <span className="ai-star ai-star--small">✦</span>
-                  </span>
+                <div className="chips-grid">
+                  {availableChips.map((chip) => {
+                    const isActive = activeChips.includes(chip.id);
 
-                  <span className="ai-generate-btn__copy">
-                    <span className="ai-generate-btn__label">
-                      {loading ? "Generando..." : "Crear con IA"}
+                    return (
+                      <button
+                        key={chip.id}
+                        type="button"
+                        title={chip.helper}
+                        className={`chip-btn ${isActive ? "is-active" : ""}`}
+                        onClick={() => toggleChip(chip.id)}
+                      >
+                        <span className="chip-btn__text">{chip.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {activeChipDefs.length > 0 ? (
+                  <div className="direction-panel">
+                    <div className="direction-panel__head">
+                      <div className="direction-panel__kicker">
+                        {modeContent.directionPanelTitle}
+                      </div>
+                      <p className="direction-panel__sub">
+                        {modeContent.directionPanelSub}
+                      </p>
+                    </div>
+
+                    <div className="direction-panel__pills">
+                      {activeChipDefs.map((chip) => (
+                        <span key={chip.id} className="direction-pill">
+                          {chip.label}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="composer-foot">
+                <p className="prompt-note">{modeContent.note}</p>
+
+                <button
+                  type="button"
+                  onClick={handleGenerate}
+                  disabled={!canGenerate}
+                  className={`ai-generate-btn ${loading ? "is-loading" : ""}`}
+                >
+                  <span className="ai-generate-btn__glow" />
+                  <span className="ai-generate-btn__border" />
+                  <span className="ai-generate-btn__bg" />
+                  <span className="ai-generate-btn__shine" />
+
+                  <span className="ai-generate-btn__content">
+                    <span className="ai-stars" aria-hidden="true">
+                      <span className="ai-star ai-star--big">✦</span>
+                      <span className="ai-star ai-star--mid">✦</span>
+                      <span className="ai-star ai-star--small">✦</span>
                     </span>
-                    <span className="ai-generate-btn__sub">
-                      {loading
-                        ? "3 propuestas en proceso"
-                        : `3 propuestas para ${
-                            mode === "sticker" ? "stickers" : "playeras"
-                          }`}
+
+                    <span className="ai-generate-btn__copy">
+                      <span className="ai-generate-btn__label">
+                        {loading ? "Generando..." : modeContent.generateLabel}
+                      </span>
+                      <span className="ai-generate-btn__sub">
+                        {loading ? "3 propuestas en proceso" : modeContent.generateSub}
+                      </span>
                     </span>
                   </span>
-                </span>
-              </button>
+                </button>
+              </div>
             </div>
 
             {loading ? (
@@ -264,23 +570,23 @@ function HomePageInner() {
                   </div>
 
                   <div className="loading-copy">
-                    <div className="loading-title">
-                      Generando 3 propuestas con IA
-                    </div>
-                    <div className="loading-subtitle">
-                      Interpretando tu idea y construyendo rutas visuales.
-                    </div>
+                    <div className="loading-title">{modeContent.loadingTitle}</div>
+                    <div className="loading-subtitle">{modeContent.loadingSub}</div>
                   </div>
                 </div>
 
                 <div className="loading-steps">
                   <div className="loading-step">
                     <span className="loading-step__bullet" />
-                    Interpretando tu idea
+                    Interpretando tu idea base
                   </div>
                   <div className="loading-step">
                     <span className="loading-step__bullet" />
-                    Diseñando 3 rutas creativas
+                    Aplicando dirección creativa
+                  </div>
+                  <div className="loading-step">
+                    <span className="loading-step__bullet" />
+                    Construyendo 3 rutas visuales
                   </div>
                 </div>
               </div>
@@ -292,7 +598,11 @@ function HomePageInner() {
           {images.length > 0 ? (
             <section className="results-block">
               <div className="results-head">
-                <h2 className="results-title">Elige tu diseño favorito</h2>
+                <div>
+                  <div className="results-kicker">{modeContent.resultsKicker}</div>
+                  <h2 className="results-title">{modeContent.resultsTitle}</h2>
+                  <p className="results-sub">{modeContent.resultsSub}</p>
+                </div>
               </div>
 
               <div className="results-grid results-grid--3">
@@ -335,12 +645,21 @@ function HomePageInner() {
                           🔍
                         </button>
 
-                        {isSelected ? <div className="design-card__check">✓</div> : null}
+                        {isSelected ? (
+                          <div className="design-card__check">✓</div>
+                        ) : null}
                       </div>
 
                       <div className="design-card__body">
                         <div className="design-card__title">
-                          {isSelected ? "Diseño seleccionado" : "Haz clic para elegir"}
+                          {isSelected
+                            ? "Selección actual"
+                            : `Ruta ${index + 1} del estudio`}
+                        </div>
+                        <div className="design-card__meta">
+                          {isSelected
+                            ? modeContent.selectionReady
+                            : "Haz clic para elegir esta propuesta."}
                         </div>
                       </div>
                     </div>
@@ -348,17 +667,41 @@ function HomePageInner() {
                 })}
               </div>
 
-              {selectedImage ? (
-                <div className="selected-box">
+              <div className="studio-actionbar">
+                <div className="studio-actionbar__meta">
+                  <span className="studio-actionbar__eyebrow">Selección final</span>
+                  <strong className="studio-actionbar__title">
+                    {selectedLabel || "Elige una propuesta"}
+                  </strong>
+                  <span className="studio-actionbar__sub">
+                    {selectedImage
+                      ? modeContent.selectionReady
+                      : "Toca una propuesta para continuar."}
+                  </span>
+                </div>
+
+                <div className="studio-actionbar__actions">
                   <button
                     type="button"
-                    className="selected-box__btn"
+                    className="studio-secondary-btn"
+                    disabled={selectedIndex === null}
+                    onClick={() => {
+                      if (selectedIndex !== null) setPreviewIndex(selectedIndex);
+                    }}
+                  >
+                    Ver grande
+                  </button>
+
+                  <button
+                    type="button"
+                    className="studio-primary-btn"
+                    disabled={selectedIndex === null}
                     onClick={handleContinueWithDesign}
                   >
-                    Usar este diseño
+                    {modeContent.primaryCta}
                   </button>
                 </div>
-              ) : null}
+              </div>
             </section>
           ) : null}
 
@@ -397,9 +740,7 @@ function HomePageInner() {
                 <button
                   type="button"
                   className="preview-modal__nav preview-modal__nav--right"
-                  onClick={() =>
-                    setPreviewIndex((previewIndex + 1) % images.length)
-                  }
+                  onClick={() => setPreviewIndex((previewIndex + 1) % images.length)}
                 >
                   ›
                 </button>
@@ -421,7 +762,7 @@ function HomePageInner() {
                   >
                     {selectedIndex === previewIndex
                       ? "Diseño seleccionado"
-                      : "Seleccionar este diseño"}
+                      : modeContent.previewSelect}
                   </button>
                 </div>
               </div>
@@ -439,8 +780,11 @@ function HomePageInner() {
 
         .page-shell {
           min-height: 100vh;
-          background: #f8fafc;
           padding: 24px;
+          background:
+            radial-gradient(circle at top left, rgba(129, 140, 248, 0.18), transparent 24%),
+            radial-gradient(circle at top right, rgba(34, 211, 238, 0.14), transparent 22%),
+            linear-gradient(180deg, #eef2ff 0%, #f8fafc 36%, #eef2ff 100%);
           font-family:
             Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
             "Segoe UI", sans-serif;
@@ -449,11 +793,14 @@ function HomePageInner() {
         .page-shell.is-embedded {
           min-height: auto;
           padding: 18px;
-          background: #ffffff;
+          background:
+            radial-gradient(circle at top left, rgba(129, 140, 248, 0.13), transparent 26%),
+            radial-gradient(circle at top right, rgba(34, 211, 238, 0.12), transparent 24%),
+            linear-gradient(180deg, #f8fafc 0%, #ffffff 55%, #f8fafc 100%);
         }
 
         .page-wrap {
-          max-width: 980px;
+          max-width: 1100px;
           margin: 0 auto;
           display: grid;
           gap: 18px;
@@ -466,79 +813,285 @@ function HomePageInner() {
 
         .composer-card,
         .results-block {
-          background: #ffffff;
-          border: 1px solid rgba(17, 24, 39, 0.08);
-          border-radius: 24px;
-          padding: 20px;
-          box-shadow: 0 12px 36px rgba(15, 23, 42, 0.06);
+          position: relative;
+          background: rgba(255, 255, 255, 0.9);
+          border: 1px solid rgba(15, 23, 42, 0.08);
+          border-radius: 28px;
+          padding: 22px;
+          box-shadow:
+            0 18px 48px rgba(15, 23, 42, 0.09),
+            inset 0 1px 0 rgba(255, 255, 255, 0.7);
+          backdrop-filter: blur(18px);
         }
 
         .is-embedded .composer-card,
         .is-embedded .results-block {
-          border-radius: 20px;
+          border-radius: 24px;
           padding: 18px;
-          box-shadow: none;
+          box-shadow:
+            0 10px 26px rgba(15, 23, 42, 0.05),
+            inset 0 1px 0 rgba(255, 255, 255, 0.65);
         }
 
-        .composer-head {
-          margin-bottom: 14px;
+        .studio-topbar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 14px;
+          flex-wrap: wrap;
+          margin-bottom: 16px;
+        }
+
+        .studio-brandline {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
         }
 
         .composer-kicker {
           font-size: 11px;
+          font-weight: 950;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          color: #4f46e5;
+        }
+
+        .studio-mode-pill,
+        .studio-proof {
+          min-height: 30px;
+          padding: 0 12px;
+          border-radius: 999px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 11px;
           font-weight: 900;
           letter-spacing: 0.08em;
           text-transform: uppercase;
-          color: #4f46e5;
-          margin-bottom: 8px;
+        }
+
+        .studio-mode-pill {
+          color: #111827;
+          background: rgba(255, 255, 255, 0.78);
+          border: 1px solid rgba(79, 70, 229, 0.14);
+          box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+        }
+
+        .studio-proof {
+          color: #475569;
+          background: rgba(15, 23, 42, 0.04);
+          border: 1px solid rgba(15, 23, 42, 0.06);
+        }
+
+        .composer-head {
+          margin-bottom: 16px;
         }
 
         .composer-title {
-          margin: 0 0 8px;
-          font-size: 28px;
-          line-height: 1.05;
+          margin: 0 0 10px;
+          font-size: 34px;
+          line-height: 0.98;
+          letter-spacing: -0.04em;
           font-weight: 1000;
-          color: #111827;
+          color: #0f172a;
+          max-width: 820px;
         }
 
         .composer-subhelp {
           margin: 0;
           font-size: 14px;
-          line-height: 1.5;
-          color: #667085;
+          line-height: 1.58;
+          color: #64748b;
           font-weight: 700;
-          max-width: 720px;
+          max-width: 780px;
+        }
+
+        .brief-shell {
+          border: 1px solid rgba(15, 23, 42, 0.06);
+          border-radius: 24px;
+          background:
+            radial-gradient(circle at top left, rgba(255, 255, 255, 0.85), transparent 38%),
+            linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,250,252,0.95));
+          padding: 18px;
+        }
+
+        .brief-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          flex-wrap: wrap;
+          margin-bottom: 12px;
+        }
+
+        .brief-label {
+          font-size: 12px;
+          font-weight: 950;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          color: #0f172a;
+        }
+
+        .brief-note {
+          font-size: 12px;
+          font-weight: 850;
+          color: #64748b;
         }
 
         .prompt-textarea {
           width: 100%;
           resize: vertical;
-          min-height: 120px;
-          border: 1.5px solid #d7dde6;
-          border-radius: 18px;
+          min-height: 132px;
+          border: 1.5px solid #d8dee8;
+          border-radius: 20px;
           padding: 16px 18px;
           font-size: 16px;
-          line-height: 1.55;
+          line-height: 1.6;
           color: #111827;
-          background: #ffffff;
+          background: rgba(255, 255, 255, 0.95);
           outline: none;
           transition:
             border-color 0.18s ease,
             box-shadow 0.18s ease,
+            transform 0.18s ease,
             background 0.18s ease;
         }
 
         .prompt-textarea:focus {
-          border-color: rgba(79, 70, 229, 0.46);
-          box-shadow: 0 0 0 5px rgba(99, 102, 241, 0.09);
+          border-color: rgba(79, 70, 229, 0.42);
+          box-shadow: 0 0 0 5px rgba(99, 102, 241, 0.1);
+          background: #ffffff;
+        }
+
+        .chips-zone {
+          margin-top: 16px;
+        }
+
+        .chips-head {
+          margin-bottom: 12px;
+        }
+
+        .chips-title {
+          font-size: 13px;
+          font-weight: 950;
+          color: #0f172a;
+          margin-bottom: 4px;
+        }
+
+        .chips-sub {
+          font-size: 13px;
+          line-height: 1.45;
+          color: #64748b;
+          font-weight: 700;
+          max-width: 760px;
+        }
+
+        .chips-grid {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
+        }
+
+        .chip-btn {
+          appearance: none;
+          border: 1px solid rgba(15, 23, 42, 0.09);
+          background: rgba(255, 255, 255, 0.88);
+          color: #111827;
+          min-height: 40px;
+          padding: 0 14px;
+          border-radius: 999px;
+          font-size: 13px;
+          font-weight: 900;
+          letter-spacing: -0.01em;
+          cursor: pointer;
+          transition:
+            transform 0.18s ease,
+            box-shadow 0.18s ease,
+            border-color 0.18s ease,
+            background 0.18s ease,
+            color 0.18s ease;
+          box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+        }
+
+        .chip-btn:hover {
+          transform: translateY(-1px);
+          border-color: rgba(79, 70, 229, 0.18);
+        }
+
+        .chip-btn.is-active {
+          color: #ffffff;
+          border-color: transparent;
+          background:
+            linear-gradient(135deg, #4f46e5 0%, #7c3aed 52%, #0891b2 100%);
+          box-shadow:
+            0 14px 28px rgba(79, 70, 229, 0.24),
+            inset 0 1px 0 rgba(255, 255, 255, 0.18);
+        }
+
+        .chip-btn__text {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .direction-panel {
+          margin-top: 14px;
+          border: 1px solid rgba(79, 70, 229, 0.12);
+          background:
+            radial-gradient(circle at top left, rgba(99, 102, 241, 0.09), transparent 32%),
+            linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,252,0.96));
+          border-radius: 18px;
+          padding: 14px;
+        }
+
+        .direction-panel__head {
+          margin-bottom: 10px;
+        }
+
+        .direction-panel__kicker {
+          font-size: 11px;
+          font-weight: 950;
+          letter-spacing: 0.09em;
+          text-transform: uppercase;
+          color: #4f46e5;
+          margin-bottom: 4px;
+        }
+
+        .direction-panel__sub {
+          margin: 0;
+          font-size: 13px;
+          line-height: 1.45;
+          color: #64748b;
+          font-weight: 700;
+        }
+
+        .direction-panel__pills {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        .direction-pill {
+          min-height: 34px;
+          padding: 0 12px;
+          border-radius: 999px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
+          font-weight: 900;
+          color: #1e1b4b;
+          background: rgba(99, 102, 241, 0.08);
+          border: 1px solid rgba(99, 102, 241, 0.12);
         }
 
         .composer-foot {
-          margin-top: 16px;
+          margin-top: 18px;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 14px;
+          gap: 16px;
           flex-wrap: wrap;
         }
 
@@ -546,9 +1099,9 @@ function HomePageInner() {
           margin: 0;
           font-size: 13px;
           font-weight: 800;
-          color: #6b7280;
-          line-height: 1.45;
-          max-width: 520px;
+          color: #64748b;
+          line-height: 1.5;
+          max-width: 560px;
         }
 
         .ai-generate-btn {
@@ -557,9 +1110,9 @@ function HomePageInner() {
           border: 0;
           background: transparent;
           padding: 0;
-          min-width: 260px;
-          height: 60px;
-          border-radius: 18px;
+          min-width: 282px;
+          height: 62px;
+          border-radius: 20px;
           cursor: pointer;
           transition:
             transform 0.2s ease,
@@ -594,7 +1147,7 @@ function HomePageInner() {
         .ai-generate-btn__border {
           position: absolute;
           inset: 0;
-          border-radius: 18px;
+          border-radius: 20px;
           background: linear-gradient(
             90deg,
             #ec4899 0%,
@@ -611,23 +1164,23 @@ function HomePageInner() {
         .ai-generate-btn__bg {
           position: absolute;
           inset: 2px;
-          border-radius: 16px;
+          border-radius: 18px;
           background:
-            radial-gradient(ellipse at center top, rgba(255, 255, 255, 0.15) 0%, transparent 45%),
-            radial-gradient(circle at center bottom, rgba(139, 92, 246, 0.35) 0%, transparent 60%),
+            radial-gradient(ellipse at center top, rgba(255, 255, 255, 0.16) 0%, transparent 45%),
+            radial-gradient(circle at center bottom, rgba(139, 92, 246, 0.34) 0%, transparent 60%),
             linear-gradient(160deg, #1e1b4b 0%, #09090b 100%);
           box-shadow:
-            inset 0 2px 2px rgba(255, 255, 255, 0.25),
-            inset 0 -6px 16px rgba(0, 0, 0, 0.6),
-            inset 0 0 10px rgba(139, 92, 246, 0.2),
-            0 4px 10px rgba(0, 0, 0, 0.25);
+            inset 0 2px 2px rgba(255, 255, 255, 0.22),
+            inset 0 -6px 16px rgba(0, 0, 0, 0.55),
+            inset 0 0 10px rgba(139, 92, 246, 0.18),
+            0 4px 10px rgba(0, 0, 0, 0.22);
           z-index: 2;
         }
 
         .ai-generate-btn__shine {
           position: absolute;
           inset: 2px;
-          border-radius: 16px;
+          border-radius: 18px;
           overflow: hidden;
           z-index: 3;
         }
@@ -642,7 +1195,7 @@ function HomePageInner() {
           background: linear-gradient(
             90deg,
             transparent,
-            rgba(255,255,255,.18),
+            rgba(255, 255, 255, 0.18),
             transparent
           );
           transform: rotate(14deg);
@@ -722,11 +1275,11 @@ function HomePageInner() {
         }
 
         .loading-panel {
-          margin-top: 16px;
+          margin-top: 18px;
           border: 1px solid rgba(99, 102, 241, 0.14);
           background:
-            radial-gradient(circle at top left, rgba(79, 70, 229, 0.10), transparent 34%),
-            radial-gradient(circle at bottom right, rgba(0, 184, 169, 0.10), transparent 30%),
+            radial-gradient(circle at top left, rgba(79, 70, 229, 0.1), transparent 34%),
+            radial-gradient(circle at bottom right, rgba(0, 184, 169, 0.1), transparent 30%),
             linear-gradient(180deg, rgba(255,255,255,.98), rgba(245,247,252,.98));
           border-radius: 18px;
           padding: 16px;
@@ -745,7 +1298,7 @@ function HomePageInner() {
           min-width: 48px;
           border-radius: 999px;
           border: 1px solid rgba(99, 102, 241, 0.12);
-          background: radial-gradient(circle at center, rgba(99, 102, 241, 0.06), rgba(255,255,255,.9));
+          background: radial-gradient(circle at center, rgba(99, 102, 241, 0.06), rgba(255,255,255,.92));
         }
 
         .loading-dot {
@@ -828,21 +1381,35 @@ function HomePageInner() {
           line-height: 1.45;
         }
 
-        .results-block {
-          padding: 20px;
-        }
-
         .results-head {
           margin-bottom: 14px;
         }
 
+        .results-kicker {
+          font-size: 11px;
+          font-weight: 950;
+          letter-spacing: 0.09em;
+          text-transform: uppercase;
+          color: #4f46e5;
+          margin-bottom: 8px;
+        }
+
         .results-title {
-          margin: 0;
-          font-size: 24px;
-          line-height: 1.05;
+          margin: 0 0 8px;
+          font-size: 28px;
+          line-height: 1;
           font-weight: 1000;
           color: #0f172a;
-          letter-spacing: -0.03em;
+          letter-spacing: -0.04em;
+        }
+
+        .results-sub {
+          margin: 0;
+          font-size: 13px;
+          line-height: 1.5;
+          color: #64748b;
+          font-weight: 700;
+          max-width: 760px;
         }
 
         .results-grid {
@@ -851,39 +1418,46 @@ function HomePageInner() {
         }
 
         .results-grid--3 {
-          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
         }
 
         .design-card {
-          border: 1px solid rgba(17, 24, 39, 0.08);
-          background: #fff;
-          border-radius: 18px;
+          border: 1px solid rgba(15, 23, 42, 0.08);
+          background:
+            linear-gradient(180deg, rgba(255,255,255,0.95), rgba(248,250,252,0.95));
+          border-radius: 22px;
           overflow: hidden;
           padding: 8px;
           cursor: pointer;
           text-align: left;
-          transition: 0.18s ease;
+          transition:
+            transform 0.18s ease,
+            border-color 0.18s ease,
+            box-shadow 0.18s ease;
+          box-shadow: 0 10px 22px rgba(15, 23, 42, 0.04);
         }
 
         .design-card:hover {
           transform: translateY(-2px);
           border-color: rgba(79, 70, 229, 0.18);
-          box-shadow: 0 16px 34px rgba(15, 23, 42, 0.07);
+          box-shadow: 0 16px 34px rgba(15, 23, 42, 0.08);
         }
 
         .design-card.is-selected {
-          border-color: #0ea5a4;
+          border-color: rgba(14, 165, 164, 0.42);
           box-shadow:
             0 0 0 4px rgba(14, 165, 164, 0.1),
-            0 16px 34px rgba(15, 23, 42, 0.08);
+            0 16px 34px rgba(15, 23, 42, 0.09);
         }
 
         .design-card__image-wrap {
           position: relative;
           aspect-ratio: 1 / 1;
-          border-radius: 14px;
+          border-radius: 16px;
           overflow: hidden;
-          background: #f3f4f6;
+          background:
+            radial-gradient(circle at top left, rgba(129, 140, 248, 0.08), transparent 28%),
+            linear-gradient(180deg, #f8fafc, #eef2ff);
         }
 
         .design-card__image {
@@ -891,6 +1465,7 @@ function HomePageInner() {
           height: 100%;
           object-fit: contain;
           display: block;
+          padding: 12px;
         }
 
         .design-card__badge {
@@ -903,9 +1478,9 @@ function HomePageInner() {
           font-size: 10px;
           font-weight: 900;
           line-height: 1.1;
-          color: #4f46e5;
-          background: rgba(255, 255, 255, 0.92);
-          border: 1px solid rgba(0, 184, 169, 0.14);
+          color: #4338ca;
+          background: rgba(255, 255, 255, 0.94);
+          border: 1px solid rgba(79, 70, 229, 0.12);
           backdrop-filter: blur(8px);
           white-space: nowrap;
           overflow: hidden;
@@ -920,8 +1495,8 @@ function HomePageInner() {
           height: 34px;
           border: none;
           border-radius: 999px;
-          background: rgba(255, 255, 255, 0.92);
-          border: 1px solid rgba(17, 24, 39, 0.08);
+          background: rgba(255, 255, 255, 0.94);
+          border: 1px solid rgba(15, 23, 42, 0.08);
           color: #111827;
           font-size: 14px;
           display: flex;
@@ -935,46 +1510,131 @@ function HomePageInner() {
           position: absolute;
           top: 8px;
           right: 8px;
-          width: 26px;
-          height: 26px;
+          width: 28px;
+          height: 28px;
           border-radius: 999px;
           display: flex;
           align-items: center;
           justify-content: center;
-          background: #0ea5a4;
+          background: linear-gradient(180deg, #14b8a6, #0f766e);
           color: #fff;
           font-size: 13px;
           font-weight: 1000;
+          box-shadow: 0 10px 20px rgba(15, 118, 110, 0.25);
         }
 
         .design-card__body {
-          padding: 10px 4px 2px;
+          padding: 12px 6px 4px;
         }
 
         .design-card__title {
-          font-size: 13px;
+          font-size: 14px;
           font-weight: 950;
           color: #111827;
           line-height: 1.15;
         }
 
-        .selected-box {
-          margin-top: 18px;
+        .design-card__meta {
+          margin-top: 5px;
+          font-size: 12px;
+          line-height: 1.45;
+          color: #64748b;
+          font-weight: 700;
         }
 
-        .selected-box__btn {
-          width: 100%;
+        .studio-actionbar {
+          position: sticky;
+          bottom: 0;
+          margin-top: 18px;
+          border: 1px solid rgba(15, 23, 42, 0.08);
+          background: rgba(255, 255, 255, 0.9);
+          backdrop-filter: blur(16px);
+          border-radius: 22px;
+          padding: 14px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 14px;
+          flex-wrap: wrap;
+          box-shadow: 0 18px 34px rgba(15, 23, 42, 0.08);
+        }
+
+        .studio-actionbar__meta {
+          display: grid;
+          gap: 3px;
+        }
+
+        .studio-actionbar__eyebrow {
+          font-size: 11px;
+          font-weight: 950;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: #4f46e5;
+        }
+
+        .studio-actionbar__title {
+          font-size: 16px;
+          line-height: 1.15;
+          color: #0f172a;
+        }
+
+        .studio-actionbar__sub {
+          font-size: 13px;
+          line-height: 1.45;
+          color: #64748b;
+          font-weight: 700;
+        }
+
+        .studio-actionbar__actions {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+
+        .studio-secondary-btn,
+        .studio-primary-btn {
           appearance: none;
           border: none;
+          cursor: pointer;
+          transition:
+            transform 0.18s ease,
+            opacity 0.18s ease,
+            filter 0.18s ease;
+          font: inherit;
+        }
+
+        .studio-secondary-btn:disabled,
+        .studio-primary-btn:disabled {
+          opacity: 0.54;
+          cursor: not-allowed;
+        }
+
+        .studio-secondary-btn:not(:disabled):hover,
+        .studio-primary-btn:not(:disabled):hover {
+          transform: translateY(-1px);
+        }
+
+        .studio-secondary-btn {
+          min-height: 46px;
+          padding: 0 16px;
+          border-radius: 14px;
+          background: #f3f4f6;
+          color: #111827;
+          font-size: 14px;
+          font-weight: 900;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
+        }
+
+        .studio-primary-btn {
+          min-height: 48px;
+          padding: 0 18px;
           border-radius: 14px;
           background: linear-gradient(180deg, #111827, #0f172a);
           color: #fff;
-          min-height: 50px;
-          padding: 0 16px;
-          font-size: 15px;
+          font-size: 14px;
           font-weight: 950;
-          cursor: pointer;
-          box-shadow: 0 12px 22px rgba(15, 23, 42, 0.18);
+          box-shadow: 0 14px 24px rgba(15, 23, 42, 0.18);
         }
 
         .preview-modal {
@@ -986,6 +1646,7 @@ function HomePageInner() {
           align-items: center;
           justify-content: center;
           padding: 20px;
+          backdrop-filter: blur(6px);
         }
 
         .preview-modal__dialog {
@@ -1023,7 +1684,7 @@ function HomePageInner() {
           height: 52px;
           border: none;
           border-radius: 999px;
-          background: rgba(255, 255, 255, 0.92);
+          background: rgba(255, 255, 255, 0.94);
           color: #111827;
           font-size: 34px;
           font-weight: 500;
@@ -1045,7 +1706,9 @@ function HomePageInner() {
         }
 
         .preview-modal__image-wrap {
-          background: #f8fafc;
+          background:
+            radial-gradient(circle at top left, rgba(129, 140, 248, 0.08), transparent 28%),
+            linear-gradient(180deg, #f8fafc, #eef2ff);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -1142,6 +1805,16 @@ function HomePageInner() {
           }
         }
 
+        @media (max-width: 900px) {
+          .composer-title {
+            font-size: 28px;
+          }
+
+          .results-title {
+            font-size: 24px;
+          }
+        }
+
         @media (max-width: 760px) {
           .page-shell {
             padding: 14px;
@@ -1153,6 +1826,11 @@ function HomePageInner() {
 
           .composer-card,
           .results-block {
+            border-radius: 20px;
+            padding: 14px;
+          }
+
+          .brief-shell {
             border-radius: 18px;
             padding: 14px;
           }
@@ -1166,7 +1844,7 @@ function HomePageInner() {
           }
 
           .prompt-textarea {
-            min-height: 110px;
+            min-height: 118px;
             border-radius: 16px;
           }
 
@@ -1190,6 +1868,20 @@ function HomePageInner() {
 
           .results-grid--3 {
             grid-template-columns: 1fr;
+          }
+
+          .studio-actionbar {
+            border-radius: 18px;
+          }
+
+          .studio-actionbar__actions {
+            width: 100%;
+          }
+
+          .studio-secondary-btn,
+          .studio-primary-btn {
+            flex: 1 1 auto;
+            min-width: 0;
           }
 
           .preview-modal__dialog {
