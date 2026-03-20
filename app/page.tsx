@@ -31,93 +31,128 @@ type ChipDef = {
   helper: string;
 };
 
-const STICKER_CHIPS: ChipDef[] = [
-  { id: "circular", label: "Circular", helper: "Fuerza una composición redonda tipo badge." },
-  { id: "iconico", label: "Icónico", helper: "Busca una silueta más memorable y reconocible." },
-  { id: "compacto", label: "Compacto", helper: "Aprieta la composición para que se sienta más sticker." },
-  { id: "vintage", label: "Vintage", helper: "Le da una dirección retro más trabajada." },
-  { id: "street", label: "Street", helper: "Empuja una energía más urbana y gráfica." },
-  { id: "premium", label: "Premium", helper: "Sube el acabado visual y la sensación premium." },
-  { id: "colores_vivos", label: "Colores vivos", helper: "Empuja una paleta más saturada y comercial." },
-  { id: "alto_contraste", label: "Alto contraste", helper: "Mejora legibilidad y punch visual." },
-  { id: "minimal", label: "Minimal", helper: "Reduce ruido y elementos innecesarios." },
-  { id: "divertido", label: "Divertido", helper: "Hace la propuesta más juguetona o carismática." },
-  { id: "feroz", label: "Feroz", helper: "Le mete más agresividad y fuerza." },
-  { id: "elegante", label: "Elegante", helper: "Refina formas, postura y lenguaje visual." },
+type ChipGroup = {
+  id: string;
+  title: string;
+  subtitle: string;
+  chips: ChipDef[];
+};
+
+const MAX_ACTIVE_CHIPS = 3;
+
+const STICKER_CHIP_GROUPS: ChipGroup[] = [
+  {
+    id: "shape",
+    title: "Forma del diseño",
+    subtitle: "Esto ayuda a definir cómo se acomoda o se lee tu sticker.",
+    chips: [
+      { id: "circular", label: "Circular", helper: "Fuerza una composición redonda tipo badge." },
+      { id: "iconico", label: "Icónico", helper: "Busca una silueta más memorable y reconocible." },
+      { id: "compacto", label: "Compacto", helper: "Aprieta la composición para que se sienta más sticker." },
+      { id: "alto_contraste", label: "Alto contraste", helper: "Mejora legibilidad y punch visual." },
+      { id: "minimal", label: "Minimal", helper: "Reduce ruido y elementos innecesarios." },
+    ],
+  },
+  {
+    id: "style",
+    title: "Estilo y personalidad",
+    subtitle: "Esto define el look, la energía y el acabado visual.",
+    chips: [
+      { id: "vintage", label: "Vintage", helper: "Le da una dirección retro más trabajada." },
+      { id: "street", label: "Street", helper: "Empuja una energía más urbana y gráfica." },
+      { id: "premium", label: "Premium", helper: "Sube el acabado visual y la sensación premium." },
+      { id: "colores_vivos", label: "Colores vivos", helper: "Empuja una paleta más saturada y comercial." },
+      { id: "divertido", label: "Divertido", helper: "Hace la propuesta más juguetona o carismática." },
+      { id: "feroz", label: "Feroz", helper: "Le mete más agresividad y fuerza." },
+      { id: "elegante", label: "Elegante", helper: "Refina formas, postura y lenguaje visual." },
+    ],
+  },
 ];
 
-const PLAYERA_CHIPS: ChipDef[] = [
-  { id: "composicion_frontal", label: "Composición frontal", helper: "Piensa el arte como gráfico frontal usable en playera." },
-  { id: "impacto_visual", label: "Impacto visual", helper: "Empuja una propuesta más fuerte y llamativa." },
-  { id: "estilo_pecho", label: "Estilo pecho", helper: "Composición más compacta para colocación tipo pecho." },
-  { id: "streetwear", label: "Streetwear", helper: "Dirección más moda urbana / graphic tee." },
-  { id: "vintage", label: "Vintage", helper: "Retro trabajado con lógica de prenda." },
-  { id: "premium", label: "Premium", helper: "Empuja una lectura más refinada y vendible." },
-  { id: "alto_contraste", label: "Alto contraste", helper: "Aumenta punch y lectura sobre prenda." },
-  { id: "tonos_oscuros", label: "Tonos oscuros", helper: "Paleta más profunda y con más peso visual." },
-  { id: "minimal", label: "Minimal", helper: "Reduce ruido y carga visual." },
-  { id: "divertido", label: "Divertido", helper: "Hace la dirección más amigable o juguetona." },
-  { id: "feroz", label: "Feroz", helper: "Le mete más intensidad y presencia al arte." },
-  { id: "elegante", label: "Elegante", helper: "Más refinado y sofisticado." },
+const PLAYERA_CHIP_GROUPS: ChipGroup[] = [
+  {
+    id: "layout",
+    title: "Acomodo en la playera",
+    subtitle: "Esto ayuda a definir cómo se verá mejor sobre la prenda.",
+    chips: [
+      { id: "composicion_frontal", label: "Composición frontal", helper: "Piensa el arte como gráfico frontal usable en playera." },
+      { id: "impacto_visual", label: "Impacto visual", helper: "Empuja una propuesta más fuerte y llamativa." },
+      { id: "estilo_pecho", label: "Estilo pecho", helper: "Composición más compacta para colocación tipo pecho." },
+      { id: "alto_contraste", label: "Alto contraste", helper: "Aumenta punch y lectura sobre prenda." },
+      { id: "minimal", label: "Minimal", helper: "Reduce ruido y carga visual." },
+    ],
+  },
+  {
+    id: "style",
+    title: "Estilo y personalidad",
+    subtitle: "Esto define el look, el ambiente y el acabado del diseño.",
+    chips: [
+      { id: "streetwear", label: "Streetwear", helper: "Dirección más moda urbana / graphic tee." },
+      { id: "vintage", label: "Vintage", helper: "Retro trabajado con lógica de prenda." },
+      { id: "premium", label: "Premium", helper: "Empuja una lectura más refinada y vendible." },
+      { id: "tonos_oscuros", label: "Tonos oscuros", helper: "Paleta más profunda y con más peso visual." },
+      { id: "divertido", label: "Divertido", helper: "Hace la dirección más amigable o juguetona." },
+      { id: "feroz", label: "Feroz", helper: "Le mete más intensidad y presencia al arte." },
+      { id: "elegante", label: "Elegante", helper: "Más refinado y sofisticado." },
+    ],
+  },
 ];
 
 const MODE_CONTENT = {
   sticker: {
-    modePill: "Sticker Studio",
-    modeProof: "Compacto · Comercial · Listo para impresión",
-    title: "Dirige tu sticker como si estuvieras en un estudio",
+    title: "Diseña un sticker personalizado en pocos pasos",
     subhelp:
-      "Escribe tu idea base y luego afina la dirección visual. El estudio te devolverá 3 propuestas compactas, pensadas para funcionar mejor como sticker.",
+      "Escribe lo que quieres que aparezca en tu diseño y te mostraremos 3 opciones para elegir la que más te guste.",
     placeholder:
-      "Ejemplo: tigre feroz con corona y nombre Leo, look premium, fuerte y muy icónico",
-    chipTitle: "Dirección creativa sugerida",
-    chipHelp:
-      "Tócalos para orientar composición, energía, paleta y estilo. Sí influyen en la generación.",
-    note:
-      "Generaremos 3 rutas pensadas para verse fuertes, compactas y más vendibles como sticker.",
-    generateLabel: "Explorar propuestas",
-    generateSub: "3 rutas listas para sticker",
-    loadingTitle: "Generando 3 rutas para sticker",
+      "Ejemplo: un tigre feroz con corona, nombre Leo y un estilo premium",
+    ideaLabel: "Cuéntanos qué quieres",
+    ideaNote:
+      "Puedes escribir el personaje, nombre, colores, frase o cualquier detalle importante.",
+    chipsTitle: "Elige cómo quieres que se vea",
+    chipsSub:
+      "Selecciona hasta 3 opciones para decirnos qué estilo te gustaría para tu diseño.",
+    primaryCta: "Explorar propuestas",
+    primarySub: "3 opciones listas para sticker",
+    loadingTitle: "Estamos creando tus 3 opciones",
     loadingSub:
-      "Interpretando tu idea como una propuesta más compacta, comercial y lista para impresión.",
+      "Tomando tu idea y preparándola para que se vea mejor como sticker.",
     resultsKicker: "Propuestas del estudio",
-    resultsTitle: "Explora tus 3 rutas para sticker",
+    resultsTitle: "Elige tu opción favorita",
     resultsSub:
-      "Cada propuesta fue pensada para leerse mejor como arte comercial, no solo como imagen bonita.",
-    directionPanelTitle: "Dirección aplicada",
+      "Revisa las 3 propuestas y selecciona la que más te guste para tu sticker.",
+    directionPanelTitle: "Estilo elegido",
     directionPanelSub:
-      "El estudio tomará tu idea base y la refinará internamente con esta dirección.",
-    selectionReady: "Lista para aplicarse a tu sticker.",
-    primaryCta: "Usar este diseño en mi sticker",
+      "Tomaremos tu idea y la refinaremos con estas indicaciones.",
+    selectionReady: "Lista para usarse en tu sticker.",
+    finalCta: "Usar este diseño en mi sticker",
     previewSelect: "Seleccionar este diseño para sticker",
   },
   playera: {
-    modePill: "Playera Studio",
-    modeProof: "Prenda · Jerarquía · Más presencia visual",
-    title: "Construye una gráfica con más presencia para playera",
+    title: "Diseña una playera personalizada en pocos pasos",
     subhelp:
-      "Escribe tu idea base y afina la dirección visual. El estudio te devolverá 3 propuestas pensadas para verse potentes sobre prenda.",
+      "Escribe lo que quieres que aparezca en tu diseño y te mostraremos 3 opciones para elegir la que más te guste.",
     placeholder:
-      "Ejemplo: samurái vintage para playera, composición frontal fuerte, look premium y mucha presencia",
-    chipTitle: "Dirección creativa sugerida",
-    chipHelp:
-      "Úsalos para orientar composición, energía, paleta y estilo en prenda. Sí afectan cómo se arma la propuesta.",
-    note:
-      "Generaremos 3 rutas con más jerarquía, más presencia y mejor lectura sobre tela.",
-    generateLabel: "Explorar propuestas",
-    generateSub: "3 rutas listas para playera",
-    loadingTitle: "Generando 3 rutas para playera",
+      "Ejemplo: samurái vintage para playera con estilo premium y mucha presencia",
+    ideaLabel: "Cuéntanos qué quieres",
+    ideaNote:
+      "Puedes escribir el personaje, nombre, colores, frase o cualquier detalle importante.",
+    chipsTitle: "Elige cómo quieres que se vea",
+    chipsSub:
+      "Selecciona hasta 3 opciones para decirnos qué estilo te gustaría para tu diseño.",
+    primaryCta: "Explorar propuestas",
+    primarySub: "3 opciones listas para playera",
+    loadingTitle: "Estamos creando tus 3 opciones",
     loadingSub:
-      "Traduciendo tu idea a una gráfica con más impacto, jerarquía y mejor lectura sobre prenda.",
+      "Tomando tu idea y preparándola para que se vea mejor sobre una playera.",
     resultsKicker: "Propuestas del estudio",
-    resultsTitle: "Explora tus 3 rutas para playera",
+    resultsTitle: "Elige tu opción favorita",
     resultsSub:
-      "Cada propuesta fue pensada como una graphic tee más usable y vendible, no solo como imagen generada.",
-    directionPanelTitle: "Dirección aplicada",
+      "Revisa las 3 propuestas y selecciona la que más te guste para tu playera.",
+    directionPanelTitle: "Estilo elegido",
     directionPanelSub:
-      "El estudio tomará tu idea base y la refinará internamente con esta dirección.",
-    selectionReady: "Lista para aplicarse a tu playera.",
-    primaryCta: "Usar este diseño en mi playera",
+      "Tomaremos tu idea y la refinaremos con estas indicaciones.",
+    selectionReady: "Lista para usarse en tu playera.",
+    finalCta: "Usar este diseño en mi playera",
     previewSelect: "Seleccionar este diseño para playera",
   },
 } as const;
@@ -129,6 +164,7 @@ function HomePageInner() {
   const [mode, setMode] = useState<DesignMode>("sticker");
   const [prompt, setPrompt] = useState("");
   const [activeChips, setActiveChips] = useState<ChipId[]>([]);
+  const [chipMessage, setChipMessage] = useState("");
   const [images, setImages] = useState<string[]>([]);
   const [labels, setLabels] = useState<string[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -138,11 +174,16 @@ function HomePageInner() {
 
   const isEmbedded = searchParams.get("embed") === "1";
   const modeContent = MODE_CONTENT[mode];
-  const availableChips = mode === "sticker" ? STICKER_CHIPS : PLAYERA_CHIPS;
+  const chipGroups = mode === "sticker" ? STICKER_CHIP_GROUPS : PLAYERA_CHIP_GROUPS;
+
+  const allAvailableChips = useMemo(
+    () => chipGroups.flatMap((group) => group.chips),
+    [chipGroups]
+  );
 
   const activeChipDefs = useMemo(
-    () => availableChips.filter((chip) => activeChips.includes(chip.id)),
-    [availableChips, activeChips]
+    () => allAvailableChips.filter((chip) => activeChips.includes(chip.id)),
+    [allAvailableChips, activeChips]
   );
 
   const selectedImage = selectedIndex !== null ? images[selectedIndex] : null;
@@ -193,6 +234,7 @@ function HomePageInner() {
     setSelectedIndex(null);
     setPreviewIndex(null);
     setActiveChips([]);
+    setChipMessage("");
     setError("");
   }, [mode]);
 
@@ -233,6 +275,7 @@ function HomePageInner() {
     error,
     activeChips.length,
     prompt.length,
+    chipMessage,
   ]);
 
   useEffect(() => {
@@ -265,11 +308,21 @@ function HomePageInner() {
 
   function toggleChip(chipId: ChipId) {
     setError("");
-    setActiveChips((current) =>
-      current.includes(chipId)
-        ? current.filter((item) => item !== chipId)
-        : [...current, chipId]
-    );
+
+    setActiveChips((current) => {
+      if (current.includes(chipId)) {
+        setChipMessage("");
+        return current.filter((item) => item !== chipId);
+      }
+
+      if (current.length >= MAX_ACTIVE_CHIPS) {
+        setChipMessage("Puedes elegir máximo 3 opciones.");
+        return current;
+      }
+
+      setChipMessage("");
+      return [...current, chipId];
+    });
   }
 
   function openPreview(index: number) {
@@ -387,16 +440,13 @@ function HomePageInner() {
         <div className="page-wrap">
           <section className="composer-card">
             <div className="studio-topbar">
-              <div className="studio-brand-wrap">
+              <div className="studio-brand-stack">
                 <div className="studio-brandmark" aria-label="AutoPrint AI Studio">
                   <span className="studio-brandmark__core">AUTOPRINT</span>
                   <span className="studio-brandmark__accent">AI STUDIO</span>
                 </div>
-
-                <div className="studio-mode-pill">{modeContent.modePill}</div>
+                <div className="studio-brand-curve" aria-hidden="true" />
               </div>
-
-              <div className="studio-proof">{modeContent.modeProof}</div>
             </div>
 
             <div className="composer-head">
@@ -408,10 +458,8 @@ function HomePageInner() {
 
             <div className="brief-shell">
               <div className="brief-head">
-                <div className="brief-label">Brief creativo</div>
-                <div className="brief-note">
-                  Idea base + dirección visual = mejor resultado
-                </div>
+                <div className="brief-label">{modeContent.ideaLabel}</div>
+                <div className="brief-note">{modeContent.ideaNote}</div>
               </div>
 
               <textarea
@@ -428,30 +476,42 @@ function HomePageInner() {
 
               <div className="chips-zone">
                 <div className="chips-head">
-                  <div>
-                    <div className="chips-title">{modeContent.chipTitle}</div>
-                    <div className="chips-sub">{modeContent.chipHelp}</div>
-                  </div>
+                  <div className="chips-title">{modeContent.chipsTitle}</div>
+                  <div className="chips-sub">{modeContent.chipsSub}</div>
                 </div>
 
-                <div className="chips-scroll-hint">Desliza para ver más estilos</div>
+                <div className="chips-status-row">
+                  <div className="chips-status">
+                    {activeChips.length}/{MAX_ACTIVE_CHIPS} opciones elegidas
+                  </div>
+                  {chipMessage ? <div className="chip-message">{chipMessage}</div> : null}
+                </div>
 
-                <div className="chips-grid">
-                  {availableChips.map((chip) => {
-                    const isActive = activeChips.includes(chip.id);
+                <div className="chip-groups-grid">
+                  {chipGroups.map((group) => (
+                    <div key={group.id} className="chip-group-card">
+                      <div className="chip-group-card__title">{group.title}</div>
+                      <div className="chip-group-card__subtitle">{group.subtitle}</div>
 
-                    return (
-                      <button
-                        key={chip.id}
-                        type="button"
-                        title={chip.helper}
-                        className={`chip-btn ${isActive ? "is-active" : ""}`}
-                        onClick={() => toggleChip(chip.id)}
-                      >
-                        <span className="chip-btn__text">{chip.label}</span>
-                      </button>
-                    );
-                  })}
+                      <div className="chip-group-card__chips">
+                        {group.chips.map((chip) => {
+                          const isActive = activeChips.includes(chip.id);
+
+                          return (
+                            <button
+                              key={chip.id}
+                              type="button"
+                              title={chip.helper}
+                              className={`chip-btn ${isActive ? "is-active" : ""}`}
+                              onClick={() => toggleChip(chip.id)}
+                            >
+                              <span className="chip-btn__text">{chip.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
 
                 {activeChipDefs.length > 0 ? (
@@ -477,8 +537,6 @@ function HomePageInner() {
               </div>
 
               <div className="composer-foot">
-                <p className="prompt-note">{modeContent.note}</p>
-
                 <button
                   type="button"
                   onClick={handleGenerate}
@@ -499,10 +557,10 @@ function HomePageInner() {
 
                     <span className="ai-generate-btn__copy">
                       <span className="ai-generate-btn__label">
-                        {loading ? "Generando..." : modeContent.generateLabel}
+                        {loading ? "Generando..." : modeContent.primaryCta}
                       </span>
                       <span className="ai-generate-btn__sub">
-                        {loading ? "3 propuestas en proceso" : modeContent.generateSub}
+                        {loading ? "3 opciones en proceso" : modeContent.primarySub}
                       </span>
                     </span>
                   </span>
@@ -528,15 +586,15 @@ function HomePageInner() {
                 <div className="loading-steps">
                   <div className="loading-step">
                     <span className="loading-step__bullet" />
-                    Interpretando tu idea base
+                    Entendiendo tu idea
                   </div>
                   <div className="loading-step">
                     <span className="loading-step__bullet" />
-                    Aplicando dirección creativa
+                    Aplicando tu estilo elegido
                   </div>
                   <div className="loading-step">
                     <span className="loading-step__bullet" />
-                    Construyendo 3 rutas visuales
+                    Preparando 3 opciones para elegir
                   </div>
                 </div>
               </div>
@@ -602,12 +660,12 @@ function HomePageInner() {
                         <div className="design-card__title">
                           {isSelected
                             ? "Selección actual"
-                            : `Ruta ${index + 1} del estudio`}
+                            : `Opción ${index + 1}`}
                         </div>
                         <div className="design-card__meta">
                           {isSelected
                             ? modeContent.selectionReady
-                            : "Haz clic para elegir esta propuesta."}
+                            : "Haz clic para elegir esta opción."}
                         </div>
                       </div>
                     </div>
@@ -619,12 +677,12 @@ function HomePageInner() {
                 <div className="studio-actionbar__meta">
                   <span className="studio-actionbar__eyebrow">Selección final</span>
                   <strong className="studio-actionbar__title">
-                    {selectedLabel || "Elige una propuesta"}
+                    {selectedLabel || "Elige una opción"}
                   </strong>
                   <span className="studio-actionbar__sub">
                     {selectedImage
                       ? modeContent.selectionReady
-                      : "Toca una propuesta para continuar."}
+                      : "Toca una opción para continuar."}
                   </span>
                 </div>
 
@@ -646,7 +704,7 @@ function HomePageInner() {
                     disabled={selectedIndex === null}
                     onClick={handleContinueWithDesign}
                   >
-                    {modeContent.primaryCta}
+                    {modeContent.finalCta}
                   </button>
                 </div>
               </div>
@@ -802,27 +860,26 @@ function HomePageInner() {
           position: relative;
           z-index: 1;
           display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 14px;
-          flex-wrap: wrap;
-          margin-bottom: 16px;
+          justify-content: center;
+          margin-bottom: 18px;
+          text-align: center;
         }
 
-        .studio-brand-wrap {
+        .studio-brand-stack {
           display: flex;
+          flex-direction: column;
           align-items: center;
-          gap: 12px;
-          flex-wrap: wrap;
+          gap: 10px;
         }
 
         .studio-brandmark {
           display: inline-flex;
           align-items: center;
-          gap: 8px;
-          font-size: 12px;
+          justify-content: center;
+          gap: 10px;
+          font-size: 15px;
           font-weight: 1000;
-          letter-spacing: 0.1em;
+          letter-spacing: 0.12em;
           text-transform: uppercase;
         }
 
@@ -838,55 +895,52 @@ function HomePageInner() {
           text-shadow: 0 0 18px rgba(124, 58, 237, 0.14);
         }
 
-        .studio-mode-pill,
-        .studio-proof {
-          min-height: 30px;
-          padding: 0 12px;
+        .studio-brand-curve {
+          width: 220px;
+          height: 16px;
+          border-bottom: 1.5px solid rgba(139, 92, 246, 0.45);
+          border-radius: 0 0 999px 999px;
+          position: relative;
+        }
+
+        .studio-brand-curve::after {
+          content: "";
+          position: absolute;
+          left: 50%;
+          transform: translateX(-50%);
+          bottom: -1.5px;
+          width: 70px;
+          height: 2px;
+          background: linear-gradient(90deg, rgba(139,92,246,0), rgba(34,211,238,0.9), rgba(139,92,246,0));
           border-radius: 999px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 11px;
-          font-weight: 900;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-        }
-
-        .studio-mode-pill {
-          color: #e5e7eb;
-          background: rgba(255, 255, 255, 0.06);
-          border: 1px solid rgba(139, 92, 246, 0.2);
-        }
-
-        .studio-proof {
-          color: #d5deed;
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid rgba(255, 255, 255, 0.08);
         }
 
         .composer-head {
           position: relative;
           z-index: 1;
           margin-bottom: 16px;
+          text-align: center;
         }
 
         .composer-title {
           margin: 0 0 10px;
           font-size: 34px;
-          line-height: 0.98;
+          line-height: 1.02;
           letter-spacing: -0.04em;
           font-weight: 1000;
           color: #f8fafc;
-          max-width: 840px;
+          max-width: 760px;
+          margin-left: auto;
+          margin-right: auto;
         }
 
         .composer-subhelp {
-          margin: 0;
+          margin: 0 auto;
           font-size: 14px;
           line-height: 1.58;
           color: #b2bfd4;
           font-weight: 700;
-          max-width: 780px;
+          max-width: 760px;
         }
 
         .brief-shell {
@@ -900,26 +954,23 @@ function HomePageInner() {
         }
 
         .brief-head {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 10px;
-          flex-wrap: wrap;
-          margin-bottom: 12px;
+          display: grid;
+          gap: 6px;
+          margin-bottom: 14px;
         }
 
         .brief-label {
-          font-size: 12px;
+          font-size: 19px;
           font-weight: 950;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-          color: #f1f5f9;
+          color: #f8fafc;
+          letter-spacing: -0.02em;
         }
 
         .brief-note {
-          font-size: 12px;
-          font-weight: 800;
-          color: #91a0b6;
+          font-size: 13px;
+          font-weight: 700;
+          color: #a9b8cc;
+          line-height: 1.5;
         }
 
         .prompt-textarea {
@@ -951,7 +1002,7 @@ function HomePageInner() {
         }
 
         .chips-zone {
-          margin-top: 16px;
+          margin-top: 18px;
         }
 
         .chips-head {
@@ -959,10 +1010,11 @@ function HomePageInner() {
         }
 
         .chips-title {
-          font-size: 13px;
+          font-size: 18px;
           font-weight: 950;
           color: #f8fafc;
           margin-bottom: 4px;
+          letter-spacing: -0.02em;
         }
 
         .chips-sub {
@@ -973,17 +1025,58 @@ function HomePageInner() {
           max-width: 760px;
         }
 
-        .chips-scroll-hint {
-          display: none;
-          margin-bottom: 10px;
-          font-size: 11px;
-          font-weight: 800;
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
-          color: #8495af;
+        .chips-status-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          flex-wrap: wrap;
+          margin-bottom: 12px;
         }
 
-        .chips-grid {
+        .chips-status {
+          font-size: 12px;
+          font-weight: 900;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: #dbe4f1;
+        }
+
+        .chip-message {
+          font-size: 12px;
+          font-weight: 800;
+          color: #fbbf24;
+        }
+
+        .chip-groups-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 14px;
+        }
+
+        .chip-group-card {
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 18px;
+          padding: 14px;
+          background: rgba(255, 255, 255, 0.03);
+        }
+
+        .chip-group-card__title {
+          font-size: 14px;
+          font-weight: 950;
+          color: #f8fafc;
+          margin-bottom: 4px;
+        }
+
+        .chip-group-card__subtitle {
+          font-size: 12px;
+          line-height: 1.45;
+          color: #9eb0c8;
+          font-weight: 700;
+          margin-bottom: 12px;
+        }
+
+        .chip-group-card__chips {
           display: flex;
           flex-wrap: wrap;
           gap: 10px;
@@ -1030,7 +1123,7 @@ function HomePageInner() {
         }
 
         .direction-panel {
-          margin-top: 14px;
+          margin-top: 16px;
           border: 1px solid rgba(139, 92, 246, 0.14);
           background:
             radial-gradient(circle at top left, rgba(124, 58, 237, 0.08), transparent 32%),
@@ -1083,19 +1176,7 @@ function HomePageInner() {
         .composer-foot {
           margin-top: 18px;
           display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 16px;
-          flex-wrap: wrap;
-        }
-
-        .prompt-note {
-          margin: 0;
-          font-size: 13px;
-          font-weight: 800;
-          color: #aebed3;
-          line-height: 1.5;
-          max-width: 560px;
+          justify-content: center;
         }
 
         .ai-generate-btn {
@@ -1104,7 +1185,7 @@ function HomePageInner() {
           border: 0;
           background: transparent;
           padding: 0;
-          min-width: 282px;
+          min-width: 320px;
           height: 62px;
           border-radius: 20px;
           cursor: pointer;
@@ -1112,7 +1193,6 @@ function HomePageInner() {
             transform 0.2s ease,
             opacity 0.18s ease,
             filter 0.18s ease;
-          flex-shrink: 0;
           overflow: visible;
         }
 
@@ -1816,6 +1896,10 @@ function HomePageInner() {
           .results-title {
             font-size: 24px;
           }
+
+          .chip-groups-grid {
+            grid-template-columns: 1fr;
+          }
         }
 
         @media (max-width: 760px) {
@@ -1840,6 +1924,14 @@ function HomePageInner() {
             background: none;
           }
 
+          .studio-brandmark {
+            font-size: 14px;
+          }
+
+          .studio-brand-curve {
+            width: 180px;
+          }
+
           .brief-shell {
             border-radius: 18px;
             padding: 14px;
@@ -1854,26 +1946,29 @@ function HomePageInner() {
             font-size: 13px;
           }
 
+          .brief-label {
+            font-size: 17px;
+          }
+
           .prompt-textarea {
             min-height: 118px;
             border-radius: 16px;
           }
 
-          .chips-scroll-hint {
-            display: block;
+          .chip-groups-grid {
+            grid-template-columns: 1fr;
           }
 
-          .chips-grid {
+          .chip-group-card__chips {
             flex-wrap: nowrap;
             overflow-x: auto;
             overflow-y: hidden;
             padding-bottom: 4px;
-            margin-right: -4px;
             scrollbar-width: none;
             -ms-overflow-style: none;
           }
 
-          .chips-grid::-webkit-scrollbar {
+          .chip-group-card__chips::-webkit-scrollbar {
             display: none;
           }
 
