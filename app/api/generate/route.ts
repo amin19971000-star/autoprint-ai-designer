@@ -17,6 +17,7 @@ const FLUX_OUTPUT_FORMAT = "png";
 const FLUX_SAFETY_TOLERANCE = 5;
 
 type DesignMode = "sticker" | "playera";
+type StudioTab = "free" | "event";
 
 type ChipId =
   | "circular"
@@ -36,6 +37,21 @@ type ChipId =
   | "estilo_pecho"
   | "streetwear"
   | "tonos_oscuros";
+
+type EventData = {
+  name: string;
+  number: string;
+  eventType: string;
+  theme: string;
+  phrase: string;
+  details: string;
+  colors: string[];
+  customColors: string;
+  preferredColors: string[];
+  hasAny: boolean;
+  hasTextPriority: boolean;
+  hasColorPriority: boolean;
+};
 
 type PromptPack = {
   option_a_label: string;
@@ -114,6 +130,78 @@ const PLAYERA_ALLOWED_CHIPS = new Set<ChipId>([
 
 function cleanInput(input: string) {
   return String(input || "").trim().replace(/\s+/g, " ");
+}
+
+function cleanStringArray(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+
+  const out: string[] = [];
+  const seen = new Set<string>();
+
+  for (const item of input) {
+    const value = cleanInput(String(item || ""));
+    if (!value) continue;
+
+    const key = value.toLowerCase();
+    if (seen.has(key)) continue;
+
+    seen.add(key);
+    out.push(value);
+  }
+
+  return out;
+}
+
+function normalizeStudioTab(input: unknown): StudioTab {
+  return String(input || "").trim().toLowerCase() === "event" ? "event" : "free";
+}
+
+function normalizeEventData(raw: unknown): EventData {
+  const obj = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+
+  const name = cleanInput(String(obj?.name || ""));
+  const number = cleanInput(String(obj?.number || ""));
+  const eventType = cleanInput(String(obj?.eventType || ""));
+  const theme = cleanInput(String(obj?.theme || ""));
+  const phrase = cleanInput(String(obj?.phrase || ""));
+  const details = cleanInput(String(obj?.details || ""));
+  const colors = cleanStringArray(obj?.colors).slice(0, 4);
+  const customColors = cleanInput(String(obj?.customColors || ""));
+
+  const preferredColors = [...colors];
+  if (customColors) {
+    const keySet = new Set(preferredColors.map((x) => x.toLowerCase()));
+    if (!keySet.has(customColors.toLowerCase())) {
+      preferredColors.push(customColors);
+    }
+  }
+
+  const hasAny =
+    !!name ||
+    !!number ||
+    !!eventType ||
+    !!theme ||
+    !!phrase ||
+    !!details ||
+    preferredColors.length > 0;
+
+  const hasTextPriority = !!name || !!number || !!phrase;
+  const hasColorPriority = preferredColors.length > 0;
+
+  return {
+    name,
+    number,
+    eventType,
+    theme,
+    phrase,
+    details,
+    colors,
+    customColors,
+    preferredColors,
+    hasAny,
+    hasTextPriority,
+    hasColorPriority,
+  };
 }
 
 function appendClause(base: string, addition: string) {
@@ -255,7 +343,18 @@ function normalizeBlueprint(input: any): DesignBlueprint | null {
   return blueprint;
 }
 
-function fallbackBlueprint(userPrompt: string, mode: DesignMode): DesignBlueprint {
+function fallbackBlueprint(
+  userPrompt: string,
+  mode: DesignMode,
+  eventData: EventData
+): DesignBlueprint {
+  const paletteFallback =
+    eventData.preferredColors.length > 0
+      ? `palette centered around ${eventData.preferredColors.join(", ")}`
+      : mode === "playera"
+      ? "high-contrast apparel-friendly palette with controlled accent colors"
+      : "bold sticker-friendly palette with strong separation and clean readability";
+
   return {
     translated_intent: userPrompt,
     design_family: mode === "playera" ? "graphic_poster" : "mascot_emblem",
@@ -272,17 +371,15 @@ function fallbackBlueprint(userPrompt: string, mode: DesignMode): DesignBlueprin
             "clean contour",
             "cutout-friendly silhouette",
           ],
-    palette_direction:
-      mode === "playera"
-        ? "high-contrast apparel-friendly palette with controlled accent colors"
-        : "bold sticker-friendly palette with strong separation and clean readability",
+    palette_direction: paletteFallback,
     detail_level: "medium",
     print_strategy:
       mode === "playera"
         ? "apparel-ready composition with readable forms, controlled detail density, and clean printable shapes"
         : "die-cut sticker composition with one compact silhouette, no detached background elements, and strong cutout readability",
-    typography_strategy:
-      "only include text if clearly requested by the user; keep it short, bold, readable, and intentionally integrated",
+    typography_strategy: eventData.hasTextPriority
+      ? "if text is used, preserve exact spelling of the short requested text, prioritize name first, number second, phrase third, keep it bold, clear, and intentionally integrated"
+      : "only include text if clearly requested by the user; keep it short, bold, readable, and intentionally integrated",
   };
 }
 
@@ -346,6 +443,8 @@ Design requirements for t-shirts:
 - If text is included, integrate it elegantly and intentionally.
 - Avoid cluttered backgrounds.
 - Avoid mockups or product photos.
+- DO NOT show a real shirt, a garment worn by a person, a folded shirt, a hanging shirt, or artwork printed on fabric.
+- The result must be the standalone artwork only on a pure white background.
     `.trim();
 }
 
@@ -507,6 +606,83 @@ function buildChipGuidance(
     const directive = getChipDirective(chip)[kind];
     if (directive) lines.push(`- ${directive}`);
   }
+
+  return lines.join("\n");
+}
+
+function getEventToneHint(eventType: string) {
+  const normalized = eventType.toLowerCase();
+
+  if (normalized.includes("cumple")) {
+    return "celebratory, festive, joyful, personalized, and gift-ready";
+  }
+
+  if (normalized.includes("bautizo")) {
+    return "delicate, meaningful, elegant, tender, and celebration-ready";
+  }
+
+  if (normalized.includes("baby")) {
+    return "sweet, tender, welcoming, and celebration-ready";
+  }
+
+  if (normalized.includes("comunión") || normalized.includes("comunion")) {
+    return "elegant, meaningful, soft, formal, and celebration-ready";
+  }
+
+  if (normalized.includes("temática") || normalized.includes("tematica")) {
+    return "theme-driven, festive, immersive, and celebration-ready";
+  }
+
+  return "personalized, occasion-aware, and celebration-ready";
+}
+
+function buildEventGuidance(eventData: EventData, mode: DesignMode): string {
+  if (!eventData.hasAny) {
+    return "- No structured event data provided.";
+  }
+
+  const lines: string[] = [
+    "- EVENT MODE IS ACTIVE. This is a personalized celebration or occasion-driven design request.",
+    `- Overall emotional tone should feel ${getEventToneHint(eventData.eventType || "event")}.`,
+  ];
+
+  if (eventData.name) {
+    lines.push(`- Exact name to prioritize: "${eventData.name}".`);
+  }
+
+  if (eventData.number) {
+    lines.push(`- Exact age or important number to prioritize: "${eventData.number}".`);
+  }
+
+  if (eventData.eventType) {
+    lines.push(`- Event type: "${eventData.eventType}".`);
+  }
+
+  if (eventData.theme) {
+    lines.push(`- Theme, character, or subject that should drive the imagery: "${eventData.theme}".`);
+  }
+
+  if (eventData.preferredColors.length) {
+    lines.push(`- Preferred colors that should clearly influence the palette: ${eventData.preferredColors.join(", ")}.`);
+  }
+
+  if (eventData.phrase) {
+    lines.push(`- Optional phrase that may be integrated if layout allows: "${eventData.phrase}".`);
+  }
+
+  if (eventData.details) {
+    lines.push(`- Extra customer details: "${eventData.details}".`);
+  }
+
+  lines.push(
+    "- PRIORITY ORDER: theme and event context guide the imagery; exact name and number are sacred if typography is used; phrase is secondary; selected colors should strongly influence the palette."
+  );
+
+  lines.push(
+    mode === "sticker"
+      ? "- The final result must still behave as a strong printable sticker, not as a loose party poster."
+      : "- The final result must still behave as a strong wearable shirt graphic, not as a mockup or a printed garment photo."
+  );
 
   return lines.join("\n");
 }
@@ -722,12 +898,135 @@ function applyChipConstraints(
   return next;
 }
 
+function applyEventConstraints(
+  blueprint: DesignBlueprint,
+  eventData: EventData,
+  mode: DesignMode,
+  chips: ChipId[],
+  studioTab: StudioTab
+): DesignBlueprint {
+  const next: DesignBlueprint = {
+    ...blueprint,
+    support_elements: [...blueprint.support_elements],
+  };
+
+  if (studioTab !== "event" || !eventData.hasAny) {
+    return next;
+  }
+
+  const hasChip = (chip: ChipId) => chips.includes(chip);
+
+  const toneHint = getEventToneHint(eventData.eventType || "event");
+
+  next.translated_intent = appendClause(
+    next.translated_intent,
+    `personalized ${eventData.eventType || "event"} design with a ${toneHint} tone`
+  );
+
+  next.visual_style = appendClause(
+    next.visual_style,
+    "personalized celebration-driven design that feels intentionally made for a real customer request"
+  );
+
+  next.print_strategy = appendClause(
+    next.print_strategy,
+    "strong personalized clarity so the request feels made for a specific person and occasion, not generic"
+  );
+
+  if (eventData.theme) {
+    next.visual_style = appendClause(
+      next.visual_style,
+      `theme-driven imagery based on ${eventData.theme}`
+    );
+  }
+
+  if (eventData.preferredColors.length) {
+    next.palette_direction = `palette centered around ${eventData.preferredColors.join(
+      ", "
+    )}, with clean commercial separation and readable contrast`;
+  }
+
+  if (eventData.hasTextPriority) {
+    const textPriority: string[] = [];
+
+    if (eventData.name) textPriority.push(`name "${eventData.name}"`);
+    if (eventData.number) textPriority.push(`number "${eventData.number}"`);
+    if (eventData.phrase) textPriority.push(`phrase "${eventData.phrase}"`);
+
+    next.typography_strategy = appendClause(
+      next.typography_strategy,
+      `preserve exact spelling of ${textPriority.join(
+        ", "
+      )}; if visible text is used, prioritize name first, number second, phrase third; keep text short, bold, and highly readable`
+    );
+  }
+
+  if (mode === "playera") {
+    if (
+      eventData.hasTextPriority &&
+      !hasChip("composicion_frontal") &&
+      !hasChip("estilo_pecho")
+    ) {
+      next.composition = "text_top_graphic_center_text_bottom";
+    }
+
+    pushUnique(next.support_elements, "controlled celebratory accents integrated into the composition");
+  }
+
+  if (mode === "sticker") {
+    if (eventData.number && !hasChip("circular")) {
+      next.composition = next.composition === "minimal_horizontal"
+        ? "crest_emblem"
+        : next.composition;
+    }
+
+    pushUnique(next.support_elements, "small tightly attached event accents that reinforce the celebration without creating background scenery");
+  }
+
+  const normalizedEvent = eventData.eventType.toLowerCase();
+
+  if (normalizedEvent.includes("cumple")) {
+    pushUnique(next.support_elements, "celebratory party accents integrated into the main composition");
+    next.visual_style = appendClause(
+      next.visual_style,
+      "festive birthday energy with celebratory but commercially controlled accents"
+    );
+  }
+
+  if (normalizedEvent.includes("bautizo")) {
+    next.visual_style = appendClause(
+      next.visual_style,
+      "soft elegant ceremonial energy with tasteful delicate celebration cues"
+    );
+    pushUnique(next.support_elements, "delicate symbolic accents integrated in a refined way");
+  }
+
+  if (normalizedEvent.includes("baby")) {
+    next.visual_style = appendClause(
+      next.visual_style,
+      "sweet welcoming energy with softer forms and tender celebration cues"
+    );
+  }
+
+  if (normalizedEvent.includes("comunión") || normalizedEvent.includes("comunion")) {
+    next.visual_style = appendClause(
+      next.visual_style,
+      "elegant formal celebratory energy with softer sacred cues"
+    );
+  }
+
+  return next;
+}
+
 async function buildDesignBlueprint(
   userPrompt: string,
   mode: DesignMode,
-  chips: ChipId[]
+  chips: ChipId[],
+  studioTab: StudioTab,
+  eventData: EventData
 ): Promise<DesignBlueprint> {
   const chipBlueprintGuidance = buildChipGuidance(chips, "blueprint");
+  const eventGuidance = buildEventGuidance(eventData, mode);
 
   const completion = await openai.chat.completions.create({
     model: "gpt-4o-mini",
@@ -763,7 +1062,11 @@ Rules:
 Selected chip direction to obey:
 ${chipBlueprintGuidance}
 
+Structured event guidance to obey:
+${eventGuidance}
+
 Treat selected chips as deliberate art direction from the user. They are NOT optional fluff.
+If EVENT MODE is active, structured event data has HIGHER priority than generic styling.
 
 ${
   mode === "sticker"
@@ -808,6 +1111,7 @@ T-SHIRT MODE CONSTRAINTS:
 - Scenic support can be allowed if it remains printable and visually controlled.
 - Prioritize strong chest-graphic logic, visual hierarchy, and breathing room.
 - Poster-like or statement compositions are allowed when commercially appropriate.
+- NEVER describe a real shirt, mockup, fashion photo, garment on a person, or printed fabric. The result must be standalone artwork only.
 
 Allowed design_family values (T-SHIRT ONLY):
 mascot_emblem
@@ -850,27 +1154,51 @@ Return JSON only with:
       },
       {
         role: "user",
-        content: `Mode: ${mode}\nSelected chips: ${
-          chips.length ? chips.join(", ") : "none"
-        }\nUser idea: ${userPrompt}`,
+        content: `Mode: ${mode}
+Studio tab: ${studioTab}
+Selected chips: ${chips.length ? chips.join(", ") : "none"}
+User idea: ${userPrompt}
+Structured event data:
+- name: ${eventData.name || "none"}
+- number: ${eventData.number || "none"}
+- eventType: ${eventData.eventType || "none"}
+- theme: ${eventData.theme || "none"}
+- phrase: ${eventData.phrase || "none"}
+- preferred colors: ${
+          eventData.preferredColors.length
+            ? eventData.preferredColors.join(", ")
+            : "none"
+        }
+- details: ${eventData.details || "none"}`,
       },
     ],
   });
 
   const raw = completion.choices[0]?.message?.content?.trim() || "";
   const parsed = normalizeBlueprint(safeBlueprintParse(raw));
-  const baseBlueprint = parsed || fallbackBlueprint(userPrompt, mode);
+  const baseBlueprint = parsed || fallbackBlueprint(userPrompt, mode, eventData);
 
-  return applyChipConstraints(baseBlueprint, chips, mode);
+  const withChips = applyChipConstraints(baseBlueprint, chips, mode);
+  return applyEventConstraints(withChips, eventData, mode, chips, studioTab);
 }
 
 async function buildArtDirections(
   userPrompt: string,
   mode: DesignMode,
-  chips: ChipId[]
+  chips: ChipId[],
+  studioTab: StudioTab,
+  eventData: EventData
 ): Promise<PromptPack> {
-  const blueprint = await buildDesignBlueprint(userPrompt, mode, chips);
+  const blueprint = await buildDesignBlueprint(
+    userPrompt,
+    mode,
+    chips,
+    studioTab,
+    eventData
+  );
+
   const chipPromptGuidance = buildChipGuidance(chips, "prompt");
+  const eventGuidance = buildEventGuidance(eventData, mode);
 
   const completion = await openai.chat.completions.create({
     model: "gpt-4o-mini",
@@ -907,7 +1235,11 @@ Global rules:
 Selected chip direction to obey:
 ${chipPromptGuidance}
 
+Structured event guidance to obey:
+${eventGuidance}
+
 Treat selected chips as real art-direction constraints, not as optional adjectives.
+If EVENT MODE is active, structured event data has HIGHER priority than generic styling.
 
 ${
   mode === "sticker"
@@ -934,6 +1266,7 @@ T-SHIRT PROMPT WRITING RULES:
 - Do not over-compress the composition into a compact cutout unless the user explicitly wants that style.
 - Favor premium graphic-tee energy, statement composition, and apparel-first visual balance.
 - The result must be the artwork only, not a shirt mockup or garment presentation.
+- NEVER describe a shirt being worn, a person modeling the shirt, a folded garment, or artwork already printed on fabric.
 `
 }
 
@@ -955,6 +1288,13 @@ Variation logic:
 - Option A = most commercially attractive, clearest, safest, most instantly lovable version within the chosen family.
 - Option B = more energetic, more expressive, more dramatic or visually powerful, still highly wearable.
 - Option C = more design-driven, more iconic, more badge/poster/emblem oriented, with stronger graphic identity.
+
+SPECIAL PERSONALIZATION RULES:
+- If exact short text is requested, keep it short, bold, readable, and intentionally integrated.
+- If both name and number are present, prioritize the name first and the number second.
+- If a phrase is also present, keep it secondary and never let it overpower the name.
+- If preferred colors are present, they must strongly influence the palette direction.
+- Do not let decorative style override the personalized data.
 
 Each prompt should explicitly include:
 - the best t-shirt/sticker composition
@@ -990,9 +1330,21 @@ Return exactly:
       },
       {
         role: "user",
-        content: `User original idea: ${userPrompt}\nSelected chips: ${
-          chips.length ? chips.join(", ") : "none"
-        }`,
+        content: `User original idea: ${userPrompt}
+Studio tab: ${studioTab}
+Selected chips: ${chips.length ? chips.join(", ") : "none"}
+Structured event data:
+- name: ${eventData.name || "none"}
+- number: ${eventData.number || "none"}
+- eventType: ${eventData.eventType || "none"}
+- theme: ${eventData.theme || "none"}
+- phrase: ${eventData.phrase || "none"}
+- preferred colors: ${
+          eventData.preferredColors.length
+            ? eventData.preferredColors.join(", ")
+            : "none"
+        }
+- details: ${eventData.details || "none"}`,
       },
     ],
   });
@@ -1004,6 +1356,8 @@ Return exactly:
     if (DEBUG_PROMPTS) {
       console.log("BLUEPRINT:", blueprint);
       console.log("CHIPS:", chips);
+      console.log("STUDIO TAB:", studioTab);
+      console.log("EVENT DATA:", eventData);
     }
     return parsed;
   }
@@ -1023,6 +1377,7 @@ support elements: ${support},
 palette direction: ${blueprint.palette_direction},
 detail level: ${blueprint.detail_level},
 ${blueprint.print_strategy},
+typography strategy: ${blueprint.typography_strategy},
 ${
   mode === "sticker"
     ? `clean vector-inspired rendering,
@@ -1040,7 +1395,7 @@ high readability,
 pure solid white background,
 no fake transparency,
 no checkerboard pattern,
-${mode === "sticker" ? "no scenery," : ""}
+${mode === "sticker" ? "no scenery," : "artwork only, no garment,"}
 no mockup
     `.trim(),
 
@@ -1055,6 +1410,8 @@ ${blueprint.visual_style},
 support elements: ${support},
 palette direction: ${blueprint.palette_direction},
 detail level: ${blueprint.detail_level},
+${blueprint.print_strategy},
+typography strategy: ${blueprint.typography_strategy},
 ${
   mode === "sticker"
     ? `clean vector-inspired rendering,
@@ -1072,7 +1429,7 @@ premium commercial execution,
 pure solid white background,
 no fake transparency,
 no checkerboard pattern,
-${mode === "sticker" ? "no scenery," : ""}
+${mode === "sticker" ? "no scenery," : "artwork only, no garment,"}
 no mockup
     `.trim(),
 
@@ -1088,6 +1445,8 @@ ${blueprint.visual_style},
 support elements: ${support},
 palette direction: ${blueprint.palette_direction},
 detail level: ${blueprint.detail_level},
+${blueprint.print_strategy},
+typography strategy: ${blueprint.typography_strategy},
 ${
   mode === "sticker"
     ? `clean vector-inspired rendering,
@@ -1105,7 +1464,7 @@ premium apparel graphic aesthetic,
 pure solid white background,
 no fake transparency,
 no checkerboard pattern,
-${mode === "sticker" ? "no scenery," : ""}
+${mode === "sticker" ? "no scenery," : "artwork only, no garment,"}
 no mockup
     `.trim(),
   };
@@ -1228,6 +1587,8 @@ export async function POST(req: Request) {
     const mode: DesignMode =
       body?.mode === "playera" || body?.mode === "shirt" ? "playera" : "sticker";
     const chips = normalizeRequestedChips(body?.chips, mode);
+    const studioTab = normalizeStudioTab(body?.studioTab);
+    const eventData = normalizeEventData(body?.eventData);
 
     if (!userPrompt) {
       return NextResponse.json(
@@ -1236,11 +1597,19 @@ export async function POST(req: Request) {
       );
     }
 
-    const compiled = await buildArtDirections(userPrompt, mode, chips);
+    const compiled = await buildArtDirections(
+      userPrompt,
+      mode,
+      chips,
+      studioTab,
+      eventData
+    );
 
     if (DEBUG_PROMPTS) {
       console.log("USER PROMPT:", userPrompt);
       console.log("MODE:", mode);
+      console.log("STUDIO TAB:", studioTab);
+      console.log("EVENT DATA:", eventData);
       console.log("CHIPS:", chips);
       console.log("A:", compiled.option_a_label, compiled.option_a_prompt);
       console.log("B:", compiled.option_b_label, compiled.option_b_prompt);
@@ -1281,6 +1650,8 @@ export async function POST(req: Request) {
 
     const debugPayload = DEBUG_PROMPTS
       ? {
+          studioTab,
+          eventData,
           chips,
           prompts: [
             compiled.option_a_prompt,

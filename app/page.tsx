@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
 
 type DesignMode = "sticker" | "playera";
+type StudioTab = "free" | "event";
 
 type ChipId =
   | "circular"
@@ -38,13 +39,53 @@ type ChipGroup = {
   chips: ChipDef[];
 };
 
+type ColorOptionId =
+  | "rojo"
+  | "azul"
+  | "rosa"
+  | "morado"
+  | "verde"
+  | "negro"
+  | "dorado"
+  | "plateado"
+  | "pastel"
+  | "multicolor";
+
+type ColorOption = {
+  id: ColorOptionId;
+  label: string;
+};
+
 const MAX_ACTIVE_CHIPS = 3;
+const MAX_EVENT_COLORS = 2;
+
+const COLOR_OPTIONS: ColorOption[] = [
+  { id: "rojo", label: "Rojo" },
+  { id: "azul", label: "Azul" },
+  { id: "rosa", label: "Rosa" },
+  { id: "morado", label: "Morado" },
+  { id: "verde", label: "Verde" },
+  { id: "negro", label: "Negro" },
+  { id: "dorado", label: "Dorado" },
+  { id: "plateado", label: "Plateado" },
+  { id: "pastel", label: "Pastel" },
+  { id: "multicolor", label: "Multicolor" },
+];
+
+const EVENT_OPTIONS = [
+  "Cumpleaños",
+  "Bautizo",
+  "Baby shower",
+  "Primera comunión",
+  "Fiesta temática",
+  "Otro",
+];
 
 const STICKER_CHIP_GROUPS: ChipGroup[] = [
   {
     id: "shape",
     title: "Forma del diseño",
-    subtitle: "Esto define cómo se acomoda y cómo se leerá tu sticker.",
+    subtitle: "Esto ayuda a definir cómo se acomoda y cómo se leerá tu sticker.",
     chips: [
       { id: "circular", label: "Circular", helper: "Fuerza una composición redonda tipo badge." },
       { id: "iconico", label: "Icónico", helper: "Busca una silueta más memorable y reconocible." },
@@ -98,16 +139,22 @@ const PLAYERA_CHIP_GROUPS: ChipGroup[] = [
   },
 ];
 
-const MODE_CONTENT = {
+const MODE_COPY = {
   sticker: {
-    title: "Dirige tu sticker como si estuvieras en un estudio",
-    subhelp:
+    freeTitle: "Dirige tu sticker como si estuvieras en un estudio",
+    freeSubhelp:
       "Escribe tu idea y te mostraremos 3 propuestas con más intención, más estilo y mejor presencia visual para sticker.",
-    placeholder:
+    eventTitle: "Diseña un sticker con nombre, tema y detalles importantes",
+    eventSubhelp:
+      "Cuando tu diseño lleva nombre, edad, frase o tipo de evento, este modo nos ayuda a respetar mejor cada detalle.",
+    freePlaceholder:
       "Ejemplo: tigre feroz con corona, nombre Leo y un estilo premium muy icónico",
-    ideaLabel: "Describe tu diseño",
-    ideaNote:
+    promptLabel: "Describe tu diseño",
+    promptNote:
       "Cuéntanos el personaje, nombre, colores, frase o detalles que te gustaría ver en tu sticker.",
+    eventSectionTitle: "Cuéntanos los detalles importantes",
+    eventSectionNote:
+      "Entre más claro sea el nombre, la edad, el tema y los colores, mejor podremos construir tus propuestas.",
     chipsTitle: "Dale dirección a tu diseño",
     chipsSub:
       "Elige hasta 3 opciones para marcar el estilo y la personalidad que quieres ver en tus propuestas.",
@@ -123,19 +170,28 @@ const MODE_CONTENT = {
     directionPanelTitle: "Dirección elegida",
     directionPanelSub:
       "Tomaremos tu idea y la refinaremos con estas indicaciones visuales.",
+    priorityPanelTitle: "El estudio dará prioridad a esto",
+    priorityPanelSub:
+      "Estos datos tendrán más peso al momento de construir tus propuestas.",
     selectionReady: "Lista para usarse en tu sticker.",
     finalCta: "Usar este diseño en mi sticker",
     previewSelect: "Seleccionar este diseño para sticker",
   },
   playera: {
-    title: "Dirige tu playera como si estuvieras en un estudio",
-    subhelp:
+    freeTitle: "Dirige tu playera como si estuvieras en un estudio",
+    freeSubhelp:
       "Escribe tu idea y te mostraremos 3 propuestas con más intención, más estilo y mejor presencia visual para playera.",
-    placeholder:
+    eventTitle: "Diseña una playera con nombre, tema y detalles importantes",
+    eventSubhelp:
+      "Cuando tu diseño lleva nombre, edad, frase o tipo de evento, este modo nos ayuda a respetar mejor cada detalle.",
+    freePlaceholder:
       "Ejemplo: samurái vintage para playera con un estilo premium y mucha presencia",
-    ideaLabel: "Describe tu diseño",
-    ideaNote:
+    promptLabel: "Describe tu diseño",
+    promptNote:
       "Cuéntanos el personaje, nombre, colores, frase o detalles que te gustaría ver en tu playera.",
+    eventSectionTitle: "Cuéntanos los detalles importantes",
+    eventSectionNote:
+      "Entre más claro sea el nombre, la edad, el tema y los colores, mejor podremos construir tus propuestas.",
     chipsTitle: "Dale dirección a tu diseño",
     chipsSub:
       "Elige hasta 3 opciones para marcar el estilo y la personalidad que quieres ver en tus propuestas.",
@@ -151,6 +207,9 @@ const MODE_CONTENT = {
     directionPanelTitle: "Dirección elegida",
     directionPanelSub:
       "Tomaremos tu idea y la refinaremos con estas indicaciones visuales.",
+    priorityPanelTitle: "El estudio dará prioridad a esto",
+    priorityPanelSub:
+      "Estos datos tendrán más peso al momento de construir tus propuestas.",
     selectionReady: "Lista para usarse en tu playera.",
     finalCta: "Usar este diseño en mi playera",
     previewSelect: "Seleccionar este diseño para playera",
@@ -162,7 +221,20 @@ function HomePageInner() {
   const scrollRestoreRef = useRef(0);
 
   const [mode, setMode] = useState<DesignMode>("sticker");
+  const [studioTab, setStudioTab] = useState<StudioTab>("free");
+
   const [prompt, setPrompt] = useState("");
+
+  const [eventName, setEventName] = useState("");
+  const [eventNumber, setEventNumber] = useState("");
+  const [eventType, setEventType] = useState("");
+  const [eventTheme, setEventTheme] = useState("");
+  const [eventPhrase, setEventPhrase] = useState("");
+  const [eventDetails, setEventDetails] = useState("");
+  const [eventColors, setEventColors] = useState<ColorOptionId[]>([]);
+  const [eventCustomColors, setEventCustomColors] = useState("");
+  const [colorMessage, setColorMessage] = useState("");
+
   const [activeChips, setActiveChips] = useState<ChipId[]>([]);
   const [chipMessage, setChipMessage] = useState("");
   const [images, setImages] = useState<string[]>([]);
@@ -173,7 +245,7 @@ function HomePageInner() {
   const [error, setError] = useState("");
 
   const isEmbedded = searchParams.get("embed") === "1";
-  const modeContent = MODE_CONTENT[mode];
+  const copy = MODE_COPY[mode];
   const chipGroups = mode === "sticker" ? STICKER_CHIP_GROUPS : PLAYERA_CHIP_GROUPS;
 
   const allAvailableChips = useMemo(
@@ -186,9 +258,28 @@ function HomePageInner() {
     [allAvailableChips, activeChips]
   );
 
+  const selectedColorDefs = useMemo(
+    () => COLOR_OPTIONS.filter((color) => eventColors.includes(color.id)),
+    [eventColors]
+  );
+
   const selectedImage = selectedIndex !== null ? images[selectedIndex] : null;
   const selectedLabel = selectedIndex !== null ? labels[selectedIndex] : null;
-  const canGenerate = prompt.trim().length > 0 && !loading;
+
+  const isEventReady =
+    eventName.trim().length > 0 ||
+    eventNumber.trim().length > 0 ||
+    eventType.trim().length > 0 ||
+    eventTheme.trim().length > 0 ||
+    eventPhrase.trim().length > 0 ||
+    eventDetails.trim().length > 0 ||
+    eventColors.length > 0 ||
+    eventCustomColors.trim().length > 0;
+
+  const canGenerate =
+    studioTab === "free"
+      ? prompt.trim().length > 0 && !loading
+      : isEventReady && !loading;
 
   function postEmbedHeight() {
     if (typeof window === "undefined") return;
@@ -235,8 +326,9 @@ function HomePageInner() {
     setPreviewIndex(null);
     setActiveChips([]);
     setChipMessage("");
+    setColorMessage("");
     setError("");
-  }, [mode]);
+  }, [mode, studioTab]);
 
   useEffect(() => {
     if (!isEmbedded) return;
@@ -276,6 +368,16 @@ function HomePageInner() {
     activeChips.length,
     prompt.length,
     chipMessage,
+    studioTab,
+    eventName,
+    eventNumber,
+    eventType,
+    eventTheme,
+    eventPhrase,
+    eventDetails,
+    eventColors.length,
+    eventCustomColors,
+    colorMessage,
   ]);
 
   useEffect(() => {
@@ -299,6 +401,7 @@ function HomePageInner() {
       document.body.style.overflow = previousBodyOverflow;
       document.body.style.touchAction = previousBodyTouchAction;
       document.documentElement.style.overflow = previousHtmlOverflow;
+
       requestAnimationFrame(() => {
         scrollEl.scrollTop = scrollRestoreRef.current;
         window.scrollTo(0, scrollRestoreRef.current);
@@ -325,6 +428,25 @@ function HomePageInner() {
     });
   }
 
+  function toggleColor(colorId: ColorOptionId) {
+    setError("");
+
+    setEventColors((current) => {
+      if (current.includes(colorId)) {
+        setColorMessage("");
+        return current.filter((item) => item !== colorId);
+      }
+
+      if (current.length >= MAX_EVENT_COLORS) {
+        setColorMessage("Puedes elegir máximo 2 colores.");
+        return current;
+      }
+
+      setColorMessage("");
+      return [...current, colorId];
+    });
+  }
+
   function openPreview(index: number) {
     if (typeof window !== "undefined") {
       const scrollEl = document.scrollingElement || document.documentElement;
@@ -333,11 +455,81 @@ function HomePageInner() {
     setPreviewIndex(index);
   }
 
-  async function handleGenerate() {
-    const cleanPrompt = prompt.trim();
+  function buildFreePrompt() {
+    return prompt.trim();
+  }
 
-    if (!cleanPrompt) {
+  function buildEventPrompt() {
+    const colorLabels = selectedColorDefs.map((item) => item.label);
+    const allColorNotes = [...colorLabels];
+    if (eventCustomColors.trim()) allColorNotes.push(eventCustomColors.trim());
+
+    const pieces = [
+      `Crear un diseño personalizado para ${mode === "sticker" ? "sticker" : "playera"}.`,
+      eventType.trim() ? `Tipo de evento: ${eventType.trim()}.` : "",
+      eventName.trim() ? `Nombre que debe respetarse: ${eventName.trim()}.` : "",
+      eventNumber.trim()
+        ? `Edad o número importante que debe aparecer o influir en el diseño: ${eventNumber.trim()}.`
+        : "",
+      eventTheme.trim()
+        ? `Tema, personaje o idea principal: ${eventTheme.trim()}.`
+        : "",
+      allColorNotes.length
+        ? `Colores que el cliente quiere ver: ${allColorNotes.join(", ")}.`
+        : "",
+      eventPhrase.trim()
+        ? `Frase opcional que se puede integrar si encaja bien: ${eventPhrase.trim()}.`
+        : "",
+      eventDetails.trim()
+        ? `Detalles extra del cliente: ${eventDetails.trim()}.`
+        : "",
+      `Priorizar con especial cuidado el nombre, el número, el tema y los colores seleccionados.`,
+      mode === "sticker"
+        ? "La propuesta debe sentirse pensada para sticker, con presencia visual clara y buena lectura."
+        : "La propuesta debe sentirse pensada para playera, con buena presencia visual sobre la prenda.",
+    ];
+
+    return pieces.filter(Boolean).join(" ");
+  }
+
+  const generationPrompt =
+    studioTab === "free" ? buildFreePrompt() : buildEventPrompt();
+
+  const priorityItems = useMemo(() => {
+    const items: { label: string; value: string }[] = [];
+
+    if (eventName.trim()) items.push({ label: "Nombre", value: eventName.trim() });
+    if (eventNumber.trim()) items.push({ label: "Edad/Número", value: eventNumber.trim() });
+    if (eventType.trim()) items.push({ label: "Evento", value: eventType.trim() });
+    if (eventTheme.trim()) items.push({ label: "Tema", value: eventTheme.trim() });
+
+    const colorLabels = selectedColorDefs.map((item) => item.label);
+    if (eventCustomColors.trim()) colorLabels.push(eventCustomColors.trim());
+    if (colorLabels.length) items.push({ label: "Colores", value: colorLabels.join(", ") });
+
+    if (eventPhrase.trim()) items.push({ label: "Frase", value: eventPhrase.trim() });
+
+    return items;
+  }, [
+    eventName,
+    eventNumber,
+    eventType,
+    eventTheme,
+    selectedColorDefs,
+    eventCustomColors,
+    eventPhrase,
+  ]);
+
+  async function handleGenerate() {
+    const cleanPrompt = generationPrompt.trim();
+
+    if (studioTab === "free" && !cleanPrompt) {
       setError("Escribe una idea para tu diseño.");
+      return;
+    }
+
+    if (studioTab === "event" && !isEventReady) {
+      setError("Agrega al menos algunos datos importantes para tu diseño.");
       return;
     }
 
@@ -362,6 +554,20 @@ function HomePageInner() {
           prompt: cleanPrompt,
           mode,
           chips: activeChips,
+          studioTab,
+          eventData:
+            studioTab === "event"
+              ? {
+                  name: eventName.trim(),
+                  number: eventNumber.trim(),
+                  eventType: eventType.trim(),
+                  theme: eventTheme.trim(),
+                  phrase: eventPhrase.trim(),
+                  details: eventDetails.trim(),
+                  colors: selectedColorDefs.map((item) => item.label),
+                  customColors: eventCustomColors.trim(),
+                }
+              : null,
         }),
       });
 
@@ -406,7 +612,7 @@ function HomePageInner() {
         body: JSON.stringify({
           image,
           label,
-          prompt: prompt.trim(),
+          prompt: generationPrompt.trim(),
           mode,
         }),
       });
@@ -422,7 +628,7 @@ function HomePageInner() {
         imageUrl: saved.imageUrl,
         designRef: saved.designRef,
         label,
-        prompt: prompt.trim(),
+        prompt: generationPrompt.trim(),
         mode,
       };
 
@@ -451,33 +657,228 @@ function HomePageInner() {
 
             <div className="composer-head">
               <div>
-                <h1 className="composer-title">{modeContent.title}</h1>
-                <p className="composer-subhelp">{modeContent.subhelp}</p>
+                <h1 className="composer-title">
+                  {studioTab === "free" ? copy.freeTitle : copy.eventTitle}
+                </h1>
+                <p className="composer-subhelp">
+                  {studioTab === "free" ? copy.freeSubhelp : copy.eventSubhelp}
+                </p>
               </div>
             </div>
 
-            <div className="brief-shell">
-              <div className="brief-head">
-                <div className="brief-label">{modeContent.ideaLabel}</div>
-                <div className="brief-note">{modeContent.ideaNote}</div>
-              </div>
+            <div className="studio-tabs" role="tablist" aria-label="Tipo de creación">
+              <button
+                type="button"
+                className={`studio-tab ${studioTab === "free" ? "is-active" : ""}`}
+                onClick={() => setStudioTab("free")}
+              >
+                <span className="studio-tab__title">Idea libre</span>
+                <span className="studio-tab__sub">
+                  Para ideas rápidas como personajes, conceptos o estilos.
+                </span>
+              </button>
 
-              <textarea
-                id="prompt"
-                value={prompt}
-                onChange={(e) => {
-                  setPrompt(e.target.value);
-                  if (error) setError("");
-                }}
-                placeholder={modeContent.placeholder}
-                rows={4}
-                className="prompt-textarea"
-              />
+              <button
+                type="button"
+                className={`studio-tab ${studioTab === "event" ? "is-active" : ""}`}
+                onClick={() => setStudioTab("event")}
+              >
+                <span className="studio-tab__title">Cumpleaños y eventos</span>
+                <span className="studio-tab__sub">
+                  Para diseños con nombre, edad, frase, tema o tipo de celebración.
+                </span>
+              </button>
+            </div>
+
+            <div className="brief-shell">
+              {studioTab === "free" ? (
+                <>
+                  <div className="brief-head">
+                    <div className="brief-label">{copy.promptLabel}</div>
+                    <div className="brief-note">{copy.promptNote}</div>
+                  </div>
+
+                  <textarea
+                    id="prompt"
+                    value={prompt}
+                    onChange={(e) => {
+                      setPrompt(e.target.value);
+                      if (error) setError("");
+                    }}
+                    placeholder={copy.freePlaceholder}
+                    rows={4}
+                    className="prompt-textarea"
+                  />
+                </>
+              ) : (
+                <>
+                  <div className="brief-head">
+                    <div className="brief-label">{copy.eventSectionTitle}</div>
+                    <div className="brief-note">{copy.eventSectionNote}</div>
+                  </div>
+
+                  <div className="event-grid">
+                    <div className="field-block">
+                      <label className="field-label" htmlFor="event-name">
+                        Nombre
+                      </label>
+                      <input
+                        id="event-name"
+                        className="text-input"
+                        type="text"
+                        value={eventName}
+                        onChange={(e) => setEventName(e.target.value)}
+                        placeholder="Ejemplo: Ian"
+                      />
+                    </div>
+
+                    <div className="field-block">
+                      <label className="field-label" htmlFor="event-number">
+                        Edad o número importante
+                      </label>
+                      <input
+                        id="event-number"
+                        className="text-input"
+                        type="text"
+                        value={eventNumber}
+                        onChange={(e) => setEventNumber(e.target.value)}
+                        placeholder="Ejemplo: 5"
+                      />
+                    </div>
+
+                    <div className="field-block">
+                      <label className="field-label" htmlFor="event-type">
+                        Tipo de evento
+                      </label>
+                      <select
+                        id="event-type"
+                        className="select-input"
+                        value={eventType}
+                        onChange={(e) => setEventType(e.target.value)}
+                      >
+                        <option value="">Selecciona una opción</option>
+                        {EVENT_OPTIONS.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="field-block">
+                      <label className="field-label" htmlFor="event-theme">
+                        Tema o personaje favorito
+                      </label>
+                      <input
+                        id="event-theme"
+                        className="text-input"
+                        type="text"
+                        value={eventTheme}
+                        onChange={(e) => setEventTheme(e.target.value)}
+                        placeholder="Ejemplo: Batman"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="field-block field-block--full">
+                    <label className="field-label">Colores que te gustaría ver</label>
+                    <div className="field-helper">
+                      Elige hasta 2. Esto ayuda mucho a dirigir mejor el resultado.
+                    </div>
+
+                    <div className="color-pills">
+                      {COLOR_OPTIONS.map((color) => {
+                        const isActive = eventColors.includes(color.id);
+
+                        return (
+                          <button
+                            key={color.id}
+                            type="button"
+                            className={`color-pill ${isActive ? "is-active" : ""}`}
+                            onClick={() => toggleColor(color.id)}
+                          >
+                            {color.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="chips-status-row chips-status-row--compact">
+                      <div className="chips-status">
+                        {eventColors.length}/{MAX_EVENT_COLORS} colores elegidos
+                      </div>
+                      {colorMessage ? (
+                        <div className="chip-message">{colorMessage}</div>
+                      ) : null}
+                    </div>
+
+                    <input
+                      className="text-input text-input--top-space"
+                      type="text"
+                      value={eventCustomColors}
+                      onChange={(e) => setEventCustomColors(e.target.value)}
+                      placeholder="Otro color o combinación especial (opcional)"
+                    />
+                  </div>
+
+                  <div className="event-grid event-grid--lower">
+                    <div className="field-block">
+                      <label className="field-label" htmlFor="event-phrase">
+                        Frase opcional
+                      </label>
+                      <input
+                        id="event-phrase"
+                        className="text-input"
+                        type="text"
+                        value={eventPhrase}
+                        onChange={(e) => setEventPhrase(e.target.value)}
+                        placeholder="Ejemplo: Ian cumple 5"
+                      />
+                    </div>
+
+                    <div className="field-block field-block--stretch">
+                      <label className="field-label" htmlFor="event-details">
+                        Detalles extra
+                      </label>
+                      <textarea
+                        id="event-details"
+                        className="small-textarea"
+                        value={eventDetails}
+                        onChange={(e) => setEventDetails(e.target.value)}
+                        placeholder="Ejemplo: que se vea divertido, fuerte y con más presencia visual"
+                        rows={4}
+                      />
+                    </div>
+                  </div>
+
+                  {priorityItems.length > 0 ? (
+                    <div className="priority-panel">
+                      <div className="priority-panel__head">
+                        <div className="priority-panel__title">
+                          {copy.priorityPanelTitle}
+                        </div>
+                        <div className="priority-panel__sub">
+                          {copy.priorityPanelSub}
+                        </div>
+                      </div>
+
+                      <div className="priority-panel__grid">
+                        {priorityItems.map((item) => (
+                          <div key={`${item.label}-${item.value}`} className="priority-item">
+                            <span className="priority-item__label">{item.label}</span>
+                            <span className="priority-item__value">{item.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </>
+              )}
 
               <div className="chips-zone">
                 <div className="chips-head">
-                  <div className="chips-title">{modeContent.chipsTitle}</div>
-                  <div className="chips-sub">{modeContent.chipsSub}</div>
+                  <div className="chips-title">{copy.chipsTitle}</div>
+                  <div className="chips-sub">{copy.chipsSub}</div>
                 </div>
 
                 <div className="chips-status-row">
@@ -518,10 +919,10 @@ function HomePageInner() {
                   <div className="direction-panel">
                     <div className="direction-panel__head">
                       <div className="direction-panel__kicker">
-                        {modeContent.directionPanelTitle}
+                        {copy.directionPanelTitle}
                       </div>
                       <p className="direction-panel__sub">
-                        {modeContent.directionPanelSub}
+                        {copy.directionPanelSub}
                       </p>
                     </div>
 
@@ -557,10 +958,10 @@ function HomePageInner() {
 
                     <span className="ai-generate-btn__copy">
                       <span className="ai-generate-btn__label">
-                        {loading ? "Generando..." : modeContent.primaryCta}
+                        {loading ? "Generando..." : copy.primaryCta}
                       </span>
                       <span className="ai-generate-btn__sub">
-                        {loading ? "3 propuestas en proceso" : modeContent.primarySub}
+                        {loading ? "3 propuestas en proceso" : copy.primarySub}
                       </span>
                     </span>
                   </span>
@@ -578,8 +979,8 @@ function HomePageInner() {
                   </div>
 
                   <div className="loading-copy">
-                    <div className="loading-title">{modeContent.loadingTitle}</div>
-                    <div className="loading-subtitle">{modeContent.loadingSub}</div>
+                    <div className="loading-title">{copy.loadingTitle}</div>
+                    <div className="loading-subtitle">{copy.loadingSub}</div>
                   </div>
                 </div>
 
@@ -607,9 +1008,9 @@ function HomePageInner() {
             <section className="results-block">
               <div className="results-head">
                 <div>
-                  <div className="results-kicker">{modeContent.resultsKicker}</div>
-                  <h2 className="results-title">{modeContent.resultsTitle}</h2>
-                  <p className="results-sub">{modeContent.resultsSub}</p>
+                  <div className="results-kicker">{copy.resultsKicker}</div>
+                  <h2 className="results-title">{copy.resultsTitle}</h2>
+                  <p className="results-sub">{copy.resultsSub}</p>
                 </div>
               </div>
 
@@ -662,7 +1063,7 @@ function HomePageInner() {
                         </div>
                         <div className="design-card__meta">
                           {isSelected
-                            ? modeContent.selectionReady
+                            ? copy.selectionReady
                             : "Haz clic para elegir esta opción."}
                         </div>
                       </div>
@@ -679,7 +1080,7 @@ function HomePageInner() {
                   </strong>
                   <span className="studio-actionbar__sub">
                     {selectedImage
-                      ? modeContent.selectionReady
+                      ? copy.selectionReady
                       : "Toca una opción para continuar."}
                   </span>
                 </div>
@@ -702,7 +1103,7 @@ function HomePageInner() {
                     disabled={selectedIndex === null}
                     onClick={handleContinueWithDesign}
                   >
-                    {modeContent.finalCta}
+                    {copy.finalCta}
                   </button>
                 </div>
               </div>
@@ -769,7 +1170,7 @@ function HomePageInner() {
                   >
                     {selectedIndex === previewIndex
                       ? "Diseño seleccionado"
-                      : modeContent.previewSelect}
+                      : copy.previewSelect}
                   </button>
                 </div>
               </div>
@@ -946,6 +1347,55 @@ function HomePageInner() {
           max-width: 760px;
         }
 
+        .studio-tabs {
+          position: relative;
+          z-index: 1;
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px;
+          margin-bottom: 16px;
+        }
+
+        .studio-tab {
+          appearance: none;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: rgba(255, 255, 255, 0.03);
+          color: #f8fafc;
+          border-radius: 18px;
+          padding: 14px 14px 13px;
+          text-align: left;
+          cursor: pointer;
+          display: grid;
+          gap: 6px;
+          transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+        }
+
+        .studio-tab:hover {
+          transform: translateY(-1px);
+          border-color: rgba(139, 92, 246, 0.18);
+        }
+
+        .studio-tab.is-active {
+          border-color: rgba(34, 211, 238, 0.28);
+          background:
+            radial-gradient(circle at top left, rgba(124, 58, 237, 0.1), transparent 36%),
+            linear-gradient(180deg, rgba(23, 30, 50, 0.95), rgba(18, 24, 40, 0.98));
+          box-shadow: 0 10px 22px rgba(0, 0, 0, 0.16);
+        }
+
+        .studio-tab__title {
+          font-size: 15px;
+          font-weight: 950;
+          color: #f8fafc;
+        }
+
+        .studio-tab__sub {
+          font-size: 12px;
+          line-height: 1.45;
+          color: #aab8cc;
+          font-weight: 700;
+        }
+
         .brief-shell {
           position: relative;
           z-index: 1;
@@ -976,15 +1426,16 @@ function HomePageInner() {
           line-height: 1.5;
         }
 
-        .prompt-textarea {
+        .prompt-textarea,
+        .small-textarea,
+        .text-input,
+        .select-input {
           width: 100%;
-          resize: vertical;
-          min-height: 132px;
           border: 1.5px solid rgba(255, 255, 255, 0.1);
-          border-radius: 20px;
-          padding: 16px 18px;
-          font-size: 16px;
-          line-height: 1.6;
+          border-radius: 18px;
+          padding: 14px 16px;
+          font-size: 15px;
+          line-height: 1.55;
           color: #f8fafc;
           background:
             linear-gradient(180deg, rgba(18, 24, 40, 0.94), rgba(21, 28, 47, 0.96));
@@ -993,15 +1444,172 @@ function HomePageInner() {
             border-color 0.18s ease,
             box-shadow 0.18s ease,
             background 0.18s ease;
+          box-sizing: border-box;
         }
 
-        .prompt-textarea::placeholder {
+        .prompt-textarea {
+          resize: vertical;
+          min-height: 132px;
+        }
+
+        .small-textarea {
+          resize: vertical;
+          min-height: 112px;
+        }
+
+        .prompt-textarea::placeholder,
+        .small-textarea::placeholder,
+        .text-input::placeholder {
           color: #8f9fb8;
         }
 
-        .prompt-textarea:focus {
+        .prompt-textarea:focus,
+        .small-textarea:focus,
+        .text-input:focus,
+        .select-input:focus {
           border-color: rgba(139, 92, 246, 0.36);
           box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+        }
+
+        .event-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 14px;
+        }
+
+        .event-grid--lower {
+          margin-top: 14px;
+          align-items: start;
+        }
+
+        .field-block {
+          min-width: 0;
+        }
+
+        .field-block--full {
+          margin-top: 14px;
+        }
+
+        .field-block--stretch {
+          min-height: 100%;
+        }
+
+        .field-label {
+          display: block;
+          font-size: 13px;
+          font-weight: 900;
+          color: #f8fafc;
+          margin-bottom: 8px;
+        }
+
+        .field-helper {
+          font-size: 12px;
+          line-height: 1.45;
+          color: #9fb1c8;
+          font-weight: 700;
+          margin-bottom: 10px;
+        }
+
+        .text-input--top-space {
+          margin-top: 10px;
+        }
+
+        .color-pills {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
+        }
+
+        .color-pill {
+          appearance: none;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          background:
+            linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.04));
+          color: #f8fafc;
+          min-height: 40px;
+          padding: 0 14px;
+          border-radius: 999px;
+          font-size: 13px;
+          font-weight: 900;
+          cursor: pointer;
+          transition:
+            transform 0.18s ease,
+            border-color 0.18s ease,
+            background 0.18s ease;
+          white-space: nowrap;
+        }
+
+        .color-pill:hover {
+          transform: translateY(-1px);
+          border-color: rgba(139, 92, 246, 0.2);
+        }
+
+        .color-pill.is-active {
+          color: #ffffff;
+          border-color: rgba(255, 255, 255, 0.12);
+          background:
+            linear-gradient(135deg, #7c3aed 0%, #8b5cf6 44%, #06b6d4 100%);
+          box-shadow: 0 10px 18px rgba(88, 28, 135, 0.2);
+        }
+
+        .priority-panel {
+          margin-top: 16px;
+          border: 1px solid rgba(34, 211, 238, 0.16);
+          background:
+            radial-gradient(circle at top left, rgba(6, 182, 212, 0.08), transparent 34%),
+            linear-gradient(180deg, rgba(19, 28, 46, 0.94), rgba(16, 23, 38, 0.96));
+          border-radius: 18px;
+          padding: 14px;
+        }
+
+        .priority-panel__head {
+          margin-bottom: 10px;
+        }
+
+        .priority-panel__title {
+          font-size: 14px;
+          font-weight: 950;
+          color: #f8fafc;
+          margin-bottom: 4px;
+        }
+
+        .priority-panel__sub {
+          font-size: 12px;
+          line-height: 1.45;
+          color: #9fb1c8;
+          font-weight: 700;
+        }
+
+        .priority-panel__grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px;
+        }
+
+        .priority-item {
+          min-width: 0;
+          border-radius: 14px;
+          padding: 11px 12px;
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          display: grid;
+          gap: 3px;
+        }
+
+        .priority-item__label {
+          font-size: 11px;
+          font-weight: 900;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: #8fdcf0;
+        }
+
+        .priority-item__value {
+          font-size: 13px;
+          line-height: 1.45;
+          color: #f8fafc;
+          font-weight: 800;
+          word-break: break-word;
         }
 
         .chips-zone {
@@ -1037,6 +1645,11 @@ function HomePageInner() {
           margin-bottom: 12px;
         }
 
+        .chips-status-row--compact {
+          margin-top: 10px;
+          margin-bottom: 0;
+        }
+
         .chips-status {
           font-size: 12px;
           font-weight: 900;
@@ -1052,20 +1665,20 @@ function HomePageInner() {
         }
 
         .chip-groups-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-  min-width: 0;
-}
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 14px;
+          min-width: 0;
+        }
 
         .chip-group-card {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 18px;
-  padding: 14px;
-  background: rgba(255, 255, 255, 0.03);
-  min-width: 0;
-  width: 100%;
-}
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 18px;
+          padding: 14px;
+          background: rgba(255, 255, 255, 0.03);
+          min-width: 0;
+          width: 100%;
+        }
 
         .chip-group-card__title {
           font-size: 14px;
@@ -1083,11 +1696,11 @@ function HomePageInner() {
         }
 
         .chip-group-card__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  min-width: 0;
-}
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
+          min-width: 0;
+        }
 
         .chip-btn {
           appearance: none;
@@ -1904,7 +2517,9 @@ function HomePageInner() {
             font-size: 24px;
           }
 
-          .chip-groups-grid {
+          .chip-groups-grid,
+          .priority-panel__grid,
+          .event-grid {
             grid-template-columns: 1fr;
           }
         }
@@ -1939,18 +2554,21 @@ function HomePageInner() {
             width: 180px;
           }
 
-          .brief-shell {
-            border-radius: 18px;
-            padding: 14px;
-            background: linear-gradient(180deg, rgba(23, 30, 50, 0.92), rgba(18, 24, 40, 0.94));
-          }
-
           .composer-title {
             font-size: 24px;
           }
 
           .composer-subhelp {
             font-size: 13px;
+          }
+
+          .studio-tabs {
+            grid-template-columns: 1fr;
+          }
+
+          .brief-shell {
+            border-radius: 18px;
+            padding: 14px;
           }
 
           .brief-label {
@@ -1962,52 +2580,63 @@ function HomePageInner() {
             border-radius: 16px;
           }
 
+          .small-textarea,
+          .text-input,
+          .select-input {
+            border-radius: 16px;
+          }
+
+          .color-pills {
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            overflow-y: hidden;
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-x;
+            padding-bottom: 4px;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+          }
+
+          .color-pills::-webkit-scrollbar {
+            display: none;
+          }
+
+          .color-pill {
+            flex: 0 0 auto;
+          }
+
           .chip-groups-grid {
-  grid-template-columns: 1fr;
-  min-width: 0;
-}
+            grid-template-columns: 1fr;
+          }
 
           .chip-group-card__chips {
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 10px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  -webkit-overflow-scrolling: touch;
-  touch-action: pan-x;
-  overscroll-behavior-x: contain;
-  scroll-behavior: smooth;
-  padding: 2px 6px 8px 0;
-  margin-right: -6px;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-  .chip-group-card__chips::-webkit-scrollbar {
-  display: none;
-}
+            display: flex;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            overflow-y: hidden;
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-x;
+            padding-bottom: 4px;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            gap: 10px;
+          }
 
-          .chip-group-card {
-  min-width: 0;
-  width: 100%;
-  overflow: hidden;
-}
+          .chip-group-card__chips::-webkit-scrollbar {
+            display: none;
+          }
 
           .chip-btn {
-  flex: 0 0 auto;
-  min-height: 38px;
-  padding: 0 13px;
-  font-size: 12px;
-  box-shadow: none;
-  white-space: nowrap;
-}
-
+            flex: 0 0 auto;
+            min-height: 38px;
+            padding: 0 13px;
+            font-size: 12px;
+            box-shadow: none;
+          }
 
           .chip-btn.is-active {
-  box-shadow: 0 8px 14px rgba(88, 28, 135, 0.16);
-}
+            box-shadow: 0 8px 14px rgba(88, 28, 135, 0.16);
+          }
 
           .composer-foot {
             align-items: stretch;
