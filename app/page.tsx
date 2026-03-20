@@ -1052,17 +1052,20 @@ function HomePageInner() {
         }
 
         .chip-groups-grid {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 14px;
-        }
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  min-width: 0;
+}
 
         .chip-group-card {
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          border-radius: 18px;
-          padding: 14px;
-          background: rgba(255, 255, 255, 0.03);
-        }
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  min-width: 0;
+  width: 100%;
+}
 
         .chip-group-card__title {
           font-size: 14px;
@@ -1080,10 +1083,11 @@ function HomePageInner() {
         }
 
         .chip-group-card__chips {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 10px;
-        }
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
+}
 
         .chip-btn {
           appearance: none;
@@ -1959,37 +1963,51 @@ function HomePageInner() {
           }
 
           .chip-groups-grid {
-            grid-template-columns: 1fr;
-          }
+  grid-template-columns: 1fr;
+  min-width: 0;
+}
 
           .chip-group-card__chips {
-            display: flex;
-            flex-wrap: nowrap;
-            overflow-x: auto;
-            overflow-y: hidden;
-            -webkit-overflow-scrolling: touch;
-            touch-action: pan-x;
-            padding-bottom: 4px;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-            gap: 10px;
-          }
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
+  scroll-behavior: smooth;
+  padding: 2px 6px 8px 0;
+  margin-right: -6px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+  .chip-group-card__chips::-webkit-scrollbar {
+  display: none;
+}
 
-          .chip-group-card__chips::-webkit-scrollbar {
-            display: none;
-          }
+          .chip-group-card {
+  min-width: 0;
+  width: 100%;
+  overflow: hidden;
+}
 
           .chip-btn {
-            flex: 0 0 auto;
-            min-height: 38px;
-            padding: 0 13px;
-            font-size: 12px;
-            box-shadow: none;
-          }
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: 0 13px;
+  font-size: 12px;
+  box-shadow: none;
+  white-space: nowrap;
+}
+
 
           .chip-btn.is-active {
-            box-shadow: 0 8px 14px rgba(88, 28, 135, 0.16);
-          }
+  box-shadow: 0 8px 14px rgba(88, 28, 135, 0.16);
+}
 
           .composer-foot {
             align-items: stretch;
