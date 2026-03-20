@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
 
 type DesignMode = "sticker" | "playera";
@@ -31,129 +32,33 @@ type ChipDef = {
 };
 
 const STICKER_CHIPS: ChipDef[] = [
-  {
-    id: "circular",
-    label: "Circular",
-    helper: "Fuerza una composición redonda tipo badge.",
-  },
-  {
-    id: "iconico",
-    label: "Icónico",
-    helper: "Busca una silueta más memorable y reconocible.",
-  },
-  {
-    id: "compacto",
-    label: "Compacto",
-    helper: "Aprieta la composición para que se sienta más sticker.",
-  },
-  {
-    id: "vintage",
-    label: "Vintage",
-    helper: "Le da una dirección retro más trabajada.",
-  },
-  {
-    id: "street",
-    label: "Street",
-    helper: "Empuja una energía más urbana y gráfica.",
-  },
-  {
-    id: "premium",
-    label: "Premium",
-    helper: "Sube el acabado visual y la sensación premium.",
-  },
-  {
-    id: "colores_vivos",
-    label: "Colores vivos",
-    helper: "Empuja una paleta más saturada y comercial.",
-  },
-  {
-    id: "alto_contraste",
-    label: "Alto contraste",
-    helper: "Mejora legibilidad y punch visual.",
-  },
-  {
-    id: "minimal",
-    label: "Minimal",
-    helper: "Reduce ruido y elementos innecesarios.",
-  },
-  {
-    id: "divertido",
-    label: "Divertido",
-    helper: "Hace la propuesta más juguetona o carismática.",
-  },
-  {
-    id: "feroz",
-    label: "Feroz",
-    helper: "Le mete más agresividad y fuerza.",
-  },
-  {
-    id: "elegante",
-    label: "Elegante",
-    helper: "Refina formas, postura y lenguaje visual.",
-  },
+  { id: "circular", label: "Circular", helper: "Fuerza una composición redonda tipo badge." },
+  { id: "iconico", label: "Icónico", helper: "Busca una silueta más memorable y reconocible." },
+  { id: "compacto", label: "Compacto", helper: "Aprieta la composición para que se sienta más sticker." },
+  { id: "vintage", label: "Vintage", helper: "Le da una dirección retro más trabajada." },
+  { id: "street", label: "Street", helper: "Empuja una energía más urbana y gráfica." },
+  { id: "premium", label: "Premium", helper: "Sube el acabado visual y la sensación premium." },
+  { id: "colores_vivos", label: "Colores vivos", helper: "Empuja una paleta más saturada y comercial." },
+  { id: "alto_contraste", label: "Alto contraste", helper: "Mejora legibilidad y punch visual." },
+  { id: "minimal", label: "Minimal", helper: "Reduce ruido y elementos innecesarios." },
+  { id: "divertido", label: "Divertido", helper: "Hace la propuesta más juguetona o carismática." },
+  { id: "feroz", label: "Feroz", helper: "Le mete más agresividad y fuerza." },
+  { id: "elegante", label: "Elegante", helper: "Refina formas, postura y lenguaje visual." },
 ];
 
 const PLAYERA_CHIPS: ChipDef[] = [
-  {
-    id: "composicion_frontal",
-    label: "Composición frontal",
-    helper: "Piensa el arte como gráfico frontal usable en playera.",
-  },
-  {
-    id: "impacto_visual",
-    label: "Impacto visual",
-    helper: "Empuja una propuesta más fuerte y llamativa.",
-  },
-  {
-    id: "estilo_pecho",
-    label: "Estilo pecho",
-    helper: "Composición más compacta para colocación tipo pecho.",
-  },
-  {
-    id: "streetwear",
-    label: "Streetwear",
-    helper: "Dirección más moda urbana / graphic tee.",
-  },
-  {
-    id: "vintage",
-    label: "Vintage",
-    helper: "Retro trabajado con lógica de prenda.",
-  },
-  {
-    id: "premium",
-    label: "Premium",
-    helper: "Empuja una lectura más refinada y vendible.",
-  },
-  {
-    id: "alto_contraste",
-    label: "Alto contraste",
-    helper: "Aumenta punch y lectura sobre prenda.",
-  },
-  {
-    id: "tonos_oscuros",
-    label: "Tonos oscuros",
-    helper: "Paleta más profunda y con más peso visual.",
-  },
-  {
-    id: "minimal",
-    label: "Minimal",
-    helper: "Reduce ruido y carga visual.",
-  },
-  {
-    id: "divertido",
-    label: "Divertido",
-    helper: "Hace la dirección más amigable o juguetona.",
-  },
-  {
-    id: "feroz",
-    label: "Feroz",
-    helper: "Le mete más intensidad y presencia al arte.",
-  },
-  {
-    id: "elegante",
-    label: "Elegante",
-    helper: "Más refinado y sofisticado.",
-  },
+  { id: "composicion_frontal", label: "Composición frontal", helper: "Piensa el arte como gráfico frontal usable en playera." },
+  { id: "impacto_visual", label: "Impacto visual", helper: "Empuja una propuesta más fuerte y llamativa." },
+  { id: "estilo_pecho", label: "Estilo pecho", helper: "Composición más compacta para colocación tipo pecho." },
+  { id: "streetwear", label: "Streetwear", helper: "Dirección más moda urbana / graphic tee." },
+  { id: "vintage", label: "Vintage", helper: "Retro trabajado con lógica de prenda." },
+  { id: "premium", label: "Premium", helper: "Empuja una lectura más refinada y vendible." },
+  { id: "alto_contraste", label: "Alto contraste", helper: "Aumenta punch y lectura sobre prenda." },
+  { id: "tonos_oscuros", label: "Tonos oscuros", helper: "Paleta más profunda y con más peso visual." },
+  { id: "minimal", label: "Minimal", helper: "Reduce ruido y carga visual." },
+  { id: "divertido", label: "Divertido", helper: "Hace la dirección más amigable o juguetona." },
+  { id: "feroz", label: "Feroz", helper: "Le mete más intensidad y presencia al arte." },
+  { id: "elegante", label: "Elegante", helper: "Más refinado y sofisticado." },
 ];
 
 const MODE_CONTENT = {
@@ -168,7 +73,8 @@ const MODE_CONTENT = {
     chipTitle: "Dirección creativa sugerida",
     chipHelp:
       "Tócalos para orientar composición, energía, paleta y estilo. Sí influyen en la generación.",
-    note: "Generaremos 3 rutas pensadas para verse fuertes, compactas y más vendibles como sticker.",
+    note:
+      "Generaremos 3 rutas pensadas para verse fuertes, compactas y más vendibles como sticker.",
     generateLabel: "Explorar propuestas",
     generateSub: "3 rutas listas para sticker",
     loadingTitle: "Generando 3 rutas para sticker",
@@ -196,7 +102,8 @@ const MODE_CONTENT = {
     chipTitle: "Dirección creativa sugerida",
     chipHelp:
       "Úsalos para orientar composición, energía, paleta y estilo en prenda. Sí afectan cómo se arma la propuesta.",
-    note: "Generaremos 3 rutas con más jerarquía, más presencia y mejor lectura sobre tela.",
+    note:
+      "Generaremos 3 rutas con más jerarquía, más presencia y mejor lectura sobre tela.",
     generateLabel: "Explorar propuestas",
     generateSub: "3 rutas listas para playera",
     loadingTitle: "Generando 3 rutas para playera",
@@ -229,7 +136,6 @@ function HomePageInner() {
   const [error, setError] = useState("");
 
   const isEmbedded = searchParams.get("embed") === "1";
-
   const modeContent = MODE_CONTENT[mode];
   const availableChips = mode === "sticker" ? STICKER_CHIPS : PLAYERA_CHIPS;
 
@@ -325,6 +231,24 @@ function HomePageInner() {
     activeChips.length,
     prompt.length,
   ]);
+
+  useEffect(() => {
+    if (previewIndex === null || typeof document === "undefined") return;
+
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousBodyTouchAction = document.body.style.touchAction;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+
+    document.body.style.overflow = "hidden";
+    document.body.style.touchAction = "none";
+    document.documentElement.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.body.style.touchAction = previousBodyTouchAction;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+    };
+  }, [previewIndex]);
 
   function toggleChip(chipId: ChipId) {
     setError("");
@@ -489,9 +413,7 @@ function HomePageInner() {
                   </div>
                 </div>
 
-                <div className="chips-scroll-hint">
-                  Desliza para ver más estilos
-                </div>
+                <div className="chips-scroll-hint">Desliza para ver más estilos</div>
 
                 <div className="chips-grid">
                   {availableChips.map((chip) => {
@@ -652,9 +574,7 @@ function HomePageInner() {
                           🔍
                         </button>
 
-                        {isSelected ? (
-                          <div className="design-card__check">✓</div>
-                        ) : null}
+                        {isSelected ? <div className="design-card__check">✓</div> : null}
                       </div>
 
                       <div className="design-card__body">
@@ -711,8 +631,11 @@ function HomePageInner() {
               </div>
             </section>
           ) : null}
+        </div>
+      </main>
 
-          {previewIndex !== null ? (
+      {previewIndex !== null && typeof document !== "undefined"
+        ? createPortal(
             <div className="preview-modal" onClick={() => setPreviewIndex(null)}>
               <div
                 className="preview-modal__dialog"
@@ -773,37 +696,41 @@ function HomePageInner() {
                   </button>
                 </div>
               </div>
-            </div>
-          ) : null}
-        </div>
-      </main>
+            </div>,
+            document.body
+          )
+        : null}
 
       <style jsx>{`
         :global(html),
         :global(body) {
-          background: transparent !important;
+          margin: 0;
+          background: #0b1020 !important;
+          min-height: 100%;
           overflow-x: hidden;
         }
 
         .page-shell {
           min-height: 100vh;
+          min-height: 100dvh;
           padding: 24px;
           background:
-            radial-gradient(circle at 14% 0%, rgba(124, 58, 237, 0.2), transparent 22%),
-            radial-gradient(circle at 100% 10%, rgba(6, 182, 212, 0.18), transparent 22%),
-            linear-gradient(180deg, #090b14 0%, #0b1020 45%, #0a0f1d 100%);
+            radial-gradient(circle at 12% 0%, rgba(124, 58, 237, 0.18), transparent 22%),
+            radial-gradient(circle at 100% 10%, rgba(6, 182, 212, 0.14), transparent 22%),
+            linear-gradient(180deg, #0c1120 0%, #0d1424 46%, #0b1020 100%);
           font-family:
             Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
             "Segoe UI", sans-serif;
         }
 
         .page-shell.is-embedded {
-          min-height: auto;
+          min-height: 100vh;
+          min-height: 100dvh;
           padding: 18px;
           background:
-            radial-gradient(circle at 14% 0%, rgba(124, 58, 237, 0.17), transparent 24%),
-            radial-gradient(circle at 100% 10%, rgba(6, 182, 212, 0.16), transparent 24%),
-            linear-gradient(180deg, #0a0e19 0%, #0b1020 55%, #0a0f1d 100%);
+            radial-gradient(circle at 12% 0%, rgba(124, 58, 237, 0.16), transparent 24%),
+            radial-gradient(circle at 100% 10%, rgba(6, 182, 212, 0.12), transparent 24%),
+            linear-gradient(180deg, #0d1323 0%, #0e1527 55%, #0b1020 100%);
         }
 
         .page-wrap {
@@ -811,6 +738,7 @@ function HomePageInner() {
           margin: 0 auto;
           display: grid;
           gap: 18px;
+          padding-bottom: 2px;
         }
 
         .is-embedded .page-wrap {
@@ -822,14 +750,14 @@ function HomePageInner() {
         .results-block {
           position: relative;
           background:
-            linear-gradient(180deg, rgba(15, 20, 35, 0.92), rgba(10, 14, 25, 0.94));
+            linear-gradient(180deg, rgba(18, 24, 40, 0.92), rgba(12, 17, 30, 0.94));
           border: 1px solid rgba(255, 255, 255, 0.08);
           border-radius: 28px;
           padding: 22px;
           box-shadow:
-            0 24px 70px rgba(0, 0, 0, 0.34),
-            inset 0 1px 0 rgba(255, 255, 255, 0.06);
-          backdrop-filter: blur(18px);
+            0 18px 44px rgba(0, 0, 0, 0.28),
+            inset 0 1px 0 rgba(255, 255, 255, 0.05);
+          backdrop-filter: blur(16px);
           overflow: hidden;
         }
 
@@ -840,8 +768,8 @@ function HomePageInner() {
           inset: 0;
           pointer-events: none;
           background:
-            radial-gradient(circle at top left, rgba(124, 58, 237, 0.08), transparent 28%),
-            radial-gradient(circle at top right, rgba(6, 182, 212, 0.07), transparent 26%);
+            radial-gradient(circle at top left, rgba(124, 58, 237, 0.08), transparent 26%),
+            radial-gradient(circle at top right, rgba(6, 182, 212, 0.06), transparent 24%);
         }
 
         .is-embedded .composer-card,
@@ -887,7 +815,7 @@ function HomePageInner() {
           -webkit-background-clip: text;
           background-clip: text;
           color: transparent;
-          text-shadow: 0 0 24px rgba(124, 58, 237, 0.18);
+          text-shadow: 0 0 22px rgba(124, 58, 237, 0.16);
         }
 
         .studio-mode-pill,
@@ -906,14 +834,13 @@ function HomePageInner() {
 
         .studio-mode-pill {
           color: #e5e7eb;
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid rgba(139, 92, 246, 0.24);
-          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+          background: rgba(255, 255, 255, 0.06);
+          border: 1px solid rgba(139, 92, 246, 0.22);
         }
 
         .studio-proof {
-          color: #cbd5e1;
-          background: rgba(255, 255, 255, 0.04);
+          color: #d5deed;
+          background: rgba(255, 255, 255, 0.05);
           border: 1px solid rgba(255, 255, 255, 0.08);
         }
 
@@ -937,7 +864,7 @@ function HomePageInner() {
           margin: 0;
           font-size: 14px;
           line-height: 1.58;
-          color: #a7b3c7;
+          color: #b2bfd4;
           font-weight: 700;
           max-width: 780px;
         }
@@ -948,7 +875,7 @@ function HomePageInner() {
           border: 1px solid rgba(255, 255, 255, 0.08);
           border-radius: 24px;
           background:
-            linear-gradient(180deg, rgba(18, 24, 40, 0.86), rgba(12, 16, 28, 0.9));
+            linear-gradient(180deg, rgba(21, 28, 47, 0.9), rgba(15, 20, 34, 0.92));
           padding: 18px;
           box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
         }
@@ -967,13 +894,13 @@ function HomePageInner() {
           font-weight: 950;
           letter-spacing: 0.1em;
           text-transform: uppercase;
-          color: #e2e8f0;
+          color: #f1f5f9;
         }
 
         .brief-note {
           font-size: 12px;
           font-weight: 800;
-          color: #7f8ca4;
+          color: #91a0b6;
         }
 
         .prompt-textarea {
@@ -987,7 +914,7 @@ function HomePageInner() {
           line-height: 1.6;
           color: #f8fafc;
           background:
-            linear-gradient(180deg, rgba(8, 12, 22, 0.92), rgba(12, 16, 28, 0.95));
+            linear-gradient(180deg, rgba(14, 19, 33, 0.92), rgba(18, 24, 40, 0.95));
           outline: none;
           transition:
             border-color 0.18s ease,
@@ -996,16 +923,14 @@ function HomePageInner() {
         }
 
         .prompt-textarea::placeholder {
-          color: #73829b;
+          color: #8f9fb8;
         }
 
         .prompt-textarea:focus {
-          border-color: rgba(139, 92, 246, 0.44);
+          border-color: rgba(139, 92, 246, 0.4);
           box-shadow:
-            0 0 0 5px rgba(99, 102, 241, 0.14),
-            0 0 32px rgba(124, 58, 237, 0.12);
-          background:
-            linear-gradient(180deg, rgba(10, 14, 25, 0.96), rgba(12, 16, 28, 0.98));
+            0 0 0 5px rgba(99, 102, 241, 0.12),
+            0 0 26px rgba(124, 58, 237, 0.08);
         }
 
         .chips-zone {
@@ -1026,7 +951,7 @@ function HomePageInner() {
         .chips-sub {
           font-size: 13px;
           line-height: 1.45;
-          color: #94a3b8;
+          color: #a8b6ca;
           font-weight: 700;
           max-width: 760px;
         }
@@ -1038,7 +963,7 @@ function HomePageInner() {
           font-weight: 800;
           letter-spacing: 0.06em;
           text-transform: uppercase;
-          color: #7f8ca4;
+          color: #8495af;
         }
 
         .chips-grid {
@@ -1051,7 +976,7 @@ function HomePageInner() {
           appearance: none;
           border: 1px solid rgba(255, 255, 255, 0.08);
           background:
-            linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
+            linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04));
           color: #f8fafc;
           min-height: 40px;
           padding: 0 14px;
@@ -1064,17 +989,16 @@ function HomePageInner() {
             transform 0.18s ease,
             box-shadow 0.18s ease,
             border-color 0.18s ease,
-            background 0.18s ease,
-            color 0.18s ease;
+            background 0.18s ease;
           box-shadow:
-            0 10px 20px rgba(0, 0, 0, 0.18),
+            0 8px 18px rgba(0, 0, 0, 0.16),
             inset 0 1px 0 rgba(255, 255, 255, 0.04);
           white-space: nowrap;
         }
 
         .chip-btn:hover {
           transform: translateY(-1px);
-          border-color: rgba(139, 92, 246, 0.22);
+          border-color: rgba(139, 92, 246, 0.2);
         }
 
         .chip-btn.is-active {
@@ -1083,9 +1007,9 @@ function HomePageInner() {
           background:
             linear-gradient(135deg, #7c3aed 0%, #8b5cf6 44%, #06b6d4 100%);
           box-shadow:
-            0 16px 30px rgba(88, 28, 135, 0.36),
-            0 0 26px rgba(6, 182, 212, 0.16),
-            inset 0 1px 0 rgba(255, 255, 255, 0.18);
+            0 14px 24px rgba(88, 28, 135, 0.28),
+            0 0 22px rgba(6, 182, 212, 0.12),
+            inset 0 1px 0 rgba(255, 255, 255, 0.14);
         }
 
         .chip-btn__text {
@@ -1096,10 +1020,10 @@ function HomePageInner() {
 
         .direction-panel {
           margin-top: 14px;
-          border: 1px solid rgba(139, 92, 246, 0.16);
+          border: 1px solid rgba(139, 92, 246, 0.14);
           background:
-            radial-gradient(circle at top left, rgba(124, 58, 237, 0.14), transparent 34%),
-            linear-gradient(180deg, rgba(17, 22, 36, 0.92), rgba(12, 16, 28, 0.95));
+            radial-gradient(circle at top left, rgba(124, 58, 237, 0.1), transparent 32%),
+            linear-gradient(180deg, rgba(22, 28, 46, 0.92), rgba(16, 21, 36, 0.94));
           border-radius: 18px;
           padding: 14px;
         }
@@ -1121,7 +1045,7 @@ function HomePageInner() {
           margin: 0;
           font-size: 13px;
           line-height: 1.45;
-          color: #a7b3c7;
+          color: #b0bed2;
           font-weight: 700;
         }
 
@@ -1141,7 +1065,7 @@ function HomePageInner() {
           font-size: 12px;
           font-weight: 900;
           color: #f8fafc;
-          background: rgba(255, 255, 255, 0.07);
+          background: rgba(255, 255, 255, 0.08);
           border: 1px solid rgba(255, 255, 255, 0.08);
         }
 
@@ -1158,7 +1082,7 @@ function HomePageInner() {
           margin: 0;
           font-size: 13px;
           font-weight: 800;
-          color: #94a3b8;
+          color: #aebed3;
           line-height: 1.5;
           max-width: 560px;
         }
@@ -1196,9 +1120,9 @@ function HomePageInner() {
           inset: -8px;
           border-radius: 24px;
           background:
-            radial-gradient(circle at 20% 50%, rgba(236, 72, 153, 0.22), transparent 34%),
-            radial-gradient(circle at 80% 40%, rgba(6, 182, 212, 0.22), transparent 36%),
-            radial-gradient(circle at 55% 60%, rgba(139, 92, 246, 0.22), transparent 42%);
+            radial-gradient(circle at 20% 50%, rgba(236, 72, 153, 0.2), transparent 34%),
+            radial-gradient(circle at 80% 40%, rgba(6, 182, 212, 0.2), transparent 36%),
+            radial-gradient(circle at 55% 60%, rgba(139, 92, 246, 0.2), transparent 42%);
           filter: blur(16px);
           z-index: 0;
         }
@@ -1337,11 +1261,11 @@ function HomePageInner() {
           position: relative;
           z-index: 1;
           margin-top: 18px;
-          border: 1px solid rgba(139, 92, 246, 0.16);
+          border: 1px solid rgba(139, 92, 246, 0.14);
           background:
-            radial-gradient(circle at top left, rgba(124, 58, 237, 0.14), transparent 36%),
-            radial-gradient(circle at bottom right, rgba(6, 182, 212, 0.1), transparent 30%),
-            linear-gradient(180deg, rgba(17, 22, 36, 0.98), rgba(11, 16, 28, 0.98));
+            radial-gradient(circle at top left, rgba(124, 58, 237, 0.1), transparent 34%),
+            radial-gradient(circle at bottom right, rgba(6, 182, 212, 0.08), transparent 30%),
+            linear-gradient(180deg, rgba(23, 29, 48, 0.98), rgba(16, 21, 36, 0.98));
           border-radius: 18px;
           padding: 16px;
         }
@@ -1358,8 +1282,8 @@ function HomePageInner() {
           height: 48px;
           min-width: 48px;
           border-radius: 999px;
-          border: 1px solid rgba(139, 92, 246, 0.16);
-          background: radial-gradient(circle at center, rgba(99, 102, 241, 0.1), rgba(15, 20, 35, 0.9));
+          border: 1px solid rgba(139, 92, 246, 0.14);
+          background: radial-gradient(circle at center, rgba(99, 102, 241, 0.1), rgba(18, 24, 40, 0.92));
         }
 
         .loading-dot {
@@ -1403,7 +1327,7 @@ function HomePageInner() {
         .loading-subtitle {
           font-size: 13px;
           font-weight: 750;
-          color: #94a3b8;
+          color: #aebed3;
           line-height: 1.45;
         }
 
@@ -1419,7 +1343,7 @@ function HomePageInner() {
           gap: 10px;
           font-size: 13px;
           font-weight: 850;
-          color: #cbd5e1;
+          color: #d8e1ee;
         }
 
         .loading-step__bullet {
@@ -1434,7 +1358,7 @@ function HomePageInner() {
           position: relative;
           z-index: 1;
           margin-top: 14px;
-          border: 1px solid rgba(239, 68, 68, 0.18);
+          border: 1px solid rgba(239, 68, 68, 0.16);
           background: rgba(127, 29, 29, 0.22);
           color: #fecaca;
           border-radius: 14px;
@@ -1472,7 +1396,7 @@ function HomePageInner() {
           margin: 0;
           font-size: 13px;
           line-height: 1.5;
-          color: #94a3b8;
+          color: #aab8cc;
           font-weight: 700;
           max-width: 760px;
         }
@@ -1491,7 +1415,7 @@ function HomePageInner() {
         .design-card {
           border: 1px solid rgba(255, 255, 255, 0.08);
           background:
-            linear-gradient(180deg, rgba(17, 22, 36, 0.96), rgba(11, 16, 28, 0.98));
+            linear-gradient(180deg, rgba(23, 29, 48, 0.96), rgba(16, 21, 36, 0.98));
           border-radius: 22px;
           overflow: hidden;
           padding: 8px;
@@ -1502,21 +1426,21 @@ function HomePageInner() {
             border-color 0.18s ease,
             box-shadow 0.18s ease;
           box-shadow:
-            0 16px 28px rgba(0, 0, 0, 0.18),
+            0 12px 22px rgba(0, 0, 0, 0.16),
             inset 0 1px 0 rgba(255, 255, 255, 0.03);
         }
 
         .design-card:hover {
           transform: translateY(-2px);
-          border-color: rgba(139, 92, 246, 0.24);
-          box-shadow: 0 20px 36px rgba(0, 0, 0, 0.24);
+          border-color: rgba(139, 92, 246, 0.22);
+          box-shadow: 0 18px 30px rgba(0, 0, 0, 0.2);
         }
 
         .design-card.is-selected {
-          border-color: rgba(34, 211, 238, 0.42);
+          border-color: rgba(34, 211, 238, 0.38);
           box-shadow:
-            0 0 0 4px rgba(34, 211, 238, 0.1),
-            0 20px 36px rgba(0, 0, 0, 0.26);
+            0 0 0 4px rgba(34, 211, 238, 0.08),
+            0 18px 30px rgba(0, 0, 0, 0.22);
         }
 
         .design-card__image-wrap {
@@ -1525,8 +1449,8 @@ function HomePageInner() {
           border-radius: 16px;
           overflow: hidden;
           background:
-            radial-gradient(circle at top left, rgba(124, 58, 237, 0.12), transparent 28%),
-            linear-gradient(180deg, #111827, #0f172a);
+            radial-gradient(circle at top left, rgba(124, 58, 237, 0.1), transparent 26%),
+            linear-gradient(180deg, #1b2439, #151c2e);
           border: 1px solid rgba(255, 255, 255, 0.05);
         }
 
@@ -1548,8 +1472,8 @@ function HomePageInner() {
           font-size: 10px;
           font-weight: 900;
           line-height: 1.1;
-          color: #e2e8f0;
-          background: rgba(15, 23, 42, 0.72);
+          color: #eef2ff;
+          background: rgba(15, 23, 42, 0.66);
           border: 1px solid rgba(255, 255, 255, 0.08);
           backdrop-filter: blur(8px);
           white-space: nowrap;
@@ -1565,7 +1489,7 @@ function HomePageInner() {
           height: 34px;
           border: none;
           border-radius: 999px;
-          background: rgba(15, 23, 42, 0.82);
+          background: rgba(15, 23, 42, 0.8);
           border: 1px solid rgba(255, 255, 255, 0.08);
           color: #f8fafc;
           font-size: 14px;
@@ -1573,7 +1497,7 @@ function HomePageInner() {
           align-items: center;
           justify-content: center;
           cursor: pointer;
-          box-shadow: 0 8px 18px rgba(0, 0, 0, 0.24);
+          box-shadow: 0 8px 18px rgba(0, 0, 0, 0.2);
         }
 
         .design-card__check {
@@ -1590,7 +1514,7 @@ function HomePageInner() {
           color: #fff;
           font-size: 13px;
           font-weight: 1000;
-          box-shadow: 0 12px 22px rgba(8, 145, 178, 0.26);
+          box-shadow: 0 10px 18px rgba(8, 145, 178, 0.22);
         }
 
         .design-card__body {
@@ -1608,7 +1532,7 @@ function HomePageInner() {
           margin-top: 5px;
           font-size: 12px;
           line-height: 1.45;
-          color: #94a3b8;
+          color: #acbbcf;
           font-weight: 700;
         }
 
@@ -1619,7 +1543,7 @@ function HomePageInner() {
           margin-top: 18px;
           border: 1px solid rgba(255, 255, 255, 0.08);
           background:
-            linear-gradient(180deg, rgba(16, 21, 34, 0.9), rgba(10, 14, 25, 0.92));
+            linear-gradient(180deg, rgba(20, 26, 44, 0.92), rgba(14, 19, 32, 0.94));
           backdrop-filter: blur(18px);
           border-radius: 22px;
           padding: 14px;
@@ -1628,7 +1552,7 @@ function HomePageInner() {
           justify-content: space-between;
           gap: 14px;
           flex-wrap: wrap;
-          box-shadow: 0 22px 34px rgba(0, 0, 0, 0.24);
+          box-shadow: 0 18px 30px rgba(0, 0, 0, 0.18);
         }
 
         .studio-actionbar__meta {
@@ -1653,7 +1577,7 @@ function HomePageInner() {
         .studio-actionbar__sub {
           font-size: 13px;
           line-height: 1.45;
-          color: #94a3b8;
+          color: #aebed3;
           font-weight: 700;
         }
 
@@ -1691,12 +1615,11 @@ function HomePageInner() {
           min-height: 46px;
           padding: 0 16px;
           border-radius: 14px;
-          background: rgba(255, 255, 255, 0.06);
+          background: rgba(255, 255, 255, 0.07);
           color: #f8fafc;
           font-size: 14px;
           font-weight: 900;
           border: 1px solid rgba(255, 255, 255, 0.08);
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
         }
 
         .studio-primary-btn {
@@ -1708,33 +1631,35 @@ function HomePageInner() {
           font-size: 14px;
           font-weight: 950;
           box-shadow:
-            0 14px 28px rgba(88, 28, 135, 0.34),
-            0 0 26px rgba(6, 182, 212, 0.1);
+            0 12px 22px rgba(88, 28, 135, 0.22),
+            0 0 18px rgba(6, 182, 212, 0.08);
         }
 
         .preview-modal {
           position: fixed;
           inset: 0;
           z-index: 9999;
-          background: rgba(2, 6, 23, 0.78);
+          background: rgba(2, 6, 23, 0.74);
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 18px;
+          padding: 16px;
           backdrop-filter: blur(8px);
           min-height: 100dvh;
         }
 
         .preview-modal__dialog {
-          width: min(940px, calc(100vw - 36px));
-          height: min(82dvh, 780px);
+          width: min(920px, calc(100vw - 32px));
+          max-width: 920px;
+          height: min(84dvh, 760px);
+          margin: 0 auto;
           background:
-            linear-gradient(180deg, rgba(14, 19, 33, 0.98), rgba(8, 12, 22, 0.98));
-          border-radius: 26px;
+            linear-gradient(180deg, rgba(20, 26, 44, 0.98), rgba(14, 19, 32, 0.98));
+          border-radius: 24px;
           overflow: hidden;
           position: relative;
           box-shadow:
-            0 30px 90px rgba(0, 0, 0, 0.44),
+            0 24px 70px rgba(0, 0, 0, 0.34),
             inset 0 1px 0 rgba(255, 255, 255, 0.06);
           display: grid;
           grid-template-rows: 1fr auto;
@@ -1743,10 +1668,10 @@ function HomePageInner() {
 
         .preview-modal__close {
           position: absolute;
-          top: 14px;
-          right: 14px;
-          width: 44px;
-          height: 44px;
+          top: 12px;
+          right: 12px;
+          width: 42px;
+          height: 42px;
           border: none;
           border-radius: 999px;
           background: rgba(255, 255, 255, 0.08);
@@ -1762,41 +1687,41 @@ function HomePageInner() {
           position: absolute;
           top: 50%;
           transform: translateY(-50%);
-          width: 52px;
-          height: 52px;
+          width: 50px;
+          height: 50px;
           border: none;
           border-radius: 999px;
           background: rgba(15, 23, 42, 0.82);
           color: #f8fafc;
-          font-size: 34px;
+          font-size: 32px;
           font-weight: 500;
           line-height: 1;
           display: flex;
           align-items: center;
           justify-content: center;
           cursor: pointer;
-          box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+          box-shadow: 0 10px 20px rgba(0, 0, 0, 0.24);
           z-index: 2;
           border: 1px solid rgba(255, 255, 255, 0.08);
         }
 
         .preview-modal__nav--left {
-          left: 18px;
+          left: 16px;
         }
 
         .preview-modal__nav--right {
-          right: 18px;
+          right: 16px;
         }
 
         .preview-modal__image-wrap {
           background:
-            radial-gradient(circle at top left, rgba(124, 58, 237, 0.12), transparent 28%),
-            radial-gradient(circle at top right, rgba(6, 182, 212, 0.1), transparent 24%),
-            linear-gradient(180deg, #111827, #0f172a);
+            radial-gradient(circle at top left, rgba(124, 58, 237, 0.1), transparent 24%),
+            radial-gradient(circle at top right, rgba(6, 182, 212, 0.08), transparent 22%),
+            linear-gradient(180deg, #1a2238, #151c2e);
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 32px;
+          padding: 26px 28px 18px;
           min-height: 0;
         }
 
@@ -1812,9 +1737,9 @@ function HomePageInner() {
           align-items: center;
           justify-content: space-between;
           gap: 16px;
-          padding: 18px 20px 20px;
+          padding: 16px 18px 18px;
           border-top: 1px solid rgba(255, 255, 255, 0.08);
-          background: rgba(255, 255, 255, 0.02);
+          background: rgba(255, 255, 255, 0.03);
         }
 
         .preview-modal__meta {
@@ -1835,8 +1760,8 @@ function HomePageInner() {
           font-weight: 950;
           cursor: pointer;
           box-shadow:
-            0 14px 28px rgba(88, 28, 135, 0.3),
-            0 0 26px rgba(6, 182, 212, 0.08);
+            0 12px 22px rgba(88, 28, 135, 0.22),
+            0 0 18px rgba(6, 182, 212, 0.08);
         }
 
         .preview-modal__select.is-selected {
@@ -2011,23 +1936,24 @@ function HomePageInner() {
           }
 
           .preview-modal {
-            padding: 10px;
+            padding: 12px;
             min-height: 100dvh;
           }
 
           .preview-modal__dialog {
-            width: calc(100vw - 20px);
-            height: min(76dvh, 640px);
+            width: calc(100vw - 24px);
+            max-width: calc(100vw - 24px);
+            height: min(74dvh, 620px);
             border-radius: 22px;
           }
 
           .preview-modal__image-wrap {
-            padding: 22px 16px 18px;
+            padding: 20px 14px 14px;
           }
 
           .preview-modal__nav {
-            width: 46px;
-            height: 46px;
+            width: 44px;
+            height: 44px;
             font-size: 28px;
           }
 
