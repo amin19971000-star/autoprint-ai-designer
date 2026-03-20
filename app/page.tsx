@@ -44,7 +44,7 @@ const STICKER_CHIP_GROUPS: ChipGroup[] = [
   {
     id: "shape",
     title: "Forma del diseño",
-    subtitle: "Esto ayuda a definir cómo se acomoda o se lee tu sticker.",
+    subtitle: "Esto define cómo se acomoda y cómo se leerá tu sticker.",
     chips: [
       { id: "circular", label: "Circular", helper: "Fuerza una composición redonda tipo badge." },
       { id: "iconico", label: "Icónico", helper: "Busca una silueta más memorable y reconocible." },
@@ -73,7 +73,7 @@ const PLAYERA_CHIP_GROUPS: ChipGroup[] = [
   {
     id: "layout",
     title: "Acomodo en la playera",
-    subtitle: "Esto ayuda a definir cómo se verá mejor sobre la prenda.",
+    subtitle: "Esto ayuda a definir cómo lucirá mejor el diseño sobre la prenda.",
     chips: [
       { id: "composicion_frontal", label: "Composición frontal", helper: "Piensa el arte como gráfico frontal usable en playera." },
       { id: "impacto_visual", label: "Impacto visual", helper: "Empuja una propuesta más fuerte y llamativa." },
@@ -85,7 +85,7 @@ const PLAYERA_CHIP_GROUPS: ChipGroup[] = [
   {
     id: "style",
     title: "Estilo y personalidad",
-    subtitle: "Esto define el look, el ambiente y el acabado del diseño.",
+    subtitle: "Esto define el look, el ambiente y la presencia del diseño.",
     chips: [
       { id: "streetwear", label: "Streetwear", helper: "Dirección más moda urbana / graphic tee." },
       { id: "vintage", label: "Vintage", helper: "Retro trabajado con lógica de prenda." },
@@ -100,57 +100,57 @@ const PLAYERA_CHIP_GROUPS: ChipGroup[] = [
 
 const MODE_CONTENT = {
   sticker: {
-    title: "Diseña un sticker personalizado en pocos pasos",
+    title: "Dirige tu sticker como si estuvieras en un estudio",
     subhelp:
-      "Escribe lo que quieres que aparezca en tu diseño y te mostraremos 3 opciones para elegir la que más te guste.",
+      "Escribe tu idea y te mostraremos 3 propuestas con más intención, más estilo y mejor presencia visual para sticker.",
     placeholder:
-      "Ejemplo: un tigre feroz con corona, nombre Leo y un estilo premium",
-    ideaLabel: "Cuéntanos qué quieres",
+      "Ejemplo: tigre feroz con corona, nombre Leo y un estilo premium muy icónico",
+    ideaLabel: "Describe tu diseño",
     ideaNote:
-      "Puedes escribir el personaje, nombre, colores, frase o cualquier detalle importante.",
-    chipsTitle: "Elige cómo quieres que se vea",
+      "Cuéntanos el personaje, nombre, colores, frase o detalles que te gustaría ver en tu sticker.",
+    chipsTitle: "Dale dirección a tu diseño",
     chipsSub:
-      "Selecciona hasta 3 opciones para decirnos qué estilo te gustaría para tu diseño.",
+      "Elige hasta 3 opciones para marcar el estilo y la personalidad que quieres ver en tus propuestas.",
     primaryCta: "Explorar propuestas",
-    primarySub: "3 opciones listas para sticker",
-    loadingTitle: "Estamos creando tus 3 opciones",
+    primarySub: "3 propuestas listas para sticker",
+    loadingTitle: "Estamos creando tus 3 propuestas",
     loadingSub:
-      "Tomando tu idea y preparándola para que se vea mejor como sticker.",
+      "Interpretando tu idea y refinándola para que se vea más fuerte, más clara y mejor pensada como sticker.",
     resultsKicker: "Propuestas del estudio",
-    resultsTitle: "Elige tu opción favorita",
+    resultsTitle: "Elige la propuesta que más te guste",
     resultsSub:
-      "Revisa las 3 propuestas y selecciona la que más te guste para tu sticker.",
-    directionPanelTitle: "Estilo elegido",
+      "Revisa tus 3 opciones y selecciona la que mejor represente tu idea.",
+    directionPanelTitle: "Dirección elegida",
     directionPanelSub:
-      "Tomaremos tu idea y la refinaremos con estas indicaciones.",
+      "Tomaremos tu idea y la refinaremos con estas indicaciones visuales.",
     selectionReady: "Lista para usarse en tu sticker.",
     finalCta: "Usar este diseño en mi sticker",
     previewSelect: "Seleccionar este diseño para sticker",
   },
   playera: {
-    title: "Diseña una playera personalizada en pocos pasos",
+    title: "Dirige tu playera como si estuvieras en un estudio",
     subhelp:
-      "Escribe lo que quieres que aparezca en tu diseño y te mostraremos 3 opciones para elegir la que más te guste.",
+      "Escribe tu idea y te mostraremos 3 propuestas con más intención, más estilo y mejor presencia visual para playera.",
     placeholder:
-      "Ejemplo: samurái vintage para playera con estilo premium y mucha presencia",
-    ideaLabel: "Cuéntanos qué quieres",
+      "Ejemplo: samurái vintage para playera con un estilo premium y mucha presencia",
+    ideaLabel: "Describe tu diseño",
     ideaNote:
-      "Puedes escribir el personaje, nombre, colores, frase o cualquier detalle importante.",
-    chipsTitle: "Elige cómo quieres que se vea",
+      "Cuéntanos el personaje, nombre, colores, frase o detalles que te gustaría ver en tu playera.",
+    chipsTitle: "Dale dirección a tu diseño",
     chipsSub:
-      "Selecciona hasta 3 opciones para decirnos qué estilo te gustaría para tu diseño.",
+      "Elige hasta 3 opciones para marcar el estilo y la personalidad que quieres ver en tus propuestas.",
     primaryCta: "Explorar propuestas",
-    primarySub: "3 opciones listas para playera",
-    loadingTitle: "Estamos creando tus 3 opciones",
+    primarySub: "3 propuestas listas para playera",
+    loadingTitle: "Estamos creando tus 3 propuestas",
     loadingSub:
-      "Tomando tu idea y preparándola para que se vea mejor sobre una playera.",
+      "Interpretando tu idea y refinándola para que se vea con más fuerza y mejor presencia sobre la prenda.",
     resultsKicker: "Propuestas del estudio",
-    resultsTitle: "Elige tu opción favorita",
+    resultsTitle: "Elige la propuesta que más te guste",
     resultsSub:
-      "Revisa las 3 propuestas y selecciona la que más te guste para tu playera.",
-    directionPanelTitle: "Estilo elegido",
+      "Revisa tus 3 opciones y selecciona la que mejor represente tu idea.",
+    directionPanelTitle: "Dirección elegida",
     directionPanelSub:
-      "Tomaremos tu idea y la refinaremos con estas indicaciones.",
+      "Tomaremos tu idea y la refinaremos con estas indicaciones visuales.",
     selectionReady: "Lista para usarse en tu playera.",
     finalCta: "Usar este diseño en mi playera",
     previewSelect: "Seleccionar este diseño para playera",
@@ -560,7 +560,7 @@ function HomePageInner() {
                         {loading ? "Generando..." : modeContent.primaryCta}
                       </span>
                       <span className="ai-generate-btn__sub">
-                        {loading ? "3 opciones en proceso" : modeContent.primarySub}
+                        {loading ? "3 propuestas en proceso" : modeContent.primarySub}
                       </span>
                     </span>
                   </span>
@@ -594,7 +594,7 @@ function HomePageInner() {
                   </div>
                   <div className="loading-step">
                     <span className="loading-step__bullet" />
-                    Preparando 3 opciones para elegir
+                    Preparando 3 propuestas para elegir
                   </div>
                 </div>
               </div>
@@ -658,9 +658,7 @@ function HomePageInner() {
 
                       <div className="design-card__body">
                         <div className="design-card__title">
-                          {isSelected
-                            ? "Selección actual"
-                            : `Opción ${index + 1}`}
+                          {isSelected ? "Selección actual" : `Opción ${index + 1}`}
                         </div>
                         <div className="design-card__meta">
                           {isSelected
@@ -911,7 +909,12 @@ function HomePageInner() {
           bottom: -1.5px;
           width: 70px;
           height: 2px;
-          background: linear-gradient(90deg, rgba(139,92,246,0), rgba(34,211,238,0.9), rgba(139,92,246,0));
+          background: linear-gradient(
+            90deg,
+            rgba(139,92,246,0),
+            rgba(34,211,238,0.9),
+            rgba(139,92,246,0)
+          );
           border-radius: 999px;
         }
 
@@ -1960,12 +1963,16 @@ function HomePageInner() {
           }
 
           .chip-group-card__chips {
+            display: flex;
             flex-wrap: nowrap;
             overflow-x: auto;
             overflow-y: hidden;
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-x;
             padding-bottom: 4px;
             scrollbar-width: none;
             -ms-overflow-style: none;
+            gap: 10px;
           }
 
           .chip-group-card__chips::-webkit-scrollbar {
