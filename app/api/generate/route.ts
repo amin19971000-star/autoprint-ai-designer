@@ -45,6 +45,7 @@ type EventData = {
   theme: string;
   phrase: string;
   details: string;
+  recipientType: string;
   colors: string[];
   customColors: string;
   preferredColors: string[];
@@ -98,6 +99,64 @@ type DesignBlueprint = {
   typography_strategy: string;
 };
 
+type ProtectedCharacterRule = {
+  pattern: RegExp;
+  replacement: string;
+};
+
+const PROTECTED_CHARACTER_RULES: ProtectedCharacterRule[] = [
+  {
+    pattern: /\bbatman\b/gi,
+    replacement:
+      "dark nocturnal bat-themed masked vigilante hero with pointed ears, black cape, dark armored suit, strong heroic stance, comic-book style presence",
+  },
+  {
+    pattern: /\bbruce wayne\b/gi,
+    replacement:
+      "dark nocturnal bat-themed masked vigilante hero with pointed ears, black cape, dark armored suit, strong heroic stance, comic-book style presence",
+  },
+  {
+    pattern: /\bbarbie\b/gi,
+    replacement:
+      "glamorous pink fashion-doll inspired girl character, long blonde hair, bright feminine styling, playful luxury look, glossy toy-inspired aesthetic",
+  },
+  {
+    pattern: /\bspiderman\b/gi,
+    replacement:
+      "red and blue spider-themed agile masked superhero with web motifs, dynamic comic-book pose, athletic body language, energetic heroic presence",
+  },
+  {
+    pattern: /\bspider-man\b/gi,
+    replacement:
+      "red and blue spider-themed agile masked superhero with web motifs, dynamic comic-book pose, athletic body language, energetic heroic presence",
+  },
+  {
+    pattern: /\bsuperman\b/gi,
+    replacement:
+      "legendary flying superhero with blue suit, red cape, bold chest emblem, strong jawline, confident heroic posture, classic comic-book energy",
+  },
+  {
+    pattern: /\bhello kitty\b/gi,
+    replacement:
+      "cute white kitten character with a bow on the ear, minimal kawaii face, rounded forms, adorable pastel toy-like aesthetic",
+  },
+  {
+    pattern: /\bminnie\b/gi,
+    replacement:
+      "cute cartoon mouse girl with rounded ears, large bow, sweet expression, playful classic animation style",
+  },
+  {
+    pattern: /\bmickey\b/gi,
+    replacement:
+      "classic cheerful cartoon mouse character with rounded ears, friendly smile, vintage animation-inspired styling",
+  },
+  {
+    pattern: /\bsonic\b/gi,
+    replacement:
+      "fast blue spiky hedgehog character with energetic pose, sporty attitude, dynamic cartoon-game aesthetic",
+  },
+];
+
 const STICKER_ALLOWED_CHIPS = new Set<ChipId>([
   "circular",
   "iconico",
@@ -130,6 +189,16 @@ const PLAYERA_ALLOWED_CHIPS = new Set<ChipId>([
 
 function cleanInput(input: string) {
   return String(input || "").trim().replace(/\s+/g, " ");
+}
+
+function sanitizeProtectedReferences(text: string) {
+  let result = cleanInput(text);
+
+  for (const rule of PROTECTED_CHARACTER_RULES) {
+    result = result.replace(rule.pattern, rule.replacement);
+  }
+
+  return cleanInput(result);
 }
 
 function cleanStringArray(input: unknown): string[] {
@@ -165,13 +234,14 @@ function normalizeEventData(raw: unknown): EventData {
   const theme = cleanInput(String(obj?.theme || ""));
   const phrase = cleanInput(String(obj?.phrase || ""));
   const details = cleanInput(String(obj?.details || ""));
+  const recipientType = cleanInput(String(obj?.recipientType || ""));
   const colors = cleanStringArray(obj?.colors).slice(0, 4);
   const customColors = cleanInput(String(obj?.customColors || ""));
 
   const preferredColors = [...colors];
   if (customColors) {
-    const keySet = new Set(preferredColors.map((x) => x.toLowerCase()));
-    if (!keySet.has(customColors.toLowerCase())) {
+    const set = new Set(preferredColors.map((x) => x.toLowerCase()));
+    if (!set.has(customColors.toLowerCase())) {
       preferredColors.push(customColors);
     }
   }
@@ -183,6 +253,7 @@ function normalizeEventData(raw: unknown): EventData {
     !!theme ||
     !!phrase ||
     !!details ||
+    !!recipientType ||
     preferredColors.length > 0;
 
   const hasTextPriority = !!name || !!number || !!phrase;
@@ -195,8 +266,59 @@ function normalizeEventData(raw: unknown): EventData {
     theme,
     phrase,
     details,
+    recipientType,
     colors,
     customColors,
+    preferredColors,
+    hasAny,
+    hasTextPriority,
+    hasColorPriority,
+  };
+}
+
+function sanitizeEventData(eventData: EventData): EventData {
+  const sanitizedName = cleanInput(eventData.name);
+  const sanitizedNumber = cleanInput(eventData.number);
+  const sanitizedEventType = cleanInput(eventData.eventType);
+  const sanitizedTheme = sanitizeProtectedReferences(eventData.theme);
+  const sanitizedPhrase = sanitizeProtectedReferences(eventData.phrase);
+  const sanitizedDetails = sanitizeProtectedReferences(eventData.details);
+  const sanitizedRecipientType = cleanInput(eventData.recipientType);
+
+  const sanitizedColors = eventData.colors.map((color) => cleanInput(color)).filter(Boolean);
+  const sanitizedCustomColors = cleanInput(eventData.customColors);
+
+  const preferredColors = [...sanitizedColors];
+  if (sanitizedCustomColors) {
+    const set = new Set(preferredColors.map((x) => x.toLowerCase()));
+    if (!set.has(sanitizedCustomColors.toLowerCase())) {
+      preferredColors.push(sanitizedCustomColors);
+    }
+  }
+
+  const hasAny =
+    !!sanitizedName ||
+    !!sanitizedNumber ||
+    !!sanitizedEventType ||
+    !!sanitizedTheme ||
+    !!sanitizedPhrase ||
+    !!sanitizedDetails ||
+    !!sanitizedRecipientType ||
+    preferredColors.length > 0;
+
+  const hasTextPriority = !!sanitizedName || !!sanitizedNumber || !!sanitizedPhrase;
+  const hasColorPriority = preferredColors.length > 0;
+
+  return {
+    name: sanitizedName,
+    number: sanitizedNumber,
+    eventType: sanitizedEventType,
+    theme: sanitizedTheme,
+    phrase: sanitizedPhrase,
+    details: sanitizedDetails,
+    recipientType: sanitizedRecipientType,
+    colors: sanitizedColors,
+    customColors: sanitizedCustomColors,
     preferredColors,
     hasAny,
     hasTextPriority,
@@ -341,6 +463,29 @@ function normalizeBlueprint(input: any): DesignBlueprint | null {
   }
 
   return blueprint;
+}
+
+function isBirthdayEvent(eventType: string) {
+  const t = eventType.toLowerCase();
+  return t.includes("cumple");
+}
+
+function isThemePartyEvent(eventType: string) {
+  const t = eventType.toLowerCase();
+  return t.includes("fiesta temática") || t.includes("fiesta tematica");
+}
+
+function isBabyShowerEvent(eventType: string) {
+  return eventType.toLowerCase().includes("baby");
+}
+
+function isBaptismEvent(eventType: string) {
+  return eventType.toLowerCase().includes("bautizo");
+}
+
+function isFirstCommunionEvent(eventType: string) {
+  const t = eventType.toLowerCase();
+  return t.includes("primera comunión") || t.includes("primera comunion");
 }
 
 function fallbackBlueprint(
@@ -610,27 +755,33 @@ function buildChipGuidance(
   return lines.join("\n");
 }
 
-function getEventToneHint(eventType: string) {
-  const normalized = eventType.toLowerCase();
+function getEventToneHint(eventData: EventData) {
+  const normalized = eventData.eventType.toLowerCase();
 
-  if (normalized.includes("cumple")) {
-    return "celebratory, festive, joyful, personalized, and gift-ready";
+  if (isBirthdayEvent(normalized)) {
+    return "celebratory, festive, energetic, personalized, and clearly birthday-oriented";
   }
 
-  if (normalized.includes("bautizo")) {
-    return "delicate, meaningful, elegant, tender, and celebration-ready";
+  if (isThemePartyEvent(normalized)) {
+    return "immersive, theme-driven, celebratory, visually committed to the chosen universe, and party-oriented";
   }
 
-  if (normalized.includes("baby")) {
-    return "sweet, tender, welcoming, and celebration-ready";
+  if (isBabyShowerEvent(normalized)) {
+    if (eventData.recipientType.toLowerCase().includes("niño")) {
+      return "sweet, tender, welcoming, baby-boy oriented, and celebration-ready";
+    }
+    if (eventData.recipientType.toLowerCase().includes("niña")) {
+      return "sweet, delicate, welcoming, baby-girl oriented, and celebration-ready";
+    }
+    return "sweet, tender, welcoming, soft, neutral, and celebration-ready";
   }
 
-  if (normalized.includes("comunión") || normalized.includes("comunion")) {
-    return "elegant, meaningful, soft, formal, and celebration-ready";
+  if (isBaptismEvent(normalized)) {
+    return "elegant, ceremonial, delicate, meaningful, and refined";
   }
 
-  if (normalized.includes("temática") || normalized.includes("tematica")) {
-    return "theme-driven, festive, immersive, and celebration-ready";
+  if (isFirstCommunionEvent(normalized)) {
+    return "formal, elegant, sober, ceremonial, and refined";
   }
 
   return "personalized, occasion-aware, and celebration-ready";
@@ -643,7 +794,7 @@ function buildEventGuidance(eventData: EventData, mode: DesignMode): string {
 
   const lines: string[] = [
     "- EVENT MODE IS ACTIVE. This is a personalized celebration or occasion-driven design request.",
-    `- Overall emotional tone should feel ${getEventToneHint(eventData.eventType || "event")}.`,
+    `- Overall emotional tone should feel ${getEventToneHint(eventData)}.`,
   ];
 
   if (eventData.name) {
@@ -651,19 +802,27 @@ function buildEventGuidance(eventData: EventData, mode: DesignMode): string {
   }
 
   if (eventData.number) {
-    lines.push(`- Exact age or important number to prioritize: "${eventData.number}".`);
+    lines.push(`- Exact age or important number: "${eventData.number}".`);
   }
 
   if (eventData.eventType) {
     lines.push(`- Event type: "${eventData.eventType}".`);
   }
 
+  if (eventData.recipientType) {
+    lines.push(`- Recipient profile that must influence tone and palette: "${eventData.recipientType}".`);
+  }
+
   if (eventData.theme) {
-    lines.push(`- Theme, character, or subject that should drive the imagery: "${eventData.theme}".`);
+    lines.push(`- Theme, character, or subject that should guide the imagery: "${eventData.theme}".`);
   }
 
   if (eventData.preferredColors.length) {
-    lines.push(`- Preferred colors that should clearly influence the palette: ${eventData.preferredColors.join(", ")}.`);
+    lines.push(
+      `- Preferred colors that should clearly influence the palette: ${eventData.preferredColors.join(
+        ", "
+      )}.`
+    );
   }
 
   if (eventData.phrase) {
@@ -674,13 +833,54 @@ function buildEventGuidance(eventData: EventData, mode: DesignMode): string {
     lines.push(`- Extra customer details: "${eventData.details}".`);
   }
 
-  lines.push(
-    "- PRIORITY ORDER: theme and event context guide the imagery; exact name and number are sacred if typography is used; phrase is secondary; selected colors should strongly influence the palette."
-  );
+  if (isBirthdayEvent(eventData.eventType)) {
+    lines.push(
+      '- PRIORITY ORDER FOR BIRTHDAY: name first, age/number second, theme third, colors fourth, phrase fifth.'
+    );
+    lines.push(
+      "- The design must unmistakably feel like a birthday piece, not a generic personalized graphic."
+    );
+  }
+
+  if (isThemePartyEvent(eventData.eventType)) {
+    lines.push(
+      "- PRIORITY ORDER FOR THEME PARTY: theme first, name second, age/number third, colors fourth, phrase fifth."
+    );
+    lines.push(
+      "- The design must feel truly committed to the theme, not like a generic birthday with a character pasted on top."
+    );
+  }
+
+  if (isBabyShowerEvent(eventData.eventType)) {
+    lines.push(
+      "- PRIORITY ORDER FOR BABY SHOWER: name first, recipient profile second, colors third, theme fourth, phrase fifth. Age/number should have very low priority."
+    );
+    lines.push(
+      "- Avoid making it feel like a birthday. Prioritize tenderness, softness, welcome energy, and baby-shower sensibility."
+    );
+  }
+
+  if (isBaptismEvent(eventData.eventType)) {
+    lines.push(
+      "- PRIORITY ORDER FOR BAPTISM: name first, recipient profile second, colors third, phrase fourth, theme/details fifth. Age/number should have very low priority."
+    );
+    lines.push(
+      "- Avoid generic party energy. Prioritize elegance, ceremony, refinement, cleanliness, and a special-event feel."
+    );
+  }
+
+  if (isFirstCommunionEvent(eventData.eventType)) {
+    lines.push(
+      "- PRIORITY ORDER FOR FIRST COMMUNION: name first, recipient profile second, colors third, phrase fourth, theme/details fifth. Age/number should have very low priority."
+    );
+    lines.push(
+      "- Avoid childish generic birthday energy. Prioritize formality, elegance, sobriety, and ceremonial clarity."
+    );
+  }
 
   lines.push(
     mode === "sticker"
-      ? "- The final result must still behave as a strong printable sticker, not as a loose party poster."
+      ? "- The final result must still behave as a strong printable sticker, not as a loose event poster."
       : "- The final result must still behave as a strong wearable shirt graphic, not as a mockup or a printed garment photo."
   );
 
@@ -916,11 +1116,11 @@ function applyEventConstraints(
 
   const hasChip = (chip: ChipId) => chips.includes(chip);
 
-  const toneHint = getEventToneHint(eventData.eventType || "event");
-
   next.translated_intent = appendClause(
     next.translated_intent,
-    `personalized ${eventData.eventType || "event"} design with a ${toneHint} tone`
+    `personalized ${eventData.eventType || "event"} design with a ${getEventToneHint(
+      eventData
+    )} tone`
   );
 
   next.visual_style = appendClause(
@@ -932,6 +1132,13 @@ function applyEventConstraints(
     next.print_strategy,
     "strong personalized clarity so the request feels made for a specific person and occasion, not generic"
   );
+
+  if (eventData.recipientType) {
+    next.visual_style = appendClause(
+      next.visual_style,
+      `tone and visual sensitivity informed by ${eventData.recipientType}`
+    );
+  }
 
   if (eventData.theme) {
     next.visual_style = appendClause(
@@ -957,61 +1164,140 @@ function applyEventConstraints(
       next.typography_strategy,
       `preserve exact spelling of ${textPriority.join(
         ", "
-      )}; if visible text is used, prioritize name first, number second, phrase third; keep text short, bold, and highly readable`
+      )}; if visible text is used, prioritize name first, ${
+        isBirthdayEvent(eventData.eventType) || isThemePartyEvent(eventData.eventType)
+          ? "number second, "
+          : ""
+      }phrase after the main name; keep text short, bold, and highly readable`
     );
+  }
+
+  if (isBirthdayEvent(eventData.eventType)) {
+    next.visual_style = appendClause(
+      next.visual_style,
+      "joyful birthday energy, stronger celebration cues, commercially festive presence"
+    );
+    pushUnique(
+      next.support_elements,
+      "controlled birthday accents integrated into the main composition"
+    );
+    if (mode === "playera" && !hasChip("composicion_frontal") && !hasChip("estilo_pecho")) {
+      next.composition = "text_top_graphic_center_text_bottom";
+    }
+  }
+
+  if (isThemePartyEvent(eventData.eventType)) {
+    next.visual_style = appendClause(
+      next.visual_style,
+      "theme-first celebratory energy with immersive visual commitment to the chosen universe"
+    );
+    next.print_strategy = appendClause(
+      next.print_strategy,
+      "thematic identity must read immediately and feel more important than generic party cues"
+    );
+    pushUnique(
+      next.support_elements,
+      "controlled theme-driven celebration accents"
+    );
+    if (mode === "playera" && !hasChip("composicion_frontal") && !hasChip("estilo_pecho")) {
+      next.composition = "stacked_poster";
+    }
+  }
+
+  if (isBabyShowerEvent(eventData.eventType)) {
+    next.visual_style = appendClause(
+      next.visual_style,
+      "soft welcoming baby-shower sensibility, tender forms, delicate celebration cues"
+    );
+    next.print_strategy = appendClause(
+      next.print_strategy,
+      "avoid generic birthday behavior; prioritize tenderness, softness, welcome energy, and cleaner emotional warmth"
+    );
+    next.detail_level = next.detail_level === "high" ? "medium" : next.detail_level;
+    pushUnique(
+      next.support_elements,
+      "soft baby-oriented celebration accents integrated delicately"
+    );
+    if (!hasChip("alto_contraste")) {
+      next.palette_direction = eventData.preferredColors.length
+        ? `soft palette centered around ${eventData.preferredColors.join(
+            ", "
+          )}, with delicate but readable contrast`
+        : "soft delicate palette with tender readable contrast";
+    }
+  }
+
+  if (isBaptismEvent(eventData.eventType)) {
+    next.visual_style = appendClause(
+      next.visual_style,
+      "ceremonial elegance, delicate refinement, cleaner composition, and calm meaningful energy"
+    );
+    next.print_strategy = appendClause(
+      next.print_strategy,
+      "avoid generic party language; prioritize elegance, ceremony, symbolic restraint, and refined readability"
+    );
+    next.detail_level = next.detail_level === "high" ? "medium" : next.detail_level;
+    pushUnique(
+      next.support_elements,
+      "small refined ceremonial accents integrated with restraint"
+    );
+    if (!hasChip("colores_vivos") && !hasChip("tonos_oscuros")) {
+      next.palette_direction = eventData.preferredColors.length
+        ? `elegant ceremonial palette centered around ${eventData.preferredColors.join(
+            ", "
+          )}`
+        : "elegant ceremonial palette with clean refined contrast";
+    }
+  }
+
+  if (isFirstCommunionEvent(eventData.eventType)) {
+    next.visual_style = appendClause(
+      next.visual_style,
+      "formal elegant ceremonial language, sober structure, cleaner hierarchy, and refined occasion-driven restraint"
+    );
+    next.print_strategy = appendClause(
+      next.print_strategy,
+      "avoid childlike generic birthday energy; prioritize sobriety, elegance, ceremony, and special-event clarity"
+    );
+    next.detail_level = next.detail_level === "high" ? "medium" : next.detail_level;
+    pushUnique(
+      next.support_elements,
+      "subtle ceremonial accents integrated with control"
+    );
+    if (!hasChip("colores_vivos") && !hasChip("tonos_oscuros")) {
+      next.palette_direction = eventData.preferredColors.length
+        ? `formal elegant palette centered around ${eventData.preferredColors.join(
+            ", "
+          )}`
+        : "formal elegant palette with refined readable contrast";
+    }
   }
 
   if (mode === "playera") {
     if (
       eventData.hasTextPriority &&
       !hasChip("composicion_frontal") &&
-      !hasChip("estilo_pecho")
+      !hasChip("estilo_pecho") &&
+      !isBabyShowerEvent(eventData.eventType)
     ) {
       next.composition = "text_top_graphic_center_text_bottom";
     }
 
-    pushUnique(next.support_elements, "controlled celebratory accents integrated into the composition");
+    pushUnique(
+      next.support_elements,
+      "controlled occasion-aware accents integrated into the composition"
+    );
   }
 
   if (mode === "sticker") {
-    if (eventData.number && !hasChip("circular")) {
-      next.composition = next.composition === "minimal_horizontal"
-        ? "crest_emblem"
-        : next.composition;
+    if (eventData.number && isBirthdayEvent(eventData.eventType) && !hasChip("circular")) {
+      next.composition =
+        next.composition === "minimal_horizontal" ? "crest_emblem" : next.composition;
     }
 
-    pushUnique(next.support_elements, "small tightly attached event accents that reinforce the celebration without creating background scenery");
-  }
-
-  const normalizedEvent = eventData.eventType.toLowerCase();
-
-  if (normalizedEvent.includes("cumple")) {
-    pushUnique(next.support_elements, "celebratory party accents integrated into the main composition");
-    next.visual_style = appendClause(
-      next.visual_style,
-      "festive birthday energy with celebratory but commercially controlled accents"
-    );
-  }
-
-  if (normalizedEvent.includes("bautizo")) {
-    next.visual_style = appendClause(
-      next.visual_style,
-      "soft elegant ceremonial energy with tasteful delicate celebration cues"
-    );
-    pushUnique(next.support_elements, "delicate symbolic accents integrated in a refined way");
-  }
-
-  if (normalizedEvent.includes("baby")) {
-    next.visual_style = appendClause(
-      next.visual_style,
-      "sweet welcoming energy with softer forms and tender celebration cues"
-    );
-  }
-
-  if (normalizedEvent.includes("comunión") || normalizedEvent.includes("comunion")) {
-    next.visual_style = appendClause(
-      next.visual_style,
-      "elegant formal celebratory energy with softer sacred cues"
+    pushUnique(
+      next.support_elements,
+      "small tightly attached event accents that reinforce the occasion without creating background scenery"
     );
   }
 
@@ -1162,6 +1448,7 @@ Structured event data:
 - name: ${eventData.name || "none"}
 - number: ${eventData.number || "none"}
 - eventType: ${eventData.eventType || "none"}
+- recipientType: ${eventData.recipientType || "none"}
 - theme: ${eventData.theme || "none"}
 - phrase: ${eventData.phrase || "none"}
 - preferred colors: ${
@@ -1291,7 +1578,7 @@ Variation logic:
 
 SPECIAL PERSONALIZATION RULES:
 - If exact short text is requested, keep it short, bold, readable, and intentionally integrated.
-- If both name and number are present, prioritize the name first and the number second.
+- If both name and number are present, prioritize the name first and the number second only for birthday-like events.
 - If a phrase is also present, keep it secondary and never let it overpower the name.
 - If preferred colors are present, they must strongly influence the palette direction.
 - Do not let decorative style override the personalized data.
@@ -1337,6 +1624,7 @@ Structured event data:
 - name: ${eventData.name || "none"}
 - number: ${eventData.number || "none"}
 - eventType: ${eventData.eventType || "none"}
+- recipientType: ${eventData.recipientType || "none"}
 - theme: ${eventData.theme || "none"}
 - phrase: ${eventData.phrase || "none"}
 - preferred colors: ${
@@ -1583,12 +1871,15 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
 
-    const userPrompt = cleanInput(body?.prompt);
+    const rawPrompt = cleanInput(body?.prompt);
     const mode: DesignMode =
       body?.mode === "playera" || body?.mode === "shirt" ? "playera" : "sticker";
     const chips = normalizeRequestedChips(body?.chips, mode);
     const studioTab = normalizeStudioTab(body?.studioTab);
-    const eventData = normalizeEventData(body?.eventData);
+
+    const rawEventData = normalizeEventData(body?.eventData);
+    const eventData = sanitizeEventData(rawEventData);
+    const userPrompt = sanitizeProtectedReferences(rawPrompt);
 
     if (!userPrompt) {
       return NextResponse.json(
@@ -1606,10 +1897,12 @@ export async function POST(req: Request) {
     );
 
     if (DEBUG_PROMPTS) {
-      console.log("USER PROMPT:", userPrompt);
+      console.log("RAW PROMPT:", rawPrompt);
+      console.log("SANITIZED PROMPT:", userPrompt);
       console.log("MODE:", mode);
       console.log("STUDIO TAB:", studioTab);
-      console.log("EVENT DATA:", eventData);
+      console.log("RAW EVENT DATA:", rawEventData);
+      console.log("SANITIZED EVENT DATA:", eventData);
       console.log("CHIPS:", chips);
       console.log("A:", compiled.option_a_label, compiled.option_a_prompt);
       console.log("B:", compiled.option_b_label, compiled.option_b_prompt);

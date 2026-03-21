@@ -56,6 +56,43 @@ type ColorOption = {
   label: string;
 };
 
+type EventType =
+  | ""
+  | "Cumpleaños"
+  | "Fiesta temática"
+  | "Baby shower"
+  | "Bautizo"
+  | "Primera comunión"
+  | "Otro";
+
+type RecipientType =
+  | ""
+  | "Niño"
+  | "Niña"
+  | "Sorpresa / neutro";
+
+type EventProfile = {
+  key:
+    | "birthday"
+    | "theme_party"
+    | "baby_shower"
+    | "baptism"
+    | "first_communion"
+    | "generic";
+  title: string;
+  note: string;
+  showNumber: boolean;
+  showTheme: boolean;
+  showRecipientType: boolean;
+  recipientLabel: string;
+  recipientOptions: RecipientType[];
+  themeLabel: string;
+  themePlaceholder: string;
+  phrasePlaceholder: string;
+  detailsPlaceholder: string;
+  summaryHint: string;
+};
+
 const MAX_ACTIVE_CHIPS = 3;
 const MAX_EVENT_COLORS = 2;
 
@@ -72,12 +109,13 @@ const COLOR_OPTIONS: ColorOption[] = [
   { id: "multicolor", label: "Multicolor" },
 ];
 
-const EVENT_OPTIONS = [
+const EVENT_OPTIONS: EventType[] = [
+  "",
   "Cumpleaños",
-  "Bautizo",
-  "Baby shower",
-  "Primera comunión",
   "Fiesta temática",
+  "Baby shower",
+  "Bautizo",
+  "Primera comunión",
   "Otro",
 ];
 
@@ -87,11 +125,31 @@ const STICKER_CHIP_GROUPS: ChipGroup[] = [
     title: "Forma del diseño",
     subtitle: "Esto ayuda a definir cómo se acomoda y cómo se leerá tu sticker.",
     chips: [
-      { id: "circular", label: "Circular", helper: "Fuerza una composición redonda tipo badge." },
-      { id: "iconico", label: "Icónico", helper: "Busca una silueta más memorable y reconocible." },
-      { id: "compacto", label: "Compacto", helper: "Aprieta la composición para que se sienta más sticker." },
-      { id: "alto_contraste", label: "Alto contraste", helper: "Mejora legibilidad y punch visual." },
-      { id: "minimal", label: "Minimal", helper: "Reduce ruido y elementos innecesarios." },
+      {
+        id: "circular",
+        label: "Circular",
+        helper: "Fuerza una composición redonda tipo badge.",
+      },
+      {
+        id: "iconico",
+        label: "Icónico",
+        helper: "Busca una silueta más memorable y reconocible.",
+      },
+      {
+        id: "compacto",
+        label: "Compacto",
+        helper: "Aprieta la composición para que se sienta más sticker.",
+      },
+      {
+        id: "alto_contraste",
+        label: "Alto contraste",
+        helper: "Mejora legibilidad y punch visual.",
+      },
+      {
+        id: "minimal",
+        label: "Minimal",
+        helper: "Reduce ruido y elementos innecesarios.",
+      },
     ],
   },
   {
@@ -99,13 +157,41 @@ const STICKER_CHIP_GROUPS: ChipGroup[] = [
     title: "Estilo y personalidad",
     subtitle: "Esto define el look, la energía y el acabado visual.",
     chips: [
-      { id: "vintage", label: "Vintage", helper: "Le da una dirección retro más trabajada." },
-      { id: "street", label: "Street", helper: "Empuja una energía más urbana y gráfica." },
-      { id: "premium", label: "Premium", helper: "Sube el acabado visual y la sensación premium." },
-      { id: "colores_vivos", label: "Colores vivos", helper: "Empuja una paleta más saturada y comercial." },
-      { id: "divertido", label: "Divertido", helper: "Hace la propuesta más juguetona o carismática." },
-      { id: "feroz", label: "Feroz", helper: "Le mete más agresividad y fuerza." },
-      { id: "elegante", label: "Elegante", helper: "Refina formas, postura y lenguaje visual." },
+      {
+        id: "vintage",
+        label: "Vintage",
+        helper: "Le da una dirección retro más trabajada.",
+      },
+      {
+        id: "street",
+        label: "Street",
+        helper: "Empuja una energía más urbana y gráfica.",
+      },
+      {
+        id: "premium",
+        label: "Premium",
+        helper: "Sube el acabado visual y la sensación premium.",
+      },
+      {
+        id: "colores_vivos",
+        label: "Colores vivos",
+        helper: "Empuja una paleta más saturada y comercial.",
+      },
+      {
+        id: "divertido",
+        label: "Divertido",
+        helper: "Hace la propuesta más juguetona o carismática.",
+      },
+      {
+        id: "feroz",
+        label: "Feroz",
+        helper: "Le mete más agresividad y fuerza.",
+      },
+      {
+        id: "elegante",
+        label: "Elegante",
+        helper: "Refina formas, postura y lenguaje visual.",
+      },
     ],
   },
 ];
@@ -114,13 +200,34 @@ const PLAYERA_CHIP_GROUPS: ChipGroup[] = [
   {
     id: "layout",
     title: "Acomodo en la playera",
-    subtitle: "Esto ayuda a definir cómo lucirá mejor el diseño sobre la prenda.",
+    subtitle:
+      "Esto ayuda a definir cómo lucirá mejor el diseño sobre la prenda.",
     chips: [
-      { id: "composicion_frontal", label: "Composición frontal", helper: "Piensa el arte como gráfico frontal usable en playera." },
-      { id: "impacto_visual", label: "Impacto visual", helper: "Empuja una propuesta más fuerte y llamativa." },
-      { id: "estilo_pecho", label: "Estilo pecho", helper: "Composición más compacta para colocación tipo pecho." },
-      { id: "alto_contraste", label: "Alto contraste", helper: "Aumenta punch y lectura sobre prenda." },
-      { id: "minimal", label: "Minimal", helper: "Reduce ruido y carga visual." },
+      {
+        id: "composicion_frontal",
+        label: "Composición frontal",
+        helper: "Piensa el arte como gráfico frontal usable en playera.",
+      },
+      {
+        id: "impacto_visual",
+        label: "Impacto visual",
+        helper: "Empuja una propuesta más fuerte y llamativa.",
+      },
+      {
+        id: "estilo_pecho",
+        label: "Estilo pecho",
+        helper: "Composición más compacta para colocación tipo pecho.",
+      },
+      {
+        id: "alto_contraste",
+        label: "Alto contraste",
+        helper: "Aumenta punch y lectura sobre prenda.",
+      },
+      {
+        id: "minimal",
+        label: "Minimal",
+        helper: "Reduce ruido y carga visual.",
+      },
     ],
   },
   {
@@ -128,13 +235,41 @@ const PLAYERA_CHIP_GROUPS: ChipGroup[] = [
     title: "Estilo y personalidad",
     subtitle: "Esto define el look, el ambiente y la presencia del diseño.",
     chips: [
-      { id: "streetwear", label: "Streetwear", helper: "Dirección más moda urbana / graphic tee." },
-      { id: "vintage", label: "Vintage", helper: "Retro trabajado con lógica de prenda." },
-      { id: "premium", label: "Premium", helper: "Empuja una lectura más refinada y vendible." },
-      { id: "tonos_oscuros", label: "Tonos oscuros", helper: "Paleta más profunda y con más peso visual." },
-      { id: "divertido", label: "Divertido", helper: "Hace la dirección más amigable o juguetona." },
-      { id: "feroz", label: "Feroz", helper: "Le mete más intensidad y presencia al arte." },
-      { id: "elegante", label: "Elegante", helper: "Más refinado y sofisticado." },
+      {
+        id: "streetwear",
+        label: "Streetwear",
+        helper: "Dirección más moda urbana / graphic tee.",
+      },
+      {
+        id: "vintage",
+        label: "Vintage",
+        helper: "Retro trabajado con lógica de prenda.",
+      },
+      {
+        id: "premium",
+        label: "Premium",
+        helper: "Empuja una lectura más refinada y vendible.",
+      },
+      {
+        id: "tonos_oscuros",
+        label: "Tonos oscuros",
+        helper: "Paleta más profunda y con más peso visual.",
+      },
+      {
+        id: "divertido",
+        label: "Divertido",
+        helper: "Hace la dirección más amigable o juguetona.",
+      },
+      {
+        id: "feroz",
+        label: "Feroz",
+        helper: "Le mete más intensidad y presencia al arte.",
+      },
+      {
+        id: "elegante",
+        label: "Elegante",
+        helper: "Más refinado y sofisticado.",
+      },
     ],
   },
 ];
@@ -144,9 +279,9 @@ const MODE_COPY = {
     freeTitle: "Dirige tu sticker como si estuvieras en un estudio",
     freeSubhelp:
       "Escribe tu idea y te mostraremos 3 propuestas con más intención, más estilo y mejor presencia visual para sticker.",
-    eventTitle: "Diseña un sticker con nombre, tema y detalles importantes",
+    eventTitle: "Diseña un sticker para cumpleaños y eventos",
     eventSubhelp:
-      "Cuando tu diseño lleva nombre, edad, frase o tipo de evento, este modo nos ayuda a respetar mejor cada detalle.",
+      "Cuando tu diseño lleva nombre, tema, tipo de evento o detalles importantes, este modo nos ayuda a respetarlos mucho mejor.",
     freePlaceholder:
       "Ejemplo: tigre feroz con corona, nombre Leo y un estilo premium muy icónico",
     promptLabel: "Describe tu diseño",
@@ -154,7 +289,7 @@ const MODE_COPY = {
       "Cuéntanos el personaje, nombre, colores, frase o detalles que te gustaría ver en tu sticker.",
     eventSectionTitle: "Cuéntanos los detalles importantes",
     eventSectionNote:
-      "Entre más claro sea el nombre, la edad, el tema y los colores, mejor podremos construir tus propuestas.",
+      "Primero elige el tipo de evento. Después el estudio te mostrará los campos más útiles para construir una propuesta mucho mejor.",
     chipsTitle: "Dale dirección a tu diseño",
     chipsSub:
       "Elige hasta 3 opciones para marcar el estilo y la personalidad que quieres ver en tus propuestas.",
@@ -181,9 +316,9 @@ const MODE_COPY = {
     freeTitle: "Dirige tu playera como si estuvieras en un estudio",
     freeSubhelp:
       "Escribe tu idea y te mostraremos 3 propuestas con más intención, más estilo y mejor presencia visual para playera.",
-    eventTitle: "Diseña una playera con nombre, tema y detalles importantes",
+    eventTitle: "Diseña una playera para cumpleaños y eventos",
     eventSubhelp:
-      "Cuando tu diseño lleva nombre, edad, frase o tipo de evento, este modo nos ayuda a respetar mejor cada detalle.",
+      "Cuando tu diseño lleva nombre, tema, tipo de evento o detalles importantes, este modo nos ayuda a respetarlos mucho mejor.",
     freePlaceholder:
       "Ejemplo: samurái vintage para playera con un estilo premium y mucha presencia",
     promptLabel: "Describe tu diseño",
@@ -191,7 +326,7 @@ const MODE_COPY = {
       "Cuéntanos el personaje, nombre, colores, frase o detalles que te gustaría ver en tu playera.",
     eventSectionTitle: "Cuéntanos los detalles importantes",
     eventSectionNote:
-      "Entre más claro sea el nombre, la edad, el tema y los colores, mejor podremos construir tus propuestas.",
+      "Primero elige el tipo de evento. Después el estudio te mostrará los campos más útiles para construir una propuesta mucho mejor.",
     chipsTitle: "Dale dirección a tu diseño",
     chipsSub:
       "Elige hasta 3 opciones para marcar el estilo y la personalidad que quieres ver en tus propuestas.",
@@ -216,6 +351,134 @@ const MODE_COPY = {
   },
 } as const;
 
+function getEventProfile(eventType: EventType): EventProfile {
+  switch (eventType) {
+    case "Cumpleaños":
+      return {
+        key: "birthday",
+        title: "Cumpleaños",
+        note:
+          "Aquí el nombre, la edad y el tema son muy importantes para que el diseño sí se sienta hecho para la celebración.",
+        showNumber: true,
+        showTheme: true,
+        showRecipientType: false,
+        recipientLabel: "",
+        recipientOptions: [],
+        themeLabel: "Tema o personaje favorito",
+        themePlaceholder: "Ejemplo: Batman",
+        phrasePlaceholder: "Ejemplo: Ian cumple 5",
+        detailsPlaceholder:
+          "Ejemplo: que se vea divertido, fuerte y con mucha presencia visual",
+        summaryHint:
+          "Para cumpleaños, el estudio dará prioridad al nombre, la edad, el tema y los colores.",
+      };
+
+    case "Fiesta temática":
+      return {
+        key: "theme_party",
+        title: "Fiesta temática",
+        note:
+          "Aquí el tema manda todavía más. La idea es que el diseño sí se sienta metido en ese universo visual y no como una fiesta genérica.",
+        showNumber: true,
+        showTheme: true,
+        showRecipientType: false,
+        recipientLabel: "",
+        recipientOptions: [],
+        themeLabel: "Tema o personaje favorito",
+        themePlaceholder:
+          "Ejemplo: Barbie, dinosaurios, sirenita, fútbol",
+        phrasePlaceholder: "Ejemplo: Sofía cumple 7",
+        detailsPlaceholder:
+          "Ejemplo: que se vea muy metido en la temática y con ambiente de fiesta",
+        summaryHint:
+          "Para fiesta temática, el estudio dará prioridad al tema, al nombre, a la edad y a los colores.",
+      };
+
+    case "Baby shower":
+      return {
+        key: "baby_shower",
+        title: "Baby shower",
+        note:
+          "Aquí importa mucho si será niño, niña o sorpresa. Eso cambia el tono, la ternura, la paleta y la dirección completa del diseño.",
+        showNumber: false,
+        showTheme: true,
+        showRecipientType: true,
+        recipientLabel: "¿Será niño, niña o sorpresa?",
+        recipientOptions: ["Niño", "Niña", "Sorpresa / neutro"],
+        themeLabel: "Tema o idea principal",
+        themePlaceholder:
+          "Ejemplo: ositos, nubecitas, lunas, elefantitos",
+        phrasePlaceholder: "Ejemplo: Baby shower de Mateo",
+        detailsPlaceholder:
+          "Ejemplo: que se vea tierno, delicado, bonito y más de bienvenida que de fiesta ruidosa",
+        summaryHint:
+          "Para baby shower, el estudio dará prioridad al nombre, al tipo de bebé, a los colores y al tono tierno del diseño.",
+      };
+
+    case "Bautizo":
+      return {
+        key: "baptism",
+        title: "Bautizo",
+        note:
+          "Aquí importa mucho si es niño o niña, porque eso influye en el tono, la paleta y el lenguaje visual del diseño.",
+        showNumber: false,
+        showTheme: true,
+        showRecipientType: true,
+        recipientLabel: "¿Es niño o niña?",
+        recipientOptions: ["Niño", "Niña"],
+        themeLabel: "Elemento o estilo deseado (opcional)",
+        themePlaceholder:
+          "Ejemplo: angelito, cruz, flores suaves, estilo clásico",
+        phrasePlaceholder: "Ejemplo: Bautizo de Litzy",
+        detailsPlaceholder:
+          "Ejemplo: que se vea elegante, delicado, limpio y especial para ceremonia",
+        summaryHint:
+          "Para bautizo, el estudio dará prioridad al nombre, al sexo del bautizado, a los colores y al tono elegante.",
+      };
+
+    case "Primera comunión":
+      return {
+        key: "first_communion",
+        title: "Primera comunión",
+        note:
+          "Aquí importa mucho si es niño o niña, porque el tono visual cambia bastante. También buscamos algo más formal y sobrio que un cumpleaños.",
+        showNumber: false,
+        showTheme: true,
+        showRecipientType: true,
+        recipientLabel: "¿Es niño o niña?",
+        recipientOptions: ["Niño", "Niña"],
+        themeLabel: "Elemento o estilo deseado (opcional)",
+        themePlaceholder:
+          "Ejemplo: estilo clásico, elegante, sobrio, simbólico",
+        phrasePlaceholder: "Ejemplo: Primera comunión de Sofía",
+        detailsPlaceholder:
+          "Ejemplo: que se vea formal, elegante, limpio y no tan infantil",
+        summaryHint:
+          "Para primera comunión, el estudio dará prioridad al nombre, al sexo, a los colores y al tono sobrio del evento.",
+      };
+
+    default:
+      return {
+        key: "generic",
+        title: "Evento personalizado",
+        note:
+          "Elige los datos más importantes para que el estudio entienda mejor tu idea y pueda construir una propuesta más útil.",
+        showNumber: true,
+        showTheme: true,
+        showRecipientType: false,
+        recipientLabel: "",
+        recipientOptions: [],
+        themeLabel: "Tema o idea principal",
+        themePlaceholder: "Ejemplo: diseño elegante con flores suaves",
+        phrasePlaceholder: "Ejemplo: Evento especial de Camila",
+        detailsPlaceholder:
+          "Ejemplo: que se vea premium, bonito y muy bien cuidado visualmente",
+        summaryHint:
+          "El estudio dará prioridad al nombre, al tema, a los colores y a los detalles más importantes.",
+      };
+  }
+}
+
 function HomePageInner() {
   const searchParams = useSearchParams();
   const scrollRestoreRef = useRef(0);
@@ -225,12 +488,14 @@ function HomePageInner() {
 
   const [prompt, setPrompt] = useState("");
 
+  const [eventType, setEventType] = useState<EventType>("");
   const [eventName, setEventName] = useState("");
   const [eventNumber, setEventNumber] = useState("");
-  const [eventType, setEventType] = useState("");
   const [eventTheme, setEventTheme] = useState("");
   const [eventPhrase, setEventPhrase] = useState("");
   const [eventDetails, setEventDetails] = useState("");
+  const [eventRecipientType, setEventRecipientType] =
+    useState<RecipientType>("");
   const [eventColors, setEventColors] = useState<ColorOptionId[]>([]);
   const [eventCustomColors, setEventCustomColors] = useState("");
   const [colorMessage, setColorMessage] = useState("");
@@ -246,7 +511,9 @@ function HomePageInner() {
 
   const isEmbedded = searchParams.get("embed") === "1";
   const copy = MODE_COPY[mode];
-  const chipGroups = mode === "sticker" ? STICKER_CHIP_GROUPS : PLAYERA_CHIP_GROUPS;
+  const chipGroups =
+    mode === "sticker" ? STICKER_CHIP_GROUPS : PLAYERA_CHIP_GROUPS;
+  const eventProfile = getEventProfile(eventType);
 
   const allAvailableChips = useMemo(
     () => chipGroups.flatMap((group) => group.chips),
@@ -267,14 +534,15 @@ function HomePageInner() {
   const selectedLabel = selectedIndex !== null ? labels[selectedIndex] : null;
 
   const isEventReady =
-    eventName.trim().length > 0 ||
-    eventNumber.trim().length > 0 ||
-    eventType.trim().length > 0 ||
-    eventTheme.trim().length > 0 ||
-    eventPhrase.trim().length > 0 ||
-    eventDetails.trim().length > 0 ||
-    eventColors.length > 0 ||
-    eventCustomColors.trim().length > 0;
+    eventType.trim().length > 0 &&
+    (eventName.trim().length > 0 ||
+      eventNumber.trim().length > 0 ||
+      eventTheme.trim().length > 0 ||
+      eventPhrase.trim().length > 0 ||
+      eventDetails.trim().length > 0 ||
+      eventRecipientType.trim().length > 0 ||
+      eventColors.length > 0 ||
+      eventCustomColors.trim().length > 0);
 
   const canGenerate =
     studioTab === "free"
@@ -331,6 +599,23 @@ function HomePageInner() {
   }, [mode, studioTab]);
 
   useEffect(() => {
+    if (studioTab !== "event") return;
+
+    if (!eventProfile.showNumber) {
+      setEventNumber("");
+    }
+
+    if (!eventProfile.showRecipientType) {
+      setEventRecipientType("");
+    } else if (
+      eventRecipientType &&
+      !eventProfile.recipientOptions.includes(eventRecipientType)
+    ) {
+      setEventRecipientType("");
+    }
+  }, [studioTab, eventProfile, eventRecipientType]);
+
+  useEffect(() => {
     if (!isEmbedded) return;
 
     let rafId = 0;
@@ -369,12 +654,13 @@ function HomePageInner() {
     prompt.length,
     chipMessage,
     studioTab,
+    eventType,
     eventName,
     eventNumber,
-    eventType,
     eventTheme,
     eventPhrase,
     eventDetails,
+    eventRecipientType,
     eventColors.length,
     eventCustomColors,
     colorMessage,
@@ -465,11 +751,18 @@ function HomePageInner() {
     if (eventCustomColors.trim()) allColorNotes.push(eventCustomColors.trim());
 
     const pieces = [
-      `Crear un diseño personalizado para ${mode === "sticker" ? "sticker" : "playera"}.`,
+      `Crear un diseño personalizado para ${
+        mode === "sticker" ? "sticker" : "playera"
+      }.`,
       eventType.trim() ? `Tipo de evento: ${eventType.trim()}.` : "",
-      eventName.trim() ? `Nombre que debe respetarse: ${eventName.trim()}.` : "",
-      eventNumber.trim()
+      eventName.trim()
+        ? `Nombre que debe respetarse: ${eventName.trim()}.`
+        : "",
+      eventProfile.showNumber && eventNumber.trim()
         ? `Edad o número importante que debe aparecer o influir en el diseño: ${eventNumber.trim()}.`
+        : "",
+      eventProfile.showRecipientType && eventRecipientType.trim()
+        ? `Dato importante del evento: ${eventRecipientType.trim()}.`
         : "",
       eventTheme.trim()
         ? `Tema, personaje o idea principal: ${eventTheme.trim()}.`
@@ -483,7 +776,21 @@ function HomePageInner() {
       eventDetails.trim()
         ? `Detalles extra del cliente: ${eventDetails.trim()}.`
         : "",
-      `Priorizar con especial cuidado el nombre, el número, el tema y los colores seleccionados.`,
+      eventProfile.key === "birthday"
+        ? "Priorizar nombre, edad, tema y colores; el diseño debe sentirse claramente de cumpleaños."
+        : "",
+      eventProfile.key === "theme_party"
+        ? "Priorizar sobre todo el tema, luego nombre, edad y colores; el diseño debe sentirse realmente metido en la temática."
+        : "",
+      eventProfile.key === "baby_shower"
+        ? "Priorizar nombre, si es niño/niña/sorpresa, colores y tono tierno; evitar que se sienta como cumpleaños genérico."
+        : "",
+      eventProfile.key === "baptism"
+        ? "Priorizar nombre, sexo del bautizado, colores y tono elegante/ceremonial; evitar look de fiesta infantil ruidosa."
+        : "",
+      eventProfile.key === "first_communion"
+        ? "Priorizar nombre, sexo, colores y tono sobrio/elegante; evitar look demasiado infantil o festivo."
+        : "",
       mode === "sticker"
         ? "La propuesta debe sentirse pensada para sticker, con presencia visual clara y buena lectura."
         : "La propuesta debe sentirse pensada para playera, con buena presencia visual sobre la prenda.",
@@ -498,16 +805,42 @@ function HomePageInner() {
   const priorityItems = useMemo(() => {
     const items: { label: string; value: string }[] = [];
 
-    if (eventName.trim()) items.push({ label: "Nombre", value: eventName.trim() });
-    if (eventNumber.trim()) items.push({ label: "Edad/Número", value: eventNumber.trim() });
-    if (eventType.trim()) items.push({ label: "Evento", value: eventType.trim() });
-    if (eventTheme.trim()) items.push({ label: "Tema", value: eventTheme.trim() });
+    if (eventName.trim()) {
+      items.push({ label: "Nombre", value: eventName.trim() });
+    }
+
+    if (eventProfile.showNumber && eventNumber.trim()) {
+      items.push({ label: "Edad/Número", value: eventNumber.trim() });
+    }
+
+    if (eventType.trim()) {
+      items.push({ label: "Evento", value: eventType.trim() });
+    }
+
+    if (eventProfile.showRecipientType && eventRecipientType.trim()) {
+      items.push({ label: "Dato clave", value: eventRecipientType.trim() });
+    }
+
+    if (eventTheme.trim()) {
+      items.push({
+        label:
+          eventProfile.key === "baptism" ||
+          eventProfile.key === "first_communion"
+            ? "Estilo/elemento"
+            : "Tema",
+        value: eventTheme.trim(),
+      });
+    }
 
     const colorLabels = selectedColorDefs.map((item) => item.label);
     if (eventCustomColors.trim()) colorLabels.push(eventCustomColors.trim());
-    if (colorLabels.length) items.push({ label: "Colores", value: colorLabels.join(", ") });
+    if (colorLabels.length) {
+      items.push({ label: "Colores", value: colorLabels.join(", ") });
+    }
 
-    if (eventPhrase.trim()) items.push({ label: "Frase", value: eventPhrase.trim() });
+    if (eventPhrase.trim()) {
+      items.push({ label: "Frase", value: eventPhrase.trim() });
+    }
 
     return items;
   }, [
@@ -515,9 +848,11 @@ function HomePageInner() {
     eventNumber,
     eventType,
     eventTheme,
+    eventRecipientType,
     selectedColorDefs,
     eventCustomColors,
     eventPhrase,
+    eventProfile,
   ]);
 
   async function handleGenerate() {
@@ -530,6 +865,11 @@ function HomePageInner() {
 
     if (studioTab === "event" && !isEventReady) {
       setError("Agrega al menos algunos datos importantes para tu diseño.");
+      return;
+    }
+
+    if (studioTab === "event" && !eventType.trim()) {
+      setError("Selecciona el tipo de evento.");
       return;
     }
 
@@ -564,6 +904,7 @@ function HomePageInner() {
                   theme: eventTheme.trim(),
                   phrase: eventPhrase.trim(),
                   details: eventDetails.trim(),
+                  recipientType: eventRecipientType.trim(),
                   colors: selectedColorDefs.map((item) => item.label),
                   customColors: eventCustomColors.trim(),
                 }
@@ -647,7 +988,10 @@ function HomePageInner() {
           <section className="composer-card">
             <div className="studio-topbar">
               <div className="studio-brand-stack">
-                <div className="studio-brandmark" aria-label="AutoPrint AI Studio">
+                <div
+                  className="studio-brandmark"
+                  aria-label="AutoPrint AI Studio"
+                >
                   <span className="studio-brandmark__core">AUTOPRINT</span>
                   <span className="studio-brandmark__accent">AI STUDIO</span>
                 </div>
@@ -658,18 +1002,28 @@ function HomePageInner() {
             <div className="composer-head">
               <div>
                 <h1 className="composer-title">
-                  {studioTab === "free" ? copy.freeTitle : copy.eventTitle}
+                  {studioTab === "free"
+                    ? copy.freeTitle
+                    : copy.eventTitle}
                 </h1>
                 <p className="composer-subhelp">
-                  {studioTab === "free" ? copy.freeSubhelp : copy.eventSubhelp}
+                  {studioTab === "free"
+                    ? copy.freeSubhelp
+                    : copy.eventSubhelp}
                 </p>
               </div>
             </div>
 
-            <div className="studio-tabs" role="tablist" aria-label="Tipo de creación">
+            <div
+              className="studio-tabs"
+              role="tablist"
+              aria-label="Tipo de creación"
+            >
               <button
                 type="button"
-                className={`studio-tab ${studioTab === "free" ? "is-active" : ""}`}
+                className={`studio-tab ${
+                  studioTab === "free" ? "is-active" : ""
+                }`}
                 onClick={() => setStudioTab("free")}
               >
                 <span className="studio-tab__title">Idea libre</span>
@@ -680,12 +1034,17 @@ function HomePageInner() {
 
               <button
                 type="button"
-                className={`studio-tab ${studioTab === "event" ? "is-active" : ""}`}
+                className={`studio-tab ${
+                  studioTab === "event" ? "is-active" : ""
+                }`}
                 onClick={() => setStudioTab("event")}
               >
-                <span className="studio-tab__title">Cumpleaños y eventos</span>
+                <span className="studio-tab__title">
+                  Cumpleaños y eventos
+                </span>
                 <span className="studio-tab__sub">
-                  Para diseños con nombre, edad, frase, tema o tipo de celebración.
+                  Para diseños con nombre, tipo de evento, tema, colores y
+                  detalles importantes.
                 </span>
               </button>
             </div>
@@ -713,164 +1072,276 @@ function HomePageInner() {
               ) : (
                 <>
                   <div className="brief-head">
-                    <div className="brief-label">{copy.eventSectionTitle}</div>
-                    <div className="brief-note">{copy.eventSectionNote}</div>
-                  </div>
-
-                  <div className="event-grid">
-                    <div className="field-block">
-                      <label className="field-label" htmlFor="event-name">
-                        Nombre
-                      </label>
-                      <input
-                        id="event-name"
-                        className="text-input"
-                        type="text"
-                        value={eventName}
-                        onChange={(e) => setEventName(e.target.value)}
-                        placeholder="Ejemplo: Ian"
-                      />
+                    <div className="brief-label">
+                      {copy.eventSectionTitle}
                     </div>
-
-                    <div className="field-block">
-                      <label className="field-label" htmlFor="event-number">
-                        Edad o número importante
-                      </label>
-                      <input
-                        id="event-number"
-                        className="text-input"
-                        type="text"
-                        value={eventNumber}
-                        onChange={(e) => setEventNumber(e.target.value)}
-                        placeholder="Ejemplo: 5"
-                      />
-                    </div>
-
-                    <div className="field-block">
-                      <label className="field-label" htmlFor="event-type">
-                        Tipo de evento
-                      </label>
-                      <select
-                        id="event-type"
-                        className="select-input"
-                        value={eventType}
-                        onChange={(e) => setEventType(e.target.value)}
-                      >
-                        <option value="">Selecciona una opción</option>
-                        {EVENT_OPTIONS.map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="field-block">
-                      <label className="field-label" htmlFor="event-theme">
-                        Tema o personaje favorito
-                      </label>
-                      <input
-                        id="event-theme"
-                        className="text-input"
-                        type="text"
-                        value={eventTheme}
-                        onChange={(e) => setEventTheme(e.target.value)}
-                        placeholder="Ejemplo: Batman"
-                      />
+                    <div className="brief-note">
+                      {copy.eventSectionNote}
                     </div>
                   </div>
 
                   <div className="field-block field-block--full">
-                    <label className="field-label">Colores que te gustaría ver</label>
-                    <div className="field-helper">
-                      Elige hasta 2. Esto ayuda mucho a dirigir mejor el resultado.
-                    </div>
+                    <label className="field-label" htmlFor="event-type">
+                      Tipo de evento
+                    </label>
+                    <select
+                      id="event-type"
+                      className="select-input"
+                      value={eventType}
+                      onChange={(e) =>
+                        setEventType(e.target.value as EventType)
+                      }
+                    >
+                      {EVENT_OPTIONS.map((option) => (
+                        <option key={option || "empty"} value={option}>
+                          {option || "Selecciona una opción"}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                    <div className="color-pills">
-                      {COLOR_OPTIONS.map((color) => {
-                        const isActive = eventColors.includes(color.id);
+                  {eventType ? (
+                    <>
+                      <div className="event-profile-banner">
+                        <div className="event-profile-banner__title">
+                          {eventProfile.title}
+                        </div>
+                        <div className="event-profile-banner__note">
+                          {eventProfile.note}
+                        </div>
+                        <div className="event-profile-banner__hint">
+                          {eventProfile.summaryHint}
+                        </div>
+                      </div>
 
-                        return (
-                          <button
-                            key={color.id}
-                            type="button"
-                            className={`color-pill ${isActive ? "is-active" : ""}`}
-                            onClick={() => toggleColor(color.id)}
+                      <div className="event-grid">
+                        <div className="field-block">
+                          <label
+                            className="field-label"
+                            htmlFor="event-name"
                           >
-                            {color.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    <div className="chips-status-row chips-status-row--compact">
-                      <div className="chips-status">
-                        {eventColors.length}/{MAX_EVENT_COLORS} colores elegidos
-                      </div>
-                      {colorMessage ? (
-                        <div className="chip-message">{colorMessage}</div>
-                      ) : null}
-                    </div>
-
-                    <input
-                      className="text-input text-input--top-space"
-                      type="text"
-                      value={eventCustomColors}
-                      onChange={(e) => setEventCustomColors(e.target.value)}
-                      placeholder="Otro color o combinación especial (opcional)"
-                    />
-                  </div>
-
-                  <div className="event-grid event-grid--lower">
-                    <div className="field-block">
-                      <label className="field-label" htmlFor="event-phrase">
-                        Frase opcional
-                      </label>
-                      <input
-                        id="event-phrase"
-                        className="text-input"
-                        type="text"
-                        value={eventPhrase}
-                        onChange={(e) => setEventPhrase(e.target.value)}
-                        placeholder="Ejemplo: Ian cumple 5"
-                      />
-                    </div>
-
-                    <div className="field-block field-block--stretch">
-                      <label className="field-label" htmlFor="event-details">
-                        Detalles extra
-                      </label>
-                      <textarea
-                        id="event-details"
-                        className="small-textarea"
-                        value={eventDetails}
-                        onChange={(e) => setEventDetails(e.target.value)}
-                        placeholder="Ejemplo: que se vea divertido, fuerte y con más presencia visual"
-                        rows={4}
-                      />
-                    </div>
-                  </div>
-
-                  {priorityItems.length > 0 ? (
-                    <div className="priority-panel">
-                      <div className="priority-panel__head">
-                        <div className="priority-panel__title">
-                          {copy.priorityPanelTitle}
+                            Nombre
+                          </label>
+                          <input
+                            id="event-name"
+                            className="text-input"
+                            type="text"
+                            value={eventName}
+                            onChange={(e) => setEventName(e.target.value)}
+                            placeholder="Ejemplo: Ian"
+                          />
                         </div>
-                        <div className="priority-panel__sub">
-                          {copy.priorityPanelSub}
-                        </div>
-                      </div>
 
-                      <div className="priority-panel__grid">
-                        {priorityItems.map((item) => (
-                          <div key={`${item.label}-${item.value}`} className="priority-item">
-                            <span className="priority-item__label">{item.label}</span>
-                            <span className="priority-item__value">{item.value}</span>
+                        {eventProfile.showNumber ? (
+                          <div className="field-block">
+                            <label
+                              className="field-label"
+                              htmlFor="event-number"
+                            >
+                              Edad o número importante
+                            </label>
+                            <input
+                              id="event-number"
+                              className="text-input"
+                              type="text"
+                              value={eventNumber}
+                              onChange={(e) =>
+                                setEventNumber(e.target.value)
+                              }
+                              placeholder="Ejemplo: 5"
+                            />
                           </div>
-                        ))}
+                        ) : eventProfile.showRecipientType ? (
+                          <div className="field-block">
+                            <label
+                              className="field-label"
+                              htmlFor="event-recipient"
+                            >
+                              {eventProfile.recipientLabel}
+                            </label>
+                            <select
+                              id="event-recipient"
+                              className="select-input"
+                              value={eventRecipientType}
+                              onChange={(e) =>
+                                setEventRecipientType(
+                                  e.target.value as RecipientType
+                                )
+                              }
+                            >
+                              <option value="">
+                                Selecciona una opción
+                              </option>
+                              {eventProfile.recipientOptions.map((option) => (
+                                <option key={option} value={option}>
+                                  {option}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        ) : null}
+
+                        {eventProfile.showTheme ? (
+                          <div className="field-block">
+                            <label
+                              className="field-label"
+                              htmlFor="event-theme"
+                            >
+                              {eventProfile.themeLabel}
+                            </label>
+                            <input
+                              id="event-theme"
+                              className="text-input"
+                              type="text"
+                              value={eventTheme}
+                              onChange={(e) => setEventTheme(e.target.value)}
+                              placeholder={eventProfile.themePlaceholder}
+                            />
+                          </div>
+                        ) : null}
+
+                        {!eventProfile.showNumber &&
+                        !eventProfile.showRecipientType ? (
+                          <div className="field-block">
+                            <label
+                              className="field-label"
+                              htmlFor="event-name-ghost"
+                            >
+                              Nota del evento
+                            </label>
+                            <input
+                              id="event-name-ghost"
+                              className="text-input"
+                              type="text"
+                              value=""
+                              onChange={() => {}}
+                              placeholder="Este espacio no se usa en este evento"
+                              disabled
+                            />
+                          </div>
+                        ) : null}
                       </div>
-                    </div>
+
+                      <div className="field-block field-block--full">
+                        <label className="field-label">
+                          Colores que te gustaría ver
+                        </label>
+                        <div className="field-helper">
+                          Elige hasta 2. Esto ayuda mucho a dirigir mejor el
+                          resultado.
+                        </div>
+
+                        <div className="color-pills">
+                          {COLOR_OPTIONS.map((color) => {
+                            const isActive = eventColors.includes(color.id);
+
+                            return (
+                              <button
+                                key={color.id}
+                                type="button"
+                                className={`color-pill ${
+                                  isActive ? "is-active" : ""
+                                }`}
+                                onClick={() => toggleColor(color.id)}
+                              >
+                                {color.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        <div className="chips-status-row chips-status-row--compact">
+                          <div className="chips-status">
+                            {eventColors.length}/{MAX_EVENT_COLORS} colores
+                            elegidos
+                          </div>
+                          {colorMessage ? (
+                            <div className="chip-message">
+                              {colorMessage}
+                            </div>
+                          ) : null}
+                        </div>
+
+                        <input
+                          className="text-input text-input--top-space"
+                          type="text"
+                          value={eventCustomColors}
+                          onChange={(e) =>
+                            setEventCustomColors(e.target.value)
+                          }
+                          placeholder="Otro color o combinación especial (opcional)"
+                        />
+                      </div>
+
+                      <div className="event-grid event-grid--lower">
+                        <div className="field-block">
+                          <label
+                            className="field-label"
+                            htmlFor="event-phrase"
+                          >
+                            Frase opcional
+                          </label>
+                          <input
+                            id="event-phrase"
+                            className="text-input"
+                            type="text"
+                            value={eventPhrase}
+                            onChange={(e) =>
+                              setEventPhrase(e.target.value)
+                            }
+                            placeholder={eventProfile.phrasePlaceholder}
+                          />
+                        </div>
+
+                        <div className="field-block field-block--stretch">
+                          <label
+                            className="field-label"
+                            htmlFor="event-details"
+                          >
+                            Detalles extra
+                          </label>
+                          <textarea
+                            id="event-details"
+                            className="small-textarea"
+                            value={eventDetails}
+                            onChange={(e) =>
+                              setEventDetails(e.target.value)
+                            }
+                            placeholder={eventProfile.detailsPlaceholder}
+                            rows={4}
+                          />
+                        </div>
+                      </div>
+
+                      {priorityItems.length > 0 ? (
+                        <div className="priority-panel">
+                          <div className="priority-panel__head">
+                            <div className="priority-panel__title">
+                              {copy.priorityPanelTitle}
+                            </div>
+                            <div className="priority-panel__sub">
+                              {copy.priorityPanelSub}
+                            </div>
+                          </div>
+
+                          <div className="priority-panel__grid">
+                            {priorityItems.map((item) => (
+                              <div
+                                key={`${item.label}-${item.value}`}
+                                className="priority-item"
+                              >
+                                <span className="priority-item__label">
+                                  {item.label}
+                                </span>
+                                <span className="priority-item__value">
+                                  {item.value}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                    </>
                   ) : null}
                 </>
               )}
@@ -883,16 +1354,23 @@ function HomePageInner() {
 
                 <div className="chips-status-row">
                   <div className="chips-status">
-                    {activeChips.length}/{MAX_ACTIVE_CHIPS} opciones elegidas
+                    {activeChips.length}/{MAX_ACTIVE_CHIPS} opciones
+                    elegidas
                   </div>
-                  {chipMessage ? <div className="chip-message">{chipMessage}</div> : null}
+                  {chipMessage ? (
+                    <div className="chip-message">{chipMessage}</div>
+                  ) : null}
                 </div>
 
                 <div className="chip-groups-grid">
                   {chipGroups.map((group) => (
                     <div key={group.id} className="chip-group-card">
-                      <div className="chip-group-card__title">{group.title}</div>
-                      <div className="chip-group-card__subtitle">{group.subtitle}</div>
+                      <div className="chip-group-card__title">
+                        {group.title}
+                      </div>
+                      <div className="chip-group-card__subtitle">
+                        {group.subtitle}
+                      </div>
 
                       <div className="chip-group-card__chips">
                         {group.chips.map((chip) => {
@@ -903,10 +1381,14 @@ function HomePageInner() {
                               key={chip.id}
                               type="button"
                               title={chip.helper}
-                              className={`chip-btn ${isActive ? "is-active" : ""}`}
+                              className={`chip-btn ${
+                                isActive ? "is-active" : ""
+                              }`}
                               onClick={() => toggleChip(chip.id)}
                             >
-                              <span className="chip-btn__text">{chip.label}</span>
+                              <span className="chip-btn__text">
+                                {chip.label}
+                              </span>
                             </button>
                           );
                         })}
@@ -942,7 +1424,9 @@ function HomePageInner() {
                   type="button"
                   onClick={handleGenerate}
                   disabled={!canGenerate}
-                  className={`ai-generate-btn ${loading ? "is-loading" : ""}`}
+                  className={`ai-generate-btn ${
+                    loading ? "is-loading" : ""
+                  }`}
                 >
                   <span className="ai-generate-btn__glow" />
                   <span className="ai-generate-btn__border" />
@@ -961,7 +1445,9 @@ function HomePageInner() {
                         {loading ? "Generando..." : copy.primaryCta}
                       </span>
                       <span className="ai-generate-btn__sub">
-                        {loading ? "3 propuestas en proceso" : copy.primarySub}
+                        {loading
+                          ? "3 propuestas en proceso"
+                          : copy.primarySub}
                       </span>
                     </span>
                   </span>
@@ -1008,7 +1494,9 @@ function HomePageInner() {
             <section className="results-block">
               <div className="results-head">
                 <div>
-                  <div className="results-kicker">{copy.resultsKicker}</div>
+                  <div className="results-kicker">
+                    {copy.resultsKicker}
+                  </div>
                   <h2 className="results-title">{copy.resultsTitle}</h2>
                   <p className="results-sub">{copy.resultsSub}</p>
                 </div>
@@ -1022,7 +1510,9 @@ function HomePageInner() {
                   return (
                     <div
                       key={index}
-                      className={`design-card ${isSelected ? "is-selected" : ""}`}
+                      className={`design-card ${
+                        isSelected ? "is-selected" : ""
+                      }`}
                       onClick={() => setSelectedIndex(index)}
                       role="button"
                       tabIndex={0}
@@ -1054,12 +1544,16 @@ function HomePageInner() {
                           🔍
                         </button>
 
-                        {isSelected ? <div className="design-card__check">✓</div> : null}
+                        {isSelected ? (
+                          <div className="design-card__check">✓</div>
+                        ) : null}
                       </div>
 
                       <div className="design-card__body">
                         <div className="design-card__title">
-                          {isSelected ? "Selección actual" : `Opción ${index + 1}`}
+                          {isSelected
+                            ? "Selección actual"
+                            : `Opción ${index + 1}`}
                         </div>
                         <div className="design-card__meta">
                           {isSelected
@@ -1074,7 +1568,9 @@ function HomePageInner() {
 
               <div className="studio-actionbar">
                 <div className="studio-actionbar__meta">
-                  <span className="studio-actionbar__eyebrow">Selección final</span>
+                  <span className="studio-actionbar__eyebrow">
+                    Selección final
+                  </span>
                   <strong className="studio-actionbar__title">
                     {selectedLabel || "Elige una opción"}
                   </strong>
@@ -1114,7 +1610,10 @@ function HomePageInner() {
 
       {previewIndex !== null && typeof document !== "undefined"
         ? createPortal(
-            <div className="preview-modal" onClick={() => setPreviewIndex(null)}>
+            <div
+              className="preview-modal"
+              onClick={() => setPreviewIndex(null)}
+            >
               <div
                 className="preview-modal__dialog"
                 onClick={(e) => e.stopPropagation()}
@@ -1131,7 +1630,9 @@ function HomePageInner() {
                   type="button"
                   className="preview-modal__nav preview-modal__nav--left"
                   onClick={() =>
-                    setPreviewIndex((previewIndex - 1 + images.length) % images.length)
+                    setPreviewIndex(
+                      (previewIndex - 1 + images.length) % images.length
+                    )
                   }
                 >
                   ‹
@@ -1148,20 +1649,25 @@ function HomePageInner() {
                 <button
                   type="button"
                   className="preview-modal__nav preview-modal__nav--right"
-                  onClick={() => setPreviewIndex((previewIndex + 1) % images.length)}
+                  onClick={() =>
+                    setPreviewIndex((previewIndex + 1) % images.length)
+                  }
                 >
                   ›
                 </button>
 
                 <div className="preview-modal__foot">
                   <div className="preview-modal__meta">
-                    {labels[previewIndex] || `Concepto ${previewIndex + 1}`}
+                    {labels[previewIndex] ||
+                      `Concepto ${previewIndex + 1}`}
                   </div>
 
                   <button
                     type="button"
                     className={`preview-modal__select ${
-                      selectedIndex === previewIndex ? "is-selected" : ""
+                      selectedIndex === previewIndex
+                        ? "is-selected"
+                        : ""
                     }`}
                     onClick={() => {
                       setSelectedIndex(previewIndex);
@@ -1193,12 +1699,24 @@ function HomePageInner() {
           min-height: 100dvh;
           padding: 24px;
           background:
-            radial-gradient(circle at 12% 0%, rgba(124, 58, 237, 0.16), transparent 22%),
-            radial-gradient(circle at 100% 10%, rgba(6, 182, 212, 0.12), transparent 22%),
-            linear-gradient(180deg, #0c1120 0%, #0d1424 46%, #0b1020 100%);
-          font-family:
-            Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-            "Segoe UI", sans-serif;
+            radial-gradient(
+              circle at 12% 0%,
+              rgba(124, 58, 237, 0.16),
+              transparent 22%
+            ),
+            radial-gradient(
+              circle at 100% 10%,
+              rgba(6, 182, 212, 0.12),
+              transparent 22%
+            ),
+            linear-gradient(
+              180deg,
+              #0c1120 0%,
+              #0d1424 46%,
+              #0b1020 100%
+            );
+          font-family: Inter, ui-sans-serif, system-ui, -apple-system,
+            BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
 
         .page-shell.is-embedded {
@@ -1206,9 +1724,22 @@ function HomePageInner() {
           min-height: 100dvh;
           padding: 18px;
           background:
-            radial-gradient(circle at 12% 0%, rgba(124, 58, 237, 0.14), transparent 24%),
-            radial-gradient(circle at 100% 10%, rgba(6, 182, 212, 0.1), transparent 24%),
-            linear-gradient(180deg, #0d1323 0%, #0e1527 55%, #0b1020 100%);
+            radial-gradient(
+              circle at 12% 0%,
+              rgba(124, 58, 237, 0.14),
+              transparent 24%
+            ),
+            radial-gradient(
+              circle at 100% 10%,
+              rgba(6, 182, 212, 0.1),
+              transparent 24%
+            ),
+            linear-gradient(
+              180deg,
+              #0d1323 0%,
+              #0e1527 55%,
+              #0b1020 100%
+            );
         }
 
         .page-wrap {
@@ -1227,13 +1758,15 @@ function HomePageInner() {
         .composer-card,
         .results-block {
           position: relative;
-          background:
-            linear-gradient(180deg, rgba(19, 25, 42, 0.92), rgba(14, 19, 33, 0.94));
+          background: linear-gradient(
+            180deg,
+            rgba(19, 25, 42, 0.92),
+            rgba(14, 19, 33, 0.94)
+          );
           border: 1px solid rgba(255, 255, 255, 0.08);
           border-radius: 28px;
           padding: 22px;
-          box-shadow:
-            0 14px 32px rgba(0, 0, 0, 0.2),
+          box-shadow: 0 14px 32px rgba(0, 0, 0, 0.2),
             inset 0 1px 0 rgba(255, 255, 255, 0.05);
           overflow: hidden;
         }
@@ -1245,8 +1778,16 @@ function HomePageInner() {
           inset: 0;
           pointer-events: none;
           background:
-            radial-gradient(circle at top left, rgba(124, 58, 237, 0.06), transparent 26%),
-            radial-gradient(circle at top right, rgba(6, 182, 212, 0.05), transparent 24%);
+            radial-gradient(
+              circle at top left,
+              rgba(124, 58, 237, 0.06),
+              transparent 26%
+            ),
+            radial-gradient(
+              circle at top right,
+              rgba(6, 182, 212, 0.05),
+              transparent 24%
+            );
         }
 
         .is-embedded .composer-card,
@@ -1312,9 +1853,9 @@ function HomePageInner() {
           height: 2px;
           background: linear-gradient(
             90deg,
-            rgba(139,92,246,0),
-            rgba(34,211,238,0.9),
-            rgba(139,92,246,0)
+            rgba(139, 92, 246, 0),
+            rgba(34, 211, 238, 0.9),
+            rgba(139, 92, 246, 0)
           );
           border-radius: 999px;
         }
@@ -1367,7 +1908,8 @@ function HomePageInner() {
           cursor: pointer;
           display: grid;
           gap: 6px;
-          transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+          transition: transform 0.18s ease,
+            border-color 0.18s ease, background 0.18s ease;
         }
 
         .studio-tab:hover {
@@ -1378,8 +1920,16 @@ function HomePageInner() {
         .studio-tab.is-active {
           border-color: rgba(34, 211, 238, 0.28);
           background:
-            radial-gradient(circle at top left, rgba(124, 58, 237, 0.1), transparent 36%),
-            linear-gradient(180deg, rgba(23, 30, 50, 0.95), rgba(18, 24, 40, 0.98));
+            radial-gradient(
+              circle at top left,
+              rgba(124, 58, 237, 0.1),
+              transparent 36%
+            ),
+            linear-gradient(
+              180deg,
+              rgba(23, 30, 50, 0.95),
+              rgba(18, 24, 40, 0.98)
+            );
           box-shadow: 0 10px 22px rgba(0, 0, 0, 0.16);
         }
 
@@ -1401,8 +1951,11 @@ function HomePageInner() {
           z-index: 1;
           border: 1px solid rgba(255, 255, 255, 0.08);
           border-radius: 24px;
-          background:
-            linear-gradient(180deg, rgba(23, 30, 50, 0.9), rgba(18, 24, 40, 0.92));
+          background: linear-gradient(
+            180deg,
+            rgba(23, 30, 50, 0.9),
+            rgba(18, 24, 40, 0.92)
+          );
           padding: 18px;
         }
 
@@ -1437,13 +1990,14 @@ function HomePageInner() {
           font-size: 15px;
           line-height: 1.55;
           color: #f8fafc;
-          background:
-            linear-gradient(180deg, rgba(18, 24, 40, 0.94), rgba(21, 28, 47, 0.96));
+          background: linear-gradient(
+            180deg,
+            rgba(18, 24, 40, 0.94),
+            rgba(21, 28, 47, 0.96)
+          );
           outline: none;
-          transition:
-            border-color 0.18s ease,
-            box-shadow 0.18s ease,
-            background 0.18s ease;
+          transition: border-color 0.18s ease,
+            box-shadow 0.18s ease, background 0.18s ease;
           box-sizing: border-box;
         }
 
@@ -1469,6 +2023,46 @@ function HomePageInner() {
         .select-input:focus {
           border-color: rgba(139, 92, 246, 0.36);
           box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+        }
+
+        .event-profile-banner {
+          margin-bottom: 14px;
+          border: 1px solid rgba(34, 211, 238, 0.14);
+          background:
+            radial-gradient(
+              circle at top left,
+              rgba(6, 182, 212, 0.08),
+              transparent 34%
+            ),
+            linear-gradient(
+              180deg,
+              rgba(19, 28, 46, 0.94),
+              rgba(16, 23, 38, 0.96)
+            );
+          border-radius: 18px;
+          padding: 14px;
+        }
+
+        .event-profile-banner__title {
+          font-size: 15px;
+          font-weight: 950;
+          color: #f8fafc;
+          margin-bottom: 4px;
+        }
+
+        .event-profile-banner__note {
+          font-size: 13px;
+          line-height: 1.5;
+          color: #b6c4d7;
+          font-weight: 700;
+          margin-bottom: 8px;
+        }
+
+        .event-profile-banner__hint {
+          font-size: 12px;
+          line-height: 1.45;
+          color: #8fdcf0;
+          font-weight: 800;
         }
 
         .event-grid {
@@ -1523,8 +2117,11 @@ function HomePageInner() {
         .color-pill {
           appearance: none;
           border: 1px solid rgba(255, 255, 255, 0.08);
-          background:
-            linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.04));
+          background: linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.07),
+            rgba(255, 255, 255, 0.04)
+          );
           color: #f8fafc;
           min-height: 40px;
           padding: 0 14px;
@@ -1532,10 +2129,8 @@ function HomePageInner() {
           font-size: 13px;
           font-weight: 900;
           cursor: pointer;
-          transition:
-            transform 0.18s ease,
-            border-color 0.18s ease,
-            background 0.18s ease;
+          transition: transform 0.18s ease,
+            border-color 0.18s ease, background 0.18s ease;
           white-space: nowrap;
         }
 
@@ -1547,8 +2142,12 @@ function HomePageInner() {
         .color-pill.is-active {
           color: #ffffff;
           border-color: rgba(255, 255, 255, 0.12);
-          background:
-            linear-gradient(135deg, #7c3aed 0%, #8b5cf6 44%, #06b6d4 100%);
+          background: linear-gradient(
+            135deg,
+            #7c3aed 0%,
+            #8b5cf6 44%,
+            #06b6d4 100%
+          );
           box-shadow: 0 10px 18px rgba(88, 28, 135, 0.2);
         }
 
@@ -1556,8 +2155,16 @@ function HomePageInner() {
           margin-top: 16px;
           border: 1px solid rgba(34, 211, 238, 0.16);
           background:
-            radial-gradient(circle at top left, rgba(6, 182, 212, 0.08), transparent 34%),
-            linear-gradient(180deg, rgba(19, 28, 46, 0.94), rgba(16, 23, 38, 0.96));
+            radial-gradient(
+              circle at top left,
+              rgba(6, 182, 212, 0.08),
+              transparent 34%
+            ),
+            linear-gradient(
+              180deg,
+              rgba(19, 28, 46, 0.94),
+              rgba(16, 23, 38, 0.96)
+            );
           border-radius: 18px;
           padding: 14px;
         }
@@ -1705,8 +2312,11 @@ function HomePageInner() {
         .chip-btn {
           appearance: none;
           border: 1px solid rgba(255, 255, 255, 0.08);
-          background:
-            linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.04));
+          background: linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.07),
+            rgba(255, 255, 255, 0.04)
+          );
           color: #f8fafc;
           min-height: 40px;
           padding: 0 14px;
@@ -1715,10 +2325,8 @@ function HomePageInner() {
           font-weight: 900;
           letter-spacing: -0.01em;
           cursor: pointer;
-          transition:
-            transform 0.18s ease,
-            border-color 0.18s ease,
-            background 0.18s ease;
+          transition: transform 0.18s ease,
+            border-color 0.18s ease, background 0.18s ease;
           box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
           white-space: nowrap;
         }
@@ -1731,8 +2339,12 @@ function HomePageInner() {
         .chip-btn.is-active {
           color: #ffffff;
           border-color: rgba(255, 255, 255, 0.12);
-          background:
-            linear-gradient(135deg, #7c3aed 0%, #8b5cf6 44%, #06b6d4 100%);
+          background: linear-gradient(
+            135deg,
+            #7c3aed 0%,
+            #8b5cf6 44%,
+            #06b6d4 100%
+          );
           box-shadow: 0 10px 18px rgba(88, 28, 135, 0.22);
         }
 
@@ -1746,8 +2358,16 @@ function HomePageInner() {
           margin-top: 16px;
           border: 1px solid rgba(139, 92, 246, 0.14);
           background:
-            radial-gradient(circle at top left, rgba(124, 58, 237, 0.08), transparent 32%),
-            linear-gradient(180deg, rgba(23, 30, 50, 0.92), rgba(18, 24, 40, 0.94));
+            radial-gradient(
+              circle at top left,
+              rgba(124, 58, 237, 0.08),
+              transparent 32%
+            ),
+            linear-gradient(
+              180deg,
+              rgba(23, 30, 50, 0.92),
+              rgba(18, 24, 40, 0.94)
+            );
           border-radius: 18px;
           padding: 14px;
         }
@@ -1809,10 +2429,8 @@ function HomePageInner() {
           height: 62px;
           border-radius: 20px;
           cursor: pointer;
-          transition:
-            transform 0.2s ease,
-            opacity 0.18s ease,
-            filter 0.18s ease;
+          transition: transform 0.2s ease,
+            opacity 0.18s ease, filter 0.18s ease;
           overflow: visible;
         }
 
@@ -1831,8 +2449,16 @@ function HomePageInner() {
           inset: -6px;
           border-radius: 22px;
           background:
-            radial-gradient(circle at 25% 50%, rgba(236, 72, 153, 0.14), transparent 34%),
-            radial-gradient(circle at 80% 40%, rgba(6, 182, 212, 0.14), transparent 36%);
+            radial-gradient(
+              circle at 25% 50%,
+              rgba(236, 72, 153, 0.14),
+              transparent 34%
+            ),
+            radial-gradient(
+              circle at 80% 40%,
+              rgba(6, 182, 212, 0.14),
+              transparent 36%
+            );
           filter: blur(12px);
           z-index: 0;
         }
@@ -1859,7 +2485,11 @@ function HomePageInner() {
           inset: 2px;
           border-radius: 18px;
           background:
-            radial-gradient(ellipse at center top, rgba(255, 255, 255, 0.14) 0%, transparent 45%),
+            radial-gradient(
+              ellipse at center top,
+              rgba(255, 255, 255, 0.14) 0%,
+              transparent 45%
+            ),
             linear-gradient(160deg, #1e1b4b 0%, #09090b 100%);
           z-index: 2;
         }
@@ -1923,7 +2553,7 @@ function HomePageInner() {
           font-weight: 900;
           letter-spacing: 0.08em;
           text-transform: uppercase;
-          color: rgba(255,255,255,.72);
+          color: rgba(255, 255, 255, 0.72);
         }
 
         .ai-stars {
@@ -1967,9 +2597,21 @@ function HomePageInner() {
           margin-top: 18px;
           border: 1px solid rgba(139, 92, 246, 0.14);
           background:
-            radial-gradient(circle at top left, rgba(124, 58, 237, 0.08), transparent 34%),
-            radial-gradient(circle at bottom right, rgba(6, 182, 212, 0.06), transparent 30%),
-            linear-gradient(180deg, rgba(23, 29, 48, 0.98), rgba(18, 24, 40, 0.98));
+            radial-gradient(
+              circle at top left,
+              rgba(124, 58, 237, 0.08),
+              transparent 34%
+            ),
+            radial-gradient(
+              circle at bottom right,
+              rgba(6, 182, 212, 0.06),
+              transparent 30%
+            ),
+            linear-gradient(
+              180deg,
+              rgba(23, 29, 48, 0.98),
+              rgba(18, 24, 40, 0.98)
+            );
           border-radius: 18px;
           padding: 16px;
         }
@@ -1987,7 +2629,11 @@ function HomePageInner() {
           min-width: 48px;
           border-radius: 999px;
           border: 1px solid rgba(139, 92, 246, 0.14);
-          background: radial-gradient(circle at center, rgba(99, 102, 241, 0.08), rgba(18, 24, 40, 0.92));
+          background: radial-gradient(
+            circle at center,
+            rgba(99, 102, 241, 0.08),
+            rgba(18, 24, 40, 0.92)
+          );
         }
 
         .loading-dot {
@@ -2118,17 +2764,18 @@ function HomePageInner() {
 
         .design-card {
           border: 1px solid rgba(255, 255, 255, 0.08);
-          background:
-            linear-gradient(180deg, rgba(23, 29, 48, 0.96), rgba(18, 24, 40, 0.98));
+          background: linear-gradient(
+            180deg,
+            rgba(23, 29, 48, 0.96),
+            rgba(18, 24, 40, 0.98)
+          );
           border-radius: 22px;
           overflow: hidden;
           padding: 8px;
           cursor: pointer;
           text-align: left;
-          transition:
-            transform 0.18s ease,
-            border-color 0.18s ease,
-            box-shadow 0.18s ease;
+          transition: transform 0.18s ease,
+            border-color 0.18s ease, box-shadow 0.18s ease;
           box-shadow: 0 10px 20px rgba(0, 0, 0, 0.14);
         }
 
@@ -2140,8 +2787,7 @@ function HomePageInner() {
 
         .design-card.is-selected {
           border-color: rgba(34, 211, 238, 0.34);
-          box-shadow:
-            0 0 0 4px rgba(34, 211, 238, 0.08),
+          box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.08),
             0 16px 26px rgba(0, 0, 0, 0.2);
         }
 
@@ -2151,7 +2797,11 @@ function HomePageInner() {
           border-radius: 16px;
           overflow: hidden;
           background:
-            radial-gradient(circle at top left, rgba(124, 58, 237, 0.08), transparent 24%),
+            radial-gradient(
+              circle at top left,
+              rgba(124, 58, 237, 0.08),
+              transparent 24%
+            ),
             linear-gradient(180deg, #1b2439, #151c2e);
           border: 1px solid rgba(255, 255, 255, 0.05);
         }
@@ -2243,8 +2893,11 @@ function HomePageInner() {
           z-index: 2;
           margin-top: 18px;
           border: 1px solid rgba(255, 255, 255, 0.08);
-          background:
-            linear-gradient(180deg, rgba(20, 26, 44, 0.92), rgba(14, 19, 32, 0.94));
+          background: linear-gradient(
+            180deg,
+            rgba(20, 26, 44, 0.92),
+            rgba(14, 19, 32, 0.94)
+          );
           border-radius: 22px;
           padding: 14px;
           display: flex;
@@ -2293,10 +2946,8 @@ function HomePageInner() {
           appearance: none;
           border: none;
           cursor: pointer;
-          transition:
-            transform 0.18s ease,
-            opacity 0.18s ease,
-            filter 0.18s ease;
+          transition: transform 0.18s ease,
+            opacity 0.18s ease, filter 0.18s ease;
           font: inherit;
         }
 
@@ -2326,7 +2977,12 @@ function HomePageInner() {
           min-height: 48px;
           padding: 0 18px;
           border-radius: 14px;
-          background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 44%, #06b6d4 100%);
+          background: linear-gradient(
+            135deg,
+            #7c3aed 0%,
+            #8b5cf6 44%,
+            #06b6d4 100%
+          );
           color: #fff;
           font-size: 14px;
           font-weight: 950;
@@ -2349,8 +3005,11 @@ function HomePageInner() {
           max-width: 920px;
           height: min(84dvh, 760px);
           margin: 0 auto;
-          background:
-            linear-gradient(180deg, rgba(20, 26, 44, 0.98), rgba(14, 19, 32, 0.98));
+          background: linear-gradient(
+            180deg,
+            rgba(20, 26, 44, 0.98),
+            rgba(14, 19, 32, 0.98)
+          );
           border-radius: 24px;
           overflow: hidden;
           position: relative;
@@ -2408,8 +3067,16 @@ function HomePageInner() {
 
         .preview-modal__image-wrap {
           background:
-            radial-gradient(circle at top left, rgba(124, 58, 237, 0.08), transparent 24%),
-            radial-gradient(circle at top right, rgba(6, 182, 212, 0.06), transparent 22%),
+            radial-gradient(
+              circle at top left,
+              rgba(124, 58, 237, 0.08),
+              transparent 24%
+            ),
+            radial-gradient(
+              circle at top right,
+              rgba(6, 182, 212, 0.06),
+              transparent 22%
+            ),
             linear-gradient(180deg, #1a2238, #151c2e);
           display: flex;
           align-items: center;
@@ -2445,7 +3112,12 @@ function HomePageInner() {
           appearance: none;
           border: none;
           border-radius: 14px;
-          background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 44%, #06b6d4 100%);
+          background: linear-gradient(
+            135deg,
+            #7c3aed 0%,
+            #8b5cf6 44%,
+            #06b6d4 100%
+          );
           color: #ffffff;
           min-height: 46px;
           padding: 0 16px;
@@ -2460,7 +3132,8 @@ function HomePageInner() {
         }
 
         @keyframes sparkleFloat {
-          0%, 100% {
+          0%,
+          100% {
             transform: scale(1) translateY(0);
             opacity: 0.9;
           }
@@ -2498,7 +3171,8 @@ function HomePageInner() {
         }
 
         @keyframes orbitPulse {
-          0%, 100% {
+          0%,
+          100% {
             transform: scale(1);
             opacity: 0.8;
           }
@@ -2531,7 +3205,11 @@ function HomePageInner() {
 
           .page-shell.is-embedded {
             padding: 12px;
-            background: linear-gradient(180deg, #0d1323 0%, #0c1120 100%);
+            background: linear-gradient(
+              180deg,
+              #0d1323 0%,
+              #0c1120 100%
+            );
           }
 
           .composer-card,
