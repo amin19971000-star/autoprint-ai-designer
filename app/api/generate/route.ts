@@ -17,7 +17,7 @@ const FLUX_OUTPUT_FORMAT = "png";
 const FLUX_SAFETY_TOLERANCE = 5;
 
 type DesignMode = "sticker" | "playera";
-type StudioTab = "free" | "event";
+type StudioTab = "free" | "event" | "business";
 
 type ChipId =
   | "circular"
@@ -54,6 +54,22 @@ type EventData = {
   hasColorPriority: boolean;
 };
 
+type BusinessData = {
+  projectType: string;
+  sector: string;
+  name: string;
+  productName: string;
+  message: string;
+  symbol: string;
+  details: string;
+  colors: string[];
+  customColors: string;
+  preferredColors: string[];
+  hasAny: boolean;
+  hasTextPriority: boolean;
+  hasColorPriority: boolean;
+};
+
 type PromptPack = {
   option_a_label: string;
   option_a_prompt: string;
@@ -75,7 +91,10 @@ type DesignFamily =
   | "minimal_line_art"
   | "wildlife_nature"
   | "pinup_biker"
-  | "graphic_poster";
+  | "graphic_poster"
+  | "brand_emblem"
+  | "product_label_graphic"
+  | "promo_brand_graphic";
 
 type CompositionType =
   | "centered_chest"
@@ -222,7 +241,11 @@ function cleanStringArray(input: unknown): string[] {
 }
 
 function normalizeStudioTab(input: unknown): StudioTab {
-  return String(input || "").trim().toLowerCase() === "event" ? "event" : "free";
+  const value = String(input || "").trim().toLowerCase();
+
+  if (value === "event") return "event";
+  if (value === "business") return "business";
+  return "free";
 }
 
 function normalizeEventData(raw: unknown): EventData {
@@ -317,6 +340,111 @@ function sanitizeEventData(eventData: EventData): EventData {
     phrase: sanitizedPhrase,
     details: sanitizedDetails,
     recipientType: sanitizedRecipientType,
+    colors: sanitizedColors,
+    customColors: sanitizedCustomColors,
+    preferredColors,
+    hasAny,
+    hasTextPriority,
+    hasColorPriority,
+  };
+}
+
+
+function normalizeBusinessData(raw: unknown): BusinessData {
+  const obj = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+
+  const projectType = cleanInput(String(obj?.projectType || ""));
+  const sector = cleanInput(String(obj?.sector || ""));
+  const name = cleanInput(String(obj?.name || ""));
+  const productName = cleanInput(String(obj?.productName || ""));
+  const message = cleanInput(String(obj?.message || ""));
+  const symbol = cleanInput(String(obj?.symbol || ""));
+  const details = cleanInput(String(obj?.details || ""));
+  const colors = cleanStringArray(obj?.colors).slice(0, 4);
+  const customColors = cleanInput(String(obj?.customColors || ""));
+
+  const preferredColors = [...colors];
+  if (customColors) {
+    const set = new Set(preferredColors.map((x) => x.toLowerCase()));
+    if (!set.has(customColors.toLowerCase())) {
+      preferredColors.push(customColors);
+    }
+  }
+
+  const hasAny =
+    !!projectType ||
+    !!sector ||
+    !!name ||
+    !!productName ||
+    !!message ||
+    !!symbol ||
+    !!details ||
+    preferredColors.length > 0;
+
+  const hasTextPriority = !!name || !!productName || !!message;
+  const hasColorPriority = preferredColors.length > 0;
+
+  return {
+    projectType,
+    sector,
+    name,
+    productName,
+    message,
+    symbol,
+    details,
+    colors,
+    customColors,
+    preferredColors,
+    hasAny,
+    hasTextPriority,
+    hasColorPriority,
+  };
+}
+
+function sanitizeBusinessData(businessData: BusinessData): BusinessData {
+  const sanitizedProjectType = cleanInput(businessData.projectType);
+  const sanitizedSector = cleanInput(businessData.sector);
+  const sanitizedName = cleanInput(businessData.name);
+  const sanitizedProductName = cleanInput(businessData.productName);
+  const sanitizedMessage = cleanInput(businessData.message);
+  const sanitizedSymbol = sanitizeProtectedReferences(businessData.symbol);
+  const sanitizedDetails = sanitizeProtectedReferences(businessData.details);
+
+  const sanitizedColors = businessData.colors
+    .map((color) => cleanInput(color))
+    .filter(Boolean);
+  const sanitizedCustomColors = cleanInput(businessData.customColors);
+
+  const preferredColors = [...sanitizedColors];
+  if (sanitizedCustomColors) {
+    const set = new Set(preferredColors.map((x) => x.toLowerCase()));
+    if (!set.has(sanitizedCustomColors.toLowerCase())) {
+      preferredColors.push(sanitizedCustomColors);
+    }
+  }
+
+  const hasAny =
+    !!sanitizedProjectType ||
+    !!sanitizedSector ||
+    !!sanitizedName ||
+    !!sanitizedProductName ||
+    !!sanitizedMessage ||
+    !!sanitizedSymbol ||
+    !!sanitizedDetails ||
+    preferredColors.length > 0;
+
+  const hasTextPriority =
+    !!sanitizedName || !!sanitizedProductName || !!sanitizedMessage;
+  const hasColorPriority = preferredColors.length > 0;
+
+  return {
+    projectType: sanitizedProjectType,
+    sector: sanitizedSector,
+    name: sanitizedName,
+    productName: sanitizedProductName,
+    message: sanitizedMessage,
+    symbol: sanitizedSymbol,
+    details: sanitizedDetails,
     colors: sanitizedColors,
     customColors: sanitizedCustomColors,
     preferredColors,
@@ -488,17 +616,280 @@ function isFirstCommunionEvent(eventType: string) {
   return t.includes("primera comunión") || t.includes("primera comunion");
 }
 
+
+function isBrandIdentityProject(projectType: string) {
+  const t = projectType.toLowerCase();
+  return t.includes("identidad");
+}
+
+function isProductLabelProject(projectType: string) {
+  const t = projectType.toLowerCase();
+  return t.includes("etiqueta");
+}
+
+function isPromoStickerProject(projectType: string) {
+  const t = projectType.toLowerCase();
+  return t.includes("promoc");
+}
+
+function getBusinessSectorProfile(sector: string) {
+  const normalized = sector.toLowerCase();
+
+  if (normalized.includes("cafeter")) {
+    return {
+      title: "Coffee Shop",
+      toneHint: "warm, inviting, memorable, premium-casual, and appetizing",
+      visualTraits: [
+        "friendly forms",
+        "balanced composition",
+        "warm branding energy",
+        "good shelf and merch appeal",
+      ],
+      avoid: [
+        "hard industrial stiffness",
+        "cold corporate emptiness",
+        "harsh mechanical language",
+      ],
+      paletteFallback:
+        "warm coffee-shop palette with earthy neutrals, creamy contrast, and refined cozy accents",
+    };
+  }
+
+  if (normalized.includes("taller") || normalized.includes("maquin")) {
+    return {
+      title: "Workshop / Machining",
+      toneHint: "technical, strong, precise, professional, and industrial",
+      visualTraits: [
+        "clean geometry",
+        "robust structure",
+        "useful symmetry",
+        "controlled mechanical authority",
+      ],
+      avoid: [
+        "soft ornamental delicacy",
+        "cute or childish energy",
+        "fragile handcrafted softness",
+      ],
+      paletteFallback:
+        "industrial palette with black, steel-like neutrals, controlled green or safety-color accents, and high readability",
+    };
+  }
+
+  if (normalized.includes("moda") || normalized.includes("ropa")) {
+    return {
+      title: "Fashion / Apparel",
+      toneHint: "stylized, modern, confident, editorial, and brand-forward",
+      visualTraits: [
+        "strong identity",
+        "fashion-aware layout",
+        "clean attitude",
+        "bold but controlled design language",
+      ],
+      avoid: [
+        "generic service-business blandness",
+        "overly technical coldness",
+        "packaging-only logic",
+      ],
+      paletteFallback:
+        "fashion-forward palette with confident contrast, premium neutrals, and selective accent colors",
+    };
+  }
+
+  if (
+    normalized.includes("belleza") ||
+    normalized.includes("cosm")
+  ) {
+    return {
+      title: "Beauty / Cosmetics",
+      toneHint: "elegant, refined, clean, sophisticated, and carefully premium",
+      visualTraits: [
+        "breathing room",
+        "refined visual restraint",
+        "clean premium finish",
+        "soft but confident hierarchy",
+      ],
+      avoid: [
+        "heavy industrial harshness",
+        "cluttered noisy layouts",
+        "cheap generic promo energy",
+      ],
+      paletteFallback:
+        "beauty-forward palette with refined neutrals, soft premium contrast, and elegant controlled accents",
+    };
+  }
+
+  if (
+    normalized.includes("alimento") ||
+    normalized.includes("bebida")
+  ) {
+    return {
+      title: "Food & Beverage",
+      toneHint: "commercial, clear, appetizing, attractive, and sellable",
+      visualTraits: [
+        "strong readability",
+        "product appeal",
+        "retail-friendly hierarchy",
+        "clear message-to-visual relationship",
+      ],
+      avoid: [
+        "confusing symbolism",
+        "cold generic corporate emptiness",
+        "needless visual stiffness",
+      ],
+      paletteFallback:
+        "commercial food-and-drink palette with appetizing contrast, lively accents, and clean readability",
+    };
+  }
+
+  if (normalized.includes("servicio")) {
+    return {
+      title: "Services",
+      toneHint: "clear, trustworthy, professional, sober, and well-structured",
+      visualTraits: [
+        "clean hierarchy",
+        "business clarity",
+        "legibility first",
+        "confident but restrained branding",
+      ],
+      avoid: [
+        "chaotic visuals",
+        "unnecessary ornament",
+        "message confusion",
+      ],
+      paletteFallback:
+        "trustworthy service-business palette with clean neutrals, readable contrast, and selective professional accents",
+    };
+  }
+
+  if (normalized.includes("tecnolog")) {
+    return {
+      title: "Technology",
+      toneHint: "modern, precise, contemporary, clean, and intelligently sharp",
+      visualTraits: [
+        "controlled forms",
+        "modern precision",
+        "sleek visual clarity",
+        "future-aware brand energy",
+      ],
+      avoid: [
+        "rustic softness",
+        "dated vintage heaviness",
+        "overdecorated layouts",
+      ],
+      paletteFallback:
+        "technology palette with cool neutrals, precise accents, and crisp high-clarity separation",
+    };
+  }
+
+  if (normalized.includes("artesan")) {
+    return {
+      title: "Artisanal",
+      toneHint: "human, warm, authentic, characterful, and handcrafted in spirit",
+      visualTraits: [
+        "organic warmth",
+        "approachable identity",
+        "personal brand feeling",
+        "crafted emotional texture inside the artwork only",
+      ],
+      avoid: [
+        "cold corporate sterility",
+        "overly mechanical rigidity",
+        "hard industrial authority",
+      ],
+      paletteFallback:
+        "artisanal palette with warm natural tones, inviting contrast, and handcrafted premium softness",
+    };
+  }
+
+  return {
+    title: "General Business",
+    toneHint: "professional, commercially useful, clear, and well-directed",
+    visualTraits: [
+      "clean composition",
+      "legibility",
+      "commercial presence",
+      "strong usable identity",
+    ],
+    avoid: [
+      "visual noise",
+      "generic randomness",
+      "lack of commercial intention",
+    ],
+    paletteFallback:
+      "professional commercial palette with clean readable contrast and restrained premium accents",
+  };
+}
+
 function fallbackBlueprint(
   userPrompt: string,
   mode: DesignMode,
-  eventData: EventData
+  eventData: EventData,
+  businessData: BusinessData,
+  studioTab: StudioTab
 ): DesignBlueprint {
+  const businessSectorProfile = getBusinessSectorProfile(businessData.sector);
+
   const paletteFallback =
-    eventData.preferredColors.length > 0
+    studioTab === "business" && businessData.preferredColors.length > 0
+      ? `palette centered around ${businessData.preferredColors.join(", ")}`
+      : studioTab === "business"
+      ? businessSectorProfile.paletteFallback
+      : eventData.preferredColors.length > 0
       ? `palette centered around ${eventData.preferredColors.join(", ")}`
       : mode === "playera"
       ? "high-contrast apparel-friendly palette with controlled accent colors"
       : "bold sticker-friendly palette with strong separation and clean readability";
+
+  if (studioTab === "business" && businessData.hasAny) {
+    const projectIsIdentity = isBrandIdentityProject(businessData.projectType);
+    const projectIsLabel = isProductLabelProject(businessData.projectType);
+    const projectIsPromo = isPromoStickerProject(businessData.projectType);
+
+    return {
+      translated_intent: appendClause(
+        userPrompt,
+        `${businessData.projectType || "business graphic"} for ${
+          businessData.sector || "a business"
+        }`
+      ),
+      design_family: projectIsLabel
+        ? "product_label_graphic"
+        : projectIsPromo
+        ? "promo_brand_graphic"
+        : "brand_emblem",
+      composition: mode === "playera"
+        ? projectIsLabel
+          ? "stacked_poster"
+          : "centered_chest"
+        : projectIsLabel
+        ? "minimal_horizontal"
+        : projectIsPromo
+        ? "circular_badge"
+        : "crest_emblem",
+      visual_style: projectIsIdentity
+        ? "clean vector-inspired brand identity graphic, commercially credible, readable, premium, usable for real-world branding and merch"
+        : projectIsLabel
+        ? "clean vector-inspired product-label aesthetic, packaging-aware hierarchy, commercially sellable, readable, refined"
+        : "clean vector-inspired promotional brand graphic, commercially punchy, readable, high-impact, giveaway and merch friendly",
+      support_elements: projectIsLabel
+        ? ["controlled packaging accents", "clear focal hierarchy", "clean brand-support details"]
+        : ["strong focal point", "clean contour", "commercial brand-support accents"],
+      palette_direction: paletteFallback,
+      detail_level: projectIsLabel ? "medium" : "medium",
+      print_strategy:
+        mode === "playera"
+          ? projectIsLabel
+            ? "apparel-ready graphic that borrows packaging clarity while staying wearable, readable, and commercially attractive on a shirt"
+            : "apparel-ready business graphic with clear hierarchy, controlled detail density, and strong brand readability on a garment"
+          : projectIsLabel
+          ? "label-inspired sticker composition with clean hierarchy, packaging credibility, strong readability, and compact printable forms"
+          : "business-oriented sticker composition with commercial clarity, strong brand communication, compact printable shapes, and no detached background elements",
+      typography_strategy:
+        businessData.hasTextPriority
+          ? "preserve exact spelling of business text when visible text is used; prioritize business name first, product name second for labels, main message next, keep typography bold, readable, and intentionally integrated"
+          : "only include text if clearly requested by the user; when used, keep it commercially readable, clean, and intentionally integrated",
+    };
+  }
 
   return {
     translated_intent: userPrompt,
@@ -542,6 +933,9 @@ function familyLabel(family: DesignFamily) {
     wildlife_nature: "Wildlife Nature",
     pinup_biker: "Pin-Up Biker",
     graphic_poster: "Graphic Poster",
+    brand_emblem: "Brand Emblem",
+    product_label_graphic: "Product Label",
+    promo_brand_graphic: "Promo Brand Graphic",
   };
   return map[family] || "Graphic Concept";
 }
@@ -886,6 +1280,102 @@ function buildEventGuidance(eventData: EventData, mode: DesignMode): string {
 
   return lines.join("\n");
 }
+
+function buildBusinessGuidance(
+  businessData: BusinessData,
+  mode: DesignMode
+): string {
+  if (!businessData.hasAny) {
+    return "- No structured business data provided.";
+  }
+
+  const sectorProfile = getBusinessSectorProfile(businessData.sector);
+
+  const lines: string[] = [
+    "- BUSINESS MODE IS ACTIVE. This is a commercial brand-oriented request, not a generic random illustration request.",
+    "- The final work must behave like real-world brand communication with commercial clarity, stronger usability, and intentional visual direction.",
+  ];
+
+  if (businessData.projectType) {
+    lines.push(`- Requested business deliverable: "${businessData.projectType}".`);
+  }
+
+  if (businessData.sector) {
+    lines.push(`- Business sector: "${businessData.sector}".`);
+  }
+
+  if (businessData.name) {
+    lines.push(`- Exact business or brand name to preserve when text is used: "${businessData.name}".`);
+  }
+
+  if (businessData.productName) {
+    lines.push(`- Exact product name to preserve when text is used: "${businessData.productName}".`);
+  }
+
+  if (businessData.message) {
+    lines.push(`- Exact message or supporting line to preserve when text is used: "${businessData.message}".`);
+  }
+
+  if (businessData.symbol) {
+    lines.push(`- Main symbol, icon, or visual anchor requested by the customer: "${businessData.symbol}".`);
+  }
+
+  if (businessData.preferredColors.length) {
+    lines.push(
+      `- Preferred colors that should strongly influence the palette: ${businessData.preferredColors.join(
+        ", "
+      )}.`
+    );
+  }
+
+  if (businessData.details) {
+    lines.push(`- Extra business details from the customer: "${businessData.details}".`);
+  }
+
+  lines.push(
+    `- Sector tone should feel ${sectorProfile.toneHint}.`
+  );
+  lines.push(
+    `- Useful sector traits: ${sectorProfile.visualTraits.join(", ")}.`
+  );
+  lines.push(`- Avoid: ${sectorProfile.avoid.join(", ")}.`);
+
+  if (isBrandIdentityProject(businessData.projectType)) {
+    lines.push(
+      '- PRIORITY ORDER FOR BRAND IDENTITY: business name first, symbol second, sector personality third, message fourth, colors fifth.'
+    );
+    lines.push(
+      "- The result should feel like a credible brand mark, emblem, or merch-ready identity system, not a random cartoon unless the customer clearly asks for that direction."
+    );
+  }
+
+  if (isProductLabelProject(businessData.projectType)) {
+    lines.push(
+      '- PRIORITY ORDER FOR PRODUCT LABEL: brand name first, product name second, product presentation third, message fourth, colors fifth.'
+    );
+    lines.push(
+      "- The result should feel packaging-aware, commercially sellable, shelf-friendly, and clear enough to behave like real product presentation."
+    );
+  }
+
+  if (isPromoStickerProject(businessData.projectType)) {
+    lines.push(
+      '- PRIORITY ORDER FOR PROMOTIONAL STICKER: main message first, brand reinforcement second, business name third, colors fourth, supporting symbol fifth.'
+    );
+    lines.push(
+      "- The result should feel promotional, memorable, commercially useful, and high-impact without becoming visually cheap or chaotic."
+    );
+  }
+
+  lines.push(
+    mode === "sticker"
+      ? "- The final result must still behave as a strong printable sticker with compact brand communication and no detached background scenery."
+      : "- The final result must still behave as a strong wearable shirt graphic with commercial brand clarity and no garment mockup behavior."
+  );
+
+  return lines.join("\n");
+}
+
 
 function applyChipConstraints(
   blueprint: DesignBlueprint,
@@ -1304,15 +1794,205 @@ function applyEventConstraints(
   return next;
 }
 
+function applyBusinessConstraints(
+  blueprint: DesignBlueprint,
+  businessData: BusinessData,
+  mode: DesignMode,
+  chips: ChipId[],
+  studioTab: StudioTab
+): DesignBlueprint {
+  const next: DesignBlueprint = {
+    ...blueprint,
+    support_elements: [...blueprint.support_elements],
+  };
+
+  if (studioTab !== "business" || !businessData.hasAny) {
+    return next;
+  }
+
+  const hasChip = (chip: ChipId) => chips.includes(chip);
+  const sectorProfile = getBusinessSectorProfile(businessData.sector);
+  const projectIsIdentity = isBrandIdentityProject(businessData.projectType);
+  const projectIsLabel = isProductLabelProject(businessData.projectType);
+  const projectIsPromo = isPromoStickerProject(businessData.projectType);
+
+  next.translated_intent = appendClause(
+    next.translated_intent,
+    `${businessData.projectType || "business graphic"} for ${
+      businessData.sector || "a business"
+    } with a ${sectorProfile.toneHint} feel`
+  );
+
+  next.visual_style = appendClause(
+    next.visual_style,
+    "commercially credible business communication with stronger intentional hierarchy and professional usability"
+  );
+
+  next.print_strategy = appendClause(
+    next.print_strategy,
+    "commercial clarity must beat random decoration; the design should feel intentionally useful for a real business"
+  );
+
+  if (businessData.preferredColors.length) {
+    next.palette_direction = `palette centered around ${businessData.preferredColors.join(
+      ", "
+    )}, with clean commercial separation and readable contrast`;
+  } else {
+    next.palette_direction = appendClause(
+      next.palette_direction,
+      sectorProfile.paletteFallback
+    );
+  }
+
+  next.visual_style = appendClause(
+    next.visual_style,
+    `sector-aware direction built around ${sectorProfile.visualTraits.join(", ")}`
+  );
+  next.print_strategy = appendClause(
+    next.print_strategy,
+    `avoid ${sectorProfile.avoid.join(", ")}`
+  );
+
+  if (businessData.hasTextPriority) {
+    const textPriority: string[] = [];
+
+    if (businessData.name) textPriority.push(`business name "${businessData.name}"`);
+    if (businessData.productName)
+      textPriority.push(`product name "${businessData.productName}"`);
+    if (businessData.message)
+      textPriority.push(`message "${businessData.message}"`);
+
+    next.typography_strategy = appendClause(
+      next.typography_strategy,
+      `preserve exact spelling of ${textPriority.join(
+        ", "
+      )}; keep text intentional, commercially readable, and hierarchically disciplined`
+    );
+  }
+
+  if (projectIsIdentity) {
+    next.design_family = "brand_emblem";
+    next.visual_style = appendClause(
+      next.visual_style,
+      "brand-emblem logic, cleaner identity structure, memorable mark-making, and stronger logo-like credibility"
+    );
+    next.print_strategy = appendClause(
+      next.print_strategy,
+      "the result should feel like a real brand identity direction, not random decorative art"
+    );
+    next.detail_level = hasChip("minimal") ? "low" : "medium";
+
+    if (mode === "sticker") {
+      if (hasChip("circular")) {
+        next.composition = "circular_badge";
+      } else if (businessData.message && businessData.name) {
+        next.composition = "crest_emblem";
+      } else {
+        next.composition = hasChip("iconico") ? "compact_cutout" : "crest_emblem";
+      }
+    } else {
+      next.composition = hasChip("estilo_pecho")
+        ? "centered_chest"
+        : hasChip("impacto_visual") || hasChip("streetwear")
+        ? "stacked_poster"
+        : "centered_chest";
+    }
+
+    pushUnique(next.support_elements, "commercial identity accents");
+  }
+
+  if (projectIsLabel) {
+    next.design_family = "product_label_graphic";
+    next.visual_style = appendClause(
+      next.visual_style,
+      "packaging-aware hierarchy, product-presentation discipline, and label-system clarity"
+    );
+    next.print_strategy = appendClause(
+      next.print_strategy,
+      "the result should feel sellable, shelf-aware, and packaging credible"
+    );
+    next.detail_level = "medium";
+
+    if (mode === "sticker") {
+      next.composition = hasChip("circular")
+        ? "circular_badge"
+        : hasChip("minimal")
+        ? "minimal_horizontal"
+        : "crest_emblem";
+    } else {
+      next.composition = hasChip("estilo_pecho")
+        ? "minimal_horizontal"
+        : "stacked_poster";
+    }
+
+    pushUnique(next.support_elements, "packaging-support accents");
+    pushUnique(next.support_elements, "clear product hierarchy");
+  }
+
+  if (projectIsPromo) {
+    next.design_family = "promo_brand_graphic";
+    next.visual_style = appendClause(
+      next.visual_style,
+      "promotional graphic logic, stronger commercial punch, and memorable giveaway-friendly presence"
+    );
+    next.print_strategy = appendClause(
+      next.print_strategy,
+      "the result should feel promotion-ready, attention-worthy, and commercially useful"
+    );
+
+    if (mode === "sticker") {
+      next.composition = hasChip("circular")
+        ? "circular_badge"
+        : hasChip("compacto")
+        ? "compact_cutout"
+        : "crest_emblem";
+    } else {
+      next.composition = hasChip("estilo_pecho")
+        ? "centered_chest"
+        : hasChip("impacto_visual") || hasChip("streetwear")
+        ? "stacked_poster"
+        : "text_top_graphic_center_text_bottom";
+    }
+
+    pushUnique(next.support_elements, "high-clarity promo accents");
+  }
+
+  if (businessData.symbol) {
+    next.visual_style = appendClause(
+      next.visual_style,
+      `symbol direction influenced by ${businessData.symbol}`
+    );
+  }
+
+  if (mode === "playera") {
+    next.print_strategy = appendClause(
+      next.print_strategy,
+      "maintain wearable hierarchy and strong chest-read even when the direction feels brand-oriented"
+    );
+  }
+
+  if (mode === "sticker") {
+    next.print_strategy = appendClause(
+      next.print_strategy,
+      "keep the commercial communication compact and die-cut friendly"
+    );
+  }
+
+  return next;
+}
+
+
 async function buildDesignBlueprint(
   userPrompt: string,
   mode: DesignMode,
   chips: ChipId[],
   studioTab: StudioTab,
-  eventData: EventData
+  eventData: EventData,
+  businessData: BusinessData
 ): Promise<DesignBlueprint> {
   const chipBlueprintGuidance = buildChipGuidance(chips, "blueprint");
   const eventGuidance = buildEventGuidance(eventData, mode);
+  const businessGuidance = buildBusinessGuidance(businessData, mode);
 
   const completion = await openai.chat.completions.create({
     model: "gpt-4o-mini",
@@ -1351,8 +2031,12 @@ ${chipBlueprintGuidance}
 Structured event guidance to obey:
 ${eventGuidance}
 
+Structured business guidance to obey:
+${businessGuidance}
+
 Treat selected chips as deliberate art direction from the user. They are NOT optional fluff.
 If EVENT MODE is active, structured event data has HIGHER priority than generic styling.
+If BUSINESS MODE is active, structured business data has HIGHER priority than generic styling.
 
 ${
   mode === "sticker"
@@ -1384,6 +2068,9 @@ typography_vintage
 minimal_line_art
 wildlife_nature
 pinup_biker
+brand_emblem
+product_label_graphic
+promo_brand_graphic
 
 Allowed composition values (STICKER ONLY):
 compact_cutout
@@ -1412,6 +2099,9 @@ minimal_line_art
 wildlife_nature
 pinup_biker
 graphic_poster
+brand_emblem
+product_label_graphic
+promo_brand_graphic
 
 Allowed composition values (T-SHIRT ONLY):
 centered_chest
@@ -1423,6 +2113,15 @@ minimal_horizontal
 ornamental_symmetry
 `
 }
+
+BUSINESS MODE CONSTRAINTS:
+- If BUSINESS MODE is active, the result must behave like commercial brand communication, not random fan art.
+- For brand identity requests, favor stronger brand-emblem logic, clearer mark-making, disciplined typography, and real-world brand credibility.
+- For product label requests, favor packaging-aware hierarchy, commercial clarity, and product-presentation discipline.
+- For promotional sticker requests, favor message clarity, brand reinforcement, and high-impact commercial usefulness.
+- If business name, product name, or message is provided, preserve exact spelling when text is used.
+- Sector context MUST influence tone, composition, and palette decisions.
+- Do not let generic mascots, fantasy scenery, or irrelevant decoration overpower the business objective unless the customer explicitly asks for it.
 
 Return JSON only with:
 {
@@ -1456,17 +2155,33 @@ Structured event data:
             ? eventData.preferredColors.join(", ")
             : "none"
         }
-- details: ${eventData.details || "none"}`,
+- details: ${eventData.details || "none"}
+
+Structured business data:
+- projectType: ${businessData.projectType || "none"}
+- sector: ${businessData.sector || "none"}
+- business name: ${businessData.name || "none"}
+- product name: ${businessData.productName || "none"}
+- message: ${businessData.message || "none"}
+- symbol: ${businessData.symbol || "none"}
+- preferred colors: ${
+          businessData.preferredColors.length
+            ? businessData.preferredColors.join(", ")
+            : "none"
+        }
+- details: ${businessData.details || "none"}`,
       },
     ],
   });
 
   const raw = completion.choices[0]?.message?.content?.trim() || "";
   const parsed = normalizeBlueprint(safeBlueprintParse(raw));
-  const baseBlueprint = parsed || fallbackBlueprint(userPrompt, mode, eventData);
+  const baseBlueprint =
+    parsed || fallbackBlueprint(userPrompt, mode, eventData, businessData, studioTab);
 
   const withChips = applyChipConstraints(baseBlueprint, chips, mode);
-  return applyEventConstraints(withChips, eventData, mode, chips, studioTab);
+  const withEvent = applyEventConstraints(withChips, eventData, mode, chips, studioTab);
+  return applyBusinessConstraints(withEvent, businessData, mode, chips, studioTab);
 }
 
 async function buildArtDirections(
@@ -1474,18 +2189,21 @@ async function buildArtDirections(
   mode: DesignMode,
   chips: ChipId[],
   studioTab: StudioTab,
-  eventData: EventData
+  eventData: EventData,
+  businessData: BusinessData
 ): Promise<PromptPack> {
   const blueprint = await buildDesignBlueprint(
     userPrompt,
     mode,
     chips,
     studioTab,
-    eventData
+    eventData,
+    businessData
   );
 
   const chipPromptGuidance = buildChipGuidance(chips, "prompt");
   const eventGuidance = buildEventGuidance(eventData, mode);
+  const businessGuidance = buildBusinessGuidance(businessData, mode);
 
   const completion = await openai.chat.completions.create({
     model: "gpt-4o-mini",
@@ -1525,8 +2243,12 @@ ${chipPromptGuidance}
 Structured event guidance to obey:
 ${eventGuidance}
 
+Structured business guidance to obey:
+${businessGuidance}
+
 Treat selected chips as real art-direction constraints, not as optional adjectives.
 If EVENT MODE is active, structured event data has HIGHER priority than generic styling.
+If BUSINESS MODE is active, structured business data has HIGHER priority than generic styling.
 
 ${
   mode === "sticker"
@@ -1557,6 +2279,15 @@ T-SHIRT PROMPT WRITING RULES:
 `
 }
 
+BUSINESS PROMPT WRITING RULES:
+- If BUSINESS MODE is active, write prompts with stronger commercial intent and brand discipline.
+- Do not drift into random fan-art behavior or irrelevant fantasy storytelling unless the customer explicitly requests it.
+- For brand identity, favor cleaner mark-making, stronger emblem logic, disciplined typography, and real-world brand credibility.
+- For product labels, favor packaging-aware hierarchy, shelf-ready clarity, sellable presentation, and product-first composition.
+- For promotional stickers, favor high-impact commercial messaging, brand reinforcement, and giveaway-friendly memorability.
+- Sector context must visibly influence tone, palette, and composition.
+- If exact business text is present, preserve spelling and keep the hierarchy intentional.
+
 Design blueprint to obey:
 - translated_intent: ${blueprint.translated_intent}
 - design_family: ${blueprint.design_family}
@@ -1581,6 +2312,8 @@ SPECIAL PERSONALIZATION RULES:
 - If both name and number are present, prioritize the name first and the number second only for birthday-like events.
 - If a phrase is also present, keep it secondary and never let it overpower the name.
 - If preferred colors are present, they must strongly influence the palette direction.
+- If BUSINESS MODE is active and business name, product name, or message is provided, preserve exact spelling when text is used.
+- For business mode, do not let decorative style override the commercial objective.
 - Do not let decorative style override the personalized data.
 
 Each prompt should explicitly include:
@@ -1632,7 +2365,21 @@ Structured event data:
             ? eventData.preferredColors.join(", ")
             : "none"
         }
-- details: ${eventData.details || "none"}`,
+- details: ${eventData.details || "none"}
+
+Structured business data:
+- projectType: ${businessData.projectType || "none"}
+- sector: ${businessData.sector || "none"}
+- business name: ${businessData.name || "none"}
+- product name: ${businessData.productName || "none"}
+- message: ${businessData.message || "none"}
+- symbol: ${businessData.symbol || "none"}
+- preferred colors: ${
+          businessData.preferredColors.length
+            ? businessData.preferredColors.join(", ")
+            : "none"
+        }
+- details: ${businessData.details || "none"}`,
       },
     ],
   });
@@ -1879,6 +2626,10 @@ export async function POST(req: Request) {
 
     const rawEventData = normalizeEventData(body?.eventData);
     const eventData = sanitizeEventData(rawEventData);
+
+    const rawBusinessData = normalizeBusinessData(body?.businessData);
+    const businessData = sanitizeBusinessData(rawBusinessData);
+
     const userPrompt = sanitizeProtectedReferences(rawPrompt);
 
     if (!userPrompt) {
@@ -1888,12 +2639,34 @@ export async function POST(req: Request) {
       );
     }
 
+    if (studioTab === "business" && !businessData.projectType) {
+      return NextResponse.json(
+        { error: "Selecciona qué quieres crear para tu negocio." },
+        { status: 400 }
+      );
+    }
+
+    if (studioTab === "business" && !businessData.sector) {
+      return NextResponse.json(
+        { error: "Selecciona a qué se dedica tu negocio." },
+        { status: 400 }
+      );
+    }
+
+    if (studioTab === "business" && !businessData.hasAny) {
+      return NextResponse.json(
+        { error: "Agrega algunos datos de tu negocio para generar propuestas." },
+        { status: 400 }
+      );
+    }
+
     const compiled = await buildArtDirections(
       userPrompt,
       mode,
       chips,
       studioTab,
-      eventData
+      eventData,
+      businessData
     );
 
     if (DEBUG_PROMPTS) {
@@ -1903,6 +2676,8 @@ export async function POST(req: Request) {
       console.log("STUDIO TAB:", studioTab);
       console.log("RAW EVENT DATA:", rawEventData);
       console.log("SANITIZED EVENT DATA:", eventData);
+      console.log("RAW BUSINESS DATA:", rawBusinessData);
+      console.log("SANITIZED BUSINESS DATA:", businessData);
       console.log("CHIPS:", chips);
       console.log("A:", compiled.option_a_label, compiled.option_a_prompt);
       console.log("B:", compiled.option_b_label, compiled.option_b_prompt);
@@ -1945,6 +2720,7 @@ export async function POST(req: Request) {
       ? {
           studioTab,
           eventData,
+          businessData,
           chips,
           prompts: [
             compiled.option_a_prompt,
