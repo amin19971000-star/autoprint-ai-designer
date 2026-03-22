@@ -5,7 +5,50 @@ import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
 
 type DesignMode = "sticker" | "playera";
-type StudioTab = "free" | "event";
+type StudioTab = "free" | "event" | "business";
+
+type BusinessProjectType =
+  | ""
+  | "Identidad de marca"
+  | "Etiqueta de producto"
+  | "Sticker promocional";
+
+type BusinessSector =
+  | ""
+  | "Cafetería"
+  | "Taller / maquinados"
+  | "Moda / ropa"
+  | "Belleza / cosmética"
+  | "Alimentos y bebidas"
+  | "Servicios"
+  | "Tecnología"
+  | "Artesanal"
+  | "Otro";
+
+type BusinessProjectProfile = {
+  key: "brand_identity" | "product_label" | "promo_sticker";
+  title: string;
+  note: string;
+  showProductName: boolean;
+  nameLabel: string;
+  namePlaceholder: string;
+  productLabel: string;
+  productPlaceholder: string;
+  messageLabel: string;
+  messagePlaceholder: string;
+  symbolLabel: string;
+  symbolPlaceholder: string;
+  detailsPlaceholder: string;
+  summaryHint: string;
+};
+
+type BusinessSectorProfile = {
+  title: string;
+  note: string;
+  toneHint: string;
+  visualTraits: string[];
+  avoid: string[];
+};
 
 type ChipId =
   | "circular"
@@ -116,6 +159,26 @@ const EVENT_OPTIONS: EventType[] = [
   "Baby shower",
   "Bautizo",
   "Primera comunión",
+  "Otro",
+];
+
+const BUSINESS_PROJECT_OPTIONS: BusinessProjectType[] = [
+  "",
+  "Identidad de marca",
+  "Etiqueta de producto",
+  "Sticker promocional",
+];
+
+const BUSINESS_SECTOR_OPTIONS: BusinessSector[] = [
+  "",
+  "Cafetería",
+  "Taller / maquinados",
+  "Moda / ropa",
+  "Belleza / cosmética",
+  "Alimentos y bebidas",
+  "Servicios",
+  "Tecnología",
+  "Artesanal",
   "Otro",
 ];
 
@@ -282,6 +345,9 @@ const MODE_COPY = {
     eventTitle: "Diseña un sticker para cumpleaños y eventos",
     eventSubhelp:
       "Cuando tu diseño lleva nombre, tema, tipo de evento o detalles importantes, este modo nos ayuda a respetarlos mucho mejor.",
+    businessTitle: "Diseña un sticker para tu negocio o marca",
+    businessSubhelp:
+      "Cuando tu idea es para marca, empaque o promoción, este modo nos ayuda a darle una dirección mucho más profesional y útil.",
     freePlaceholder:
       "Ejemplo: tigre feroz con corona, nombre Leo y un estilo premium muy icónico",
     promptLabel: "Describe tu diseño",
@@ -290,14 +356,20 @@ const MODE_COPY = {
     eventSectionTitle: "Cuéntanos los detalles importantes",
     eventSectionNote:
       "Primero elige el tipo de evento. Después el estudio te mostrará los campos más útiles para construir una propuesta mucho mejor.",
+    businessSectionTitle: "Cuéntanos qué necesita tu negocio",
+    businessSectionNote:
+      "Primero elige qué quieres crear. Después selecciona a qué se dedica tu negocio para que el estudio tome una dirección visual mucho más precisa.",
     chipsTitle: "Dale dirección a tu diseño",
     chipsSub:
       "Elige hasta 3 opciones para marcar el estilo y la personalidad que quieres ver en tus propuestas.",
     primaryCta: "Explorar propuestas",
     primarySub: "3 propuestas listas para sticker",
+    businessPrimarySub: "3 propuestas con enfoque comercial",
     loadingTitle: "Estamos creando tus 3 propuestas",
     loadingSub:
       "Interpretando tu idea y refinándola para que se vea más fuerte, más clara y mejor pensada como sticker.",
+    businessLoadingSub:
+      "Interpretando tu negocio, su sector y el tipo de pieza para construir propuestas más útiles, más claras y más vendibles.",
     resultsKicker: "Propuestas del estudio",
     resultsTitle: "Elige la propuesta que más te guste",
     resultsSub:
@@ -319,6 +391,9 @@ const MODE_COPY = {
     eventTitle: "Diseña una playera para cumpleaños y eventos",
     eventSubhelp:
       "Cuando tu diseño lleva nombre, tema, tipo de evento o detalles importantes, este modo nos ayuda a respetarlos mucho mejor.",
+    businessTitle: "Diseña una playera para tu negocio o marca",
+    businessSubhelp:
+      "Cuando tu idea es para marca, staff, merch o promoción, este modo nos ayuda a darle una dirección mucho más profesional y usable.",
     freePlaceholder:
       "Ejemplo: samurái vintage para playera con un estilo premium y mucha presencia",
     promptLabel: "Describe tu diseño",
@@ -327,14 +402,20 @@ const MODE_COPY = {
     eventSectionTitle: "Cuéntanos los detalles importantes",
     eventSectionNote:
       "Primero elige el tipo de evento. Después el estudio te mostrará los campos más útiles para construir una propuesta mucho mejor.",
+    businessSectionTitle: "Cuéntanos qué necesita tu negocio",
+    businessSectionNote:
+      "Primero elige qué quieres crear. Después selecciona a qué se dedica tu negocio para que el estudio tome una dirección visual mucho más precisa.",
     chipsTitle: "Dale dirección a tu diseño",
     chipsSub:
       "Elige hasta 3 opciones para marcar el estilo y la personalidad que quieres ver en tus propuestas.",
     primaryCta: "Explorar propuestas",
     primarySub: "3 propuestas listas para playera",
+    businessPrimarySub: "3 propuestas con enfoque comercial",
     loadingTitle: "Estamos creando tus 3 propuestas",
     loadingSub:
       "Interpretando tu idea y refinándola para que se vea con más fuerza y mejor presencia sobre la prenda.",
+    businessLoadingSub:
+      "Interpretando tu negocio, su sector y el tipo de pieza para construir propuestas con mejor presencia sobre la prenda.",
     resultsKicker: "Propuestas del estudio",
     resultsTitle: "Elige la propuesta que más te guste",
     resultsSub:
@@ -479,6 +560,268 @@ function getEventProfile(eventType: EventType): EventProfile {
   }
 }
 
+
+function getBusinessProjectProfile(
+  projectType: BusinessProjectType
+): BusinessProjectProfile {
+  switch (projectType) {
+    case "Identidad de marca":
+      return {
+        key: "brand_identity",
+        title: "Identidad de marca",
+        note:
+          "Este modo es para construir una propuesta que represente al negocio con más claridad, presencia y personalidad visual.",
+        showProductName: false,
+        nameLabel: "Nombre del negocio o marca",
+        namePlaceholder: "Ejemplo: Maquinados YPSA",
+        productLabel: "",
+        productPlaceholder: "",
+        messageLabel: "Texto secundario o frase opcional",
+        messagePlaceholder: "Ejemplo: precisión industrial / since 2024",
+        symbolLabel: "Símbolo o elemento principal",
+        symbolPlaceholder: "Ejemplo: engrane, taza, aguja, monograma",
+        detailsPlaceholder:
+          "Ejemplo: que se vea profesional, limpio, fuerte y muy usable como marca",
+        summaryHint:
+          "Aquí el estudio priorizará identidad clara, legibilidad y presencia de marca.",
+      };
+
+    case "Etiqueta de producto":
+      return {
+        key: "product_label",
+        title: "Etiqueta de producto",
+        note:
+          "Este modo está pensado para presentar mejor un producto: nombre, marca, mensaje y estilo visual comercial.",
+        showProductName: true,
+        nameLabel: "Nombre de la marca",
+        namePlaceholder: "Ejemplo: Café Nube",
+        productLabel: "Nombre del producto",
+        productPlaceholder: "Ejemplo: Blend de la casa",
+        messageLabel: "Texto extra o beneficio",
+        messagePlaceholder: "Ejemplo: tostado medio / edición especial",
+        symbolLabel: "Elemento visual o símbolo",
+        symbolPlaceholder: "Ejemplo: grano, hoja, botella, flor",
+        detailsPlaceholder:
+          "Ejemplo: que se vea vendible, premium, limpio y apropiado para empaque",
+        summaryHint:
+          "Aquí el estudio priorizará presentación comercial, claridad y look de producto.",
+      };
+
+    case "Sticker promocional":
+      return {
+        key: "promo_sticker",
+        title: "Sticker promocional",
+        note:
+          "Este modo sirve para branding, frases comerciales, regalos de marca y mensajes que ayuden a destacar el negocio.",
+        showProductName: false,
+        nameLabel: "Nombre del negocio o marca",
+        namePlaceholder: "Ejemplo: AutoPrint",
+        productLabel: "",
+        productPlaceholder: "",
+        messageLabel: "Frase o mensaje principal",
+        messagePlaceholder: "Ejemplo: Gracias por tu compra / Edición limitada",
+        symbolLabel: "Elemento visual o símbolo",
+        symbolPlaceholder: "Ejemplo: rayo, estrella, sello, icono de marca",
+        detailsPlaceholder:
+          "Ejemplo: que se vea llamativo, comercial, premium y muy pegable como sticker",
+        summaryHint:
+          "Aquí el estudio priorizará impacto visual, legibilidad y intención comercial.",
+      };
+
+    default:
+      return {
+        key: "brand_identity",
+        title: "Proyecto de negocio",
+        note:
+          "Primero elige qué quieres crear. Eso nos permite construir propuestas mucho más útiles para marca, empaque o promoción.",
+        showProductName: false,
+        nameLabel: "Nombre del negocio o marca",
+        namePlaceholder: "Ejemplo: AutoPrint",
+        productLabel: "",
+        productPlaceholder: "",
+        messageLabel: "Texto secundario",
+        messagePlaceholder: "Ejemplo: impresión premium",
+        symbolLabel: "Símbolo o elemento",
+        symbolPlaceholder: "Ejemplo: rayo, engrane, taza",
+        detailsPlaceholder:
+          "Cuéntanos el estilo, el tono o el look que buscas.",
+        summaryHint:
+          "El estudio usará el tipo de pieza y el sector del negocio para tomar una mejor dirección visual.",
+      };
+  }
+}
+
+function getBusinessSectorProfile(
+  sector: BusinessSector
+): BusinessSectorProfile {
+  switch (sector) {
+    case "Cafetería":
+      return {
+        title: "Cafetería",
+        note:
+          "Buscaremos una dirección más cálida, memorable y agradable.",
+        toneHint: "warm, welcoming, appetizing, and memorable",
+        visualTraits: [
+          "friendly shapes",
+          "balanced composition",
+          "artisanal or premium-casual mood",
+          "strong visual recall",
+        ],
+        avoid: [
+          "hard industrial look",
+          "excessive rigidity",
+          "unnecessary corporate coldness",
+        ],
+      };
+
+    case "Taller / maquinados":
+      return {
+        title: "Taller / maquinados",
+        note:
+          "Buscaremos una dirección más técnica, sólida y profesional.",
+        toneHint: "technical, strong, precise, and professional",
+        visualTraits: [
+          "clean geometry",
+          "robust structure",
+          "useful symmetry",
+          "industrial confidence",
+        ],
+        avoid: [
+          "soft decorative touches",
+          "childish look",
+          "fragile or delicate composition",
+        ],
+      };
+
+    case "Moda / ropa":
+      return {
+        title: "Moda / ropa",
+        note:
+          "Buscaremos una dirección con más estilo, actitud y recordación visual.",
+        toneHint: "stylish, modern, confident, and memorable",
+        visualTraits: [
+          "composition with attitude",
+          "more editorial energy",
+          "brand personality",
+        ],
+        avoid: [
+          "overly technical look",
+          "styleless composition",
+          "generic signage energy",
+        ],
+      };
+
+    case "Belleza / cosmética":
+      return {
+        title: "Belleza / cosmética",
+        note:
+          "Buscaremos una dirección más limpia, refinada y sofisticada.",
+        toneHint: "elegant, refined, clean, and sophisticated",
+        visualTraits: [
+          "ample visual breathing room",
+          "premium finish",
+          "refined composition",
+          "well-cared visual tone",
+        ],
+        avoid: [
+          "visual heaviness",
+          "unnecessary aggression",
+          "hard industrial language",
+        ],
+      };
+
+    case "Alimentos y bebidas":
+      return {
+        title: "Alimentos y bebidas",
+        note:
+          "Buscaremos una dirección más vendible, clara y apetecible.",
+        toneHint: "commercial, appetizing, clear, and attractive",
+        visualTraits: [
+          "good readability",
+          "product presence",
+          "commercial energy",
+        ],
+        avoid: [
+          "cold composition",
+          "confusing messaging",
+          "excessive rigidity",
+        ],
+      };
+
+    case "Servicios":
+      return {
+        title: "Servicios",
+        note:
+          "Buscaremos una dirección más confiable, limpia y profesional.",
+        toneHint: "clear, trustworthy, professional, and structured",
+        visualTraits: [
+          "visual order",
+          "readability",
+          "restrained branding",
+        ],
+        avoid: [
+          "visual chaos",
+          "unnecessary ornamentation",
+          "unclear messages",
+        ],
+      };
+
+    case "Tecnología":
+      return {
+        title: "Tecnología",
+        note:
+          "Buscaremos una dirección más moderna, precisa y contemporánea.",
+        toneHint: "modern, precise, clean, and contemporary",
+        visualTraits: [
+          "controlled forms",
+          "tech-forward feel",
+          "visual clarity",
+        ],
+        avoid: [
+          "unnecessary retro styling",
+          "soft handmade look",
+          "excessive ornamentation",
+        ],
+      };
+
+    case "Artesanal":
+      return {
+        title: "Artesanal",
+        note:
+          "Buscaremos una dirección más humana, cercana y con carácter hecho a mano.",
+        toneHint: "human, warm, authentic, and approachable",
+        visualTraits: [
+          "organic feel",
+          "friendly visual tone",
+          "maker personality",
+        ],
+        avoid: [
+          "cold corporate styling",
+          "extreme rigidity",
+          "overly technical appearance",
+        ],
+      };
+
+    default:
+      return {
+        title: "Negocio personalizado",
+        note:
+          "Tomaremos una dirección profesional y adaptable según tus detalles.",
+        toneHint: "professional, clear, and well-directed",
+        visualTraits: [
+          "good readability",
+          "clean composition",
+          "commercial presence",
+        ],
+        avoid: [
+          "unnecessary visual noise",
+          "generic composition",
+          "lack of visual intent",
+        ],
+      };
+  }
+}
+
 function HomePageInner() {
   const searchParams = useSearchParams();
   const scrollRestoreRef = useRef(0);
@@ -500,6 +843,18 @@ function HomePageInner() {
   const [eventCustomColors, setEventCustomColors] = useState("");
   const [colorMessage, setColorMessage] = useState("");
 
+  const [businessProjectType, setBusinessProjectType] =
+    useState<BusinessProjectType>("");
+  const [businessSector, setBusinessSector] = useState<BusinessSector>("");
+  const [businessName, setBusinessName] = useState("");
+  const [businessProductName, setBusinessProductName] = useState("");
+  const [businessMessage, setBusinessMessage] = useState("");
+  const [businessSymbol, setBusinessSymbol] = useState("");
+  const [businessDetails, setBusinessDetails] = useState("");
+  const [businessColors, setBusinessColors] = useState<ColorOptionId[]>([]);
+  const [businessCustomColors, setBusinessCustomColors] = useState("");
+  const [businessColorMessage, setBusinessColorMessage] = useState("");
+
   const [activeChips, setActiveChips] = useState<ChipId[]>([]);
   const [chipMessage, setChipMessage] = useState("");
   const [images, setImages] = useState<string[]>([]);
@@ -514,6 +869,8 @@ function HomePageInner() {
   const chipGroups =
     mode === "sticker" ? STICKER_CHIP_GROUPS : PLAYERA_CHIP_GROUPS;
   const eventProfile = getEventProfile(eventType);
+  const businessProjectProfile = getBusinessProjectProfile(businessProjectType);
+  const businessSectorProfile = getBusinessSectorProfile(businessSector);
 
   const allAvailableChips = useMemo(
     () => chipGroups.flatMap((group) => group.chips),
@@ -530,6 +887,11 @@ function HomePageInner() {
     [eventColors]
   );
 
+  const selectedBusinessColorDefs = useMemo(
+    () => COLOR_OPTIONS.filter((color) => businessColors.includes(color.id)),
+    [businessColors]
+  );
+
   const selectedImage = selectedIndex !== null ? images[selectedIndex] : null;
   const selectedLabel = selectedIndex !== null ? labels[selectedIndex] : null;
 
@@ -544,10 +906,43 @@ function HomePageInner() {
       eventColors.length > 0 ||
       eventCustomColors.trim().length > 0);
 
+  const composerTitle =
+    studioTab === "free"
+      ? copy.freeTitle
+      : studioTab === "event"
+      ? copy.eventTitle
+      : copy.businessTitle;
+
+  const composerSubhelp =
+    studioTab === "free"
+      ? copy.freeSubhelp
+      : studioTab === "event"
+      ? copy.eventSubhelp
+      : copy.businessSubhelp;
+
+  const primarySub =
+    studioTab === "business" ? copy.businessPrimarySub : copy.primarySub;
+
+  const loadingSub =
+    studioTab === "business" ? copy.businessLoadingSub : copy.loadingSub;
+
+  const isBusinessReady =
+    businessProjectType.trim().length > 0 &&
+    businessSector.trim().length > 0 &&
+    (businessName.trim().length > 0 ||
+      businessProductName.trim().length > 0 ||
+      businessMessage.trim().length > 0 ||
+      businessSymbol.trim().length > 0 ||
+      businessDetails.trim().length > 0 ||
+      businessColors.length > 0 ||
+      businessCustomColors.trim().length > 0);
+
   const canGenerate =
     studioTab === "free"
       ? prompt.trim().length > 0 && !loading
-      : isEventReady && !loading;
+      : studioTab === "event"
+      ? isEventReady && !loading
+      : isBusinessReady && !loading;
 
   function postEmbedHeight() {
     if (typeof window === "undefined") return;
@@ -595,6 +990,7 @@ function HomePageInner() {
     setActiveChips([]);
     setChipMessage("");
     setColorMessage("");
+    setBusinessColorMessage("");
     setError("");
   }, [mode, studioTab]);
 
@@ -614,6 +1010,12 @@ function HomePageInner() {
       setEventRecipientType("");
     }
   }, [studioTab, eventProfile, eventRecipientType]);
+
+  useEffect(() => {
+    if (!businessProjectProfile.showProductName) {
+      setBusinessProductName("");
+    }
+  }, [businessProjectProfile.showProductName]);
 
   useEffect(() => {
     if (!isEmbedded) return;
@@ -664,6 +1066,16 @@ function HomePageInner() {
     eventColors.length,
     eventCustomColors,
     colorMessage,
+    businessProjectType,
+    businessSector,
+    businessName,
+    businessProductName,
+    businessMessage,
+    businessSymbol,
+    businessDetails,
+    businessColors.length,
+    businessCustomColors,
+    businessColorMessage,
   ]);
 
   useEffect(() => {
@@ -733,6 +1145,25 @@ function HomePageInner() {
     });
   }
 
+  function toggleBusinessColor(colorId: ColorOptionId) {
+    setError("");
+
+    setBusinessColors((current) => {
+      if (current.includes(colorId)) {
+        setBusinessColorMessage("");
+        return current.filter((item) => item !== colorId);
+      }
+
+      if (current.length >= MAX_EVENT_COLORS) {
+        setBusinessColorMessage("Puedes elegir máximo 2 colores.");
+        return current;
+      }
+
+      setBusinessColorMessage("");
+      return [...current, colorId];
+    });
+  }
+
   function openPreview(index: number) {
     if (typeof window !== "undefined") {
       const scrollEl = document.scrollingElement || document.documentElement;
@@ -751,56 +1182,115 @@ function HomePageInner() {
     if (eventCustomColors.trim()) allColorNotes.push(eventCustomColors.trim());
 
     const pieces = [
-      `Crear un diseño personalizado para ${
-        mode === "sticker" ? "sticker" : "playera"
-      }.`,
-      eventType.trim() ? `Tipo de evento: ${eventType.trim()}.` : "",
+      `Create a custom ${mode === "sticker" ? "sticker" : "shirt"} design.`,
+      eventType.trim() ? `Event type: ${eventType.trim()}.` : "",
       eventName.trim()
-        ? `Nombre que debe respetarse: ${eventName.trim()}.`
+        ? `Required name to respect: ${eventName.trim()}.`
         : "",
       eventProfile.showNumber && eventNumber.trim()
-        ? `Edad o número importante que debe aparecer o influir en el diseño: ${eventNumber.trim()}.`
+        ? `Important age or number that should appear or influence the design: ${eventNumber.trim()}.`
         : "",
       eventProfile.showRecipientType && eventRecipientType.trim()
-        ? `Dato importante del evento: ${eventRecipientType.trim()}.`
+        ? `Important event detail: ${eventRecipientType.trim()}.`
         : "",
       eventTheme.trim()
-        ? `Tema, personaje o idea principal: ${eventTheme.trim()}.`
+        ? `Main theme, character, or concept: ${eventTheme.trim()}.`
         : "",
       allColorNotes.length
-        ? `Colores que el cliente quiere ver: ${allColorNotes.join(", ")}.`
+        ? `Preferred colors to include: ${allColorNotes.join(", ")}.`
         : "",
       eventPhrase.trim()
-        ? `Frase opcional que se puede integrar si encaja bien: ${eventPhrase.trim()}.`
+        ? `Optional phrase that can be integrated if it fits naturally: ${eventPhrase.trim()}.`
         : "",
       eventDetails.trim()
-        ? `Detalles extra del cliente: ${eventDetails.trim()}.`
+        ? `Extra customer details: ${eventDetails.trim()}.`
         : "",
       eventProfile.key === "birthday"
-        ? "Priorizar nombre, edad, tema y colores; el diseño debe sentirse claramente de cumpleaños."
+        ? "Prioritize name, age, theme, and colors. The design should clearly feel like a birthday piece."
         : "",
       eventProfile.key === "theme_party"
-        ? "Priorizar sobre todo el tema, luego nombre, edad y colores; el diseño debe sentirse realmente metido en la temática."
+        ? "Prioritize the theme first, then name, age, and colors. The design should feel deeply rooted in the chosen theme rather than generic party art."
         : "",
       eventProfile.key === "baby_shower"
-        ? "Priorizar nombre, si es niño/niña/sorpresa, colores y tono tierno; evitar que se sienta como cumpleaños genérico."
+        ? "Prioritize name, whether it is boy/girl/surprise, colors, and a tender tone. Avoid making it feel like a generic birthday design."
         : "",
       eventProfile.key === "baptism"
-        ? "Priorizar nombre, sexo del bautizado, colores y tono elegante/ceremonial; evitar look de fiesta infantil ruidosa."
+        ? "Prioritize name, the child's gender, colors, and an elegant ceremonial tone. Avoid loud children's-party energy."
         : "",
       eventProfile.key === "first_communion"
-        ? "Priorizar nombre, sexo, colores y tono sobrio/elegante; evitar look demasiado infantil o festivo."
+        ? "Prioritize name, gender, colors, and a sober elegant tone. Avoid anything too childish or overly festive."
         : "",
       mode === "sticker"
-        ? "La propuesta debe sentirse pensada para sticker, con presencia visual clara y buena lectura."
-        : "La propuesta debe sentirse pensada para playera, con buena presencia visual sobre la prenda.",
+        ? "The proposal must feel intentionally built for a sticker, with clear visual presence and strong readability."
+        : "The proposal must feel intentionally built for apparel, with strong presence on the garment.",
+    ];
+
+    return pieces.filter(Boolean).join(" ");
+  }
+
+  function buildBusinessPrompt() {
+    const colorLabels = selectedBusinessColorDefs.map((item) => item.label);
+    const allColorNotes = [...colorLabels];
+    if (businessCustomColors.trim()) {
+      allColorNotes.push(businessCustomColors.trim());
+    }
+
+    const pieces = [
+      `Create a custom ${mode === "sticker" ? "sticker" : "shirt"} design for business use.`,
+      businessProjectType.trim()
+        ? `Piece type: ${businessProjectType.trim()}.`
+        : "",
+      businessSector.trim() ? `Business sector: ${businessSector.trim()}.` : "",
+      businessName.trim()
+        ? `${businessProjectProfile.nameLabel}: ${businessName.trim()}.`
+        : "",
+      businessProjectProfile.showProductName && businessProductName.trim()
+        ? `${businessProjectProfile.productLabel}: ${businessProductName.trim()}.`
+        : "",
+      businessMessage.trim()
+        ? `${businessProjectProfile.messageLabel}: ${businessMessage.trim()}.`
+        : "",
+      businessSymbol.trim()
+        ? `${businessProjectProfile.symbolLabel}: ${businessSymbol.trim()}.`
+        : "",
+      allColorNotes.length
+        ? `Preferred colors to include: ${allColorNotes.join(", ")}.`
+        : "",
+      businessSector.trim()
+        ? `The overall direction should feel ${businessSectorProfile.toneHint}.`
+        : "",
+      businessSectorProfile.visualTraits.length
+        ? `Suggested visual traits: ${businessSectorProfile.visualTraits.join(", ")}.`
+        : "",
+      businessSectorProfile.avoid.length
+        ? `Avoid: ${businessSectorProfile.avoid.join(", ")}.`
+        : "",
+      businessDetails.trim()
+        ? `Extra customer details: ${businessDetails.trim()}.`
+        : "",
+      businessProjectProfile.key === "brand_identity"
+        ? "Prioritize clear identity, readability, brand presence, and a professional feel."
+        : "",
+      businessProjectProfile.key === "product_label"
+        ? "Prioritize product presentation, commercial clarity, packaging appeal, and visual harmony."
+        : "",
+      businessProjectProfile.key === "promo_sticker"
+        ? "Prioritize visual impact, promotional intent, branding, and readability."
+        : "",
+      mode === "sticker"
+        ? "The proposal must feel intentionally built for a sticker, with clear visual presence and strong readability."
+        : "The proposal must feel intentionally built for apparel, with strong presence on the garment.",
     ];
 
     return pieces.filter(Boolean).join(" ");
   }
 
   const generationPrompt =
-    studioTab === "free" ? buildFreePrompt() : buildEventPrompt();
+    studioTab === "free"
+      ? buildFreePrompt()
+      : studioTab === "event"
+      ? buildEventPrompt()
+      : buildBusinessPrompt();
 
   const priorityItems = useMemo(() => {
     const items: { label: string; value: string }[] = [];
@@ -855,6 +1345,55 @@ function HomePageInner() {
     eventProfile,
   ]);
 
+  const businessPriorityItems = useMemo(() => {
+    const items: { label: string; value: string }[] = [];
+
+    if (businessProjectType.trim()) {
+      items.push({ label: "Pieza", value: businessProjectType.trim() });
+    }
+
+    if (businessSector.trim()) {
+      items.push({ label: "Sector", value: businessSector.trim() });
+    }
+
+    if (businessName.trim()) {
+      items.push({ label: "Marca/negocio", value: businessName.trim() });
+    }
+
+    if (businessProjectProfile.showProductName && businessProductName.trim()) {
+      items.push({ label: "Producto", value: businessProductName.trim() });
+    }
+
+    if (businessMessage.trim()) {
+      items.push({ label: "Mensaje", value: businessMessage.trim() });
+    }
+
+    if (businessSymbol.trim()) {
+      items.push({ label: "Símbolo", value: businessSymbol.trim() });
+    }
+
+    const colorLabels = selectedBusinessColorDefs.map((item) => item.label);
+    if (businessCustomColors.trim()) {
+      colorLabels.push(businessCustomColors.trim());
+    }
+
+    if (colorLabels.length) {
+      items.push({ label: "Colores", value: colorLabels.join(", ") });
+    }
+
+    return items;
+  }, [
+    businessProjectType,
+    businessSector,
+    businessName,
+    businessProductName,
+    businessMessage,
+    businessSymbol,
+    businessCustomColors,
+    selectedBusinessColorDefs,
+    businessProjectProfile.showProductName,
+  ]);
+
   async function handleGenerate() {
     const cleanPrompt = generationPrompt.trim();
 
@@ -870,6 +1409,21 @@ function HomePageInner() {
 
     if (studioTab === "event" && !eventType.trim()) {
       setError("Selecciona el tipo de evento.");
+      return;
+    }
+
+    if (studioTab === "business" && !businessProjectType.trim()) {
+      setError("Selecciona qué quieres crear para tu negocio.");
+      return;
+    }
+
+    if (studioTab === "business" && !businessSector.trim()) {
+      setError("Selecciona a qué se dedica tu negocio.");
+      return;
+    }
+
+    if (studioTab === "business" && !isBusinessReady) {
+      setError("Agrega al menos algunos datos importantes para tu diseño.");
       return;
     }
 
@@ -907,6 +1461,20 @@ function HomePageInner() {
                   recipientType: eventRecipientType.trim(),
                   colors: selectedColorDefs.map((item) => item.label),
                   customColors: eventCustomColors.trim(),
+                }
+              : null,
+          businessData:
+            studioTab === "business"
+              ? {
+                  projectType: businessProjectType.trim(),
+                  sector: businessSector.trim(),
+                  name: businessName.trim(),
+                  productName: businessProductName.trim(),
+                  message: businessMessage.trim(),
+                  symbol: businessSymbol.trim(),
+                  details: businessDetails.trim(),
+                  colors: selectedBusinessColorDefs.map((item) => item.label),
+                  customColors: businessCustomColors.trim(),
                 }
               : null,
         }),
@@ -1001,16 +1569,8 @@ function HomePageInner() {
 
             <div className="composer-head">
               <div>
-                <h1 className="composer-title">
-                  {studioTab === "free"
-                    ? copy.freeTitle
-                    : copy.eventTitle}
-                </h1>
-                <p className="composer-subhelp">
-                  {studioTab === "free"
-                    ? copy.freeSubhelp
-                    : copy.eventSubhelp}
-                </p>
+                <h1 className="composer-title">{composerTitle}</h1>
+                <p className="composer-subhelp">{composerSubhelp}</p>
               </div>
             </div>
 
@@ -1047,6 +1607,20 @@ function HomePageInner() {
                   detalles importantes.
                 </span>
               </button>
+
+              <button
+                type="button"
+                className={`studio-tab ${
+                  studioTab === "business" ? "is-active" : ""
+                }`}
+                onClick={() => setStudioTab("business")}
+              >
+                <span className="studio-tab__title">Negocios y marcas</span>
+                <span className="studio-tab__sub">
+                  Para identidad de marca, etiquetas de producto y stickers
+                  promocionales.
+                </span>
+              </button>
             </div>
 
             <div className="brief-shell">
@@ -1069,7 +1643,7 @@ function HomePageInner() {
                     className="prompt-textarea"
                   />
                 </>
-              ) : (
+              ) : studioTab === "event" ? (
                 <>
                   <div className="brief-head">
                     <div className="brief-label">
@@ -1344,6 +1918,292 @@ function HomePageInner() {
                     </>
                   ) : null}
                 </>
+              ) : (
+                <>
+                  <div className="brief-head">
+                    <div className="brief-label">
+                      {copy.businessSectionTitle}
+                    </div>
+                    <div className="brief-note">
+                      {copy.businessSectionNote}
+                    </div>
+                  </div>
+
+                  <div className="field-block field-block--full">
+                    <label
+                      className="field-label"
+                      htmlFor="business-project-type"
+                    >
+                      ¿Qué quieres crear?
+                    </label>
+                    <select
+                      id="business-project-type"
+                      className="select-input"
+                      value={businessProjectType}
+                      onChange={(e) =>
+                        setBusinessProjectType(
+                          e.target.value as BusinessProjectType
+                        )
+                      }
+                    >
+                      {BUSINESS_PROJECT_OPTIONS.map((option) => (
+                        <option key={option || "empty"} value={option}>
+                          {option || "Selecciona una opción"}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {businessProjectType ? (
+                    <>
+                      <div className="event-profile-banner">
+                        <div className="event-profile-banner__title">
+                          {businessProjectProfile.title}
+                        </div>
+                        <div className="event-profile-banner__note">
+                          {businessProjectProfile.note}
+                        </div>
+                        <div className="event-profile-banner__hint">
+                          {businessProjectProfile.summaryHint}
+                        </div>
+                      </div>
+
+                      <div className="event-grid">
+                        <div className="field-block">
+                          <label
+                            className="field-label"
+                            htmlFor="business-sector"
+                          >
+                            ¿A qué se dedica tu negocio?
+                          </label>
+                          <select
+                            id="business-sector"
+                            className="select-input"
+                            value={businessSector}
+                            onChange={(e) =>
+                              setBusinessSector(
+                                e.target.value as BusinessSector
+                              )
+                            }
+                          >
+                            {BUSINESS_SECTOR_OPTIONS.map((option) => (
+                              <option key={option || "empty"} value={option}>
+                                {option || "Selecciona una opción"}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="field-block">
+                          <label
+                            className="field-label"
+                            htmlFor="business-name"
+                          >
+                            {businessProjectProfile.nameLabel}
+                          </label>
+                          <input
+                            id="business-name"
+                            className="text-input"
+                            type="text"
+                            value={businessName}
+                            onChange={(e) => setBusinessName(e.target.value)}
+                            placeholder={businessProjectProfile.namePlaceholder}
+                          />
+                        </div>
+
+                        {businessProjectProfile.showProductName ? (
+                          <div className="field-block">
+                            <label
+                              className="field-label"
+                              htmlFor="business-product-name"
+                            >
+                              {businessProjectProfile.productLabel}
+                            </label>
+                            <input
+                              id="business-product-name"
+                              className="text-input"
+                              type="text"
+                              value={businessProductName}
+                              onChange={(e) =>
+                                setBusinessProductName(e.target.value)
+                              }
+                              placeholder={businessProjectProfile.productPlaceholder}
+                            />
+                          </div>
+                        ) : (
+                          <div className="field-block">
+                            <label
+                              className="field-label"
+                              htmlFor="business-message"
+                            >
+                              {businessProjectProfile.messageLabel}
+                            </label>
+                            <input
+                              id="business-message"
+                              className="text-input"
+                              type="text"
+                              value={businessMessage}
+                              onChange={(e) =>
+                                setBusinessMessage(e.target.value)
+                              }
+                              placeholder={businessProjectProfile.messagePlaceholder}
+                            />
+                          </div>
+                        )}
+
+                        {businessProjectProfile.showProductName ? (
+                          <div className="field-block">
+                            <label
+                              className="field-label"
+                              htmlFor="business-message-2"
+                            >
+                              {businessProjectProfile.messageLabel}
+                            </label>
+                            <input
+                              id="business-message-2"
+                              className="text-input"
+                              type="text"
+                              value={businessMessage}
+                              onChange={(e) =>
+                                setBusinessMessage(e.target.value)
+                              }
+                              placeholder={businessProjectProfile.messagePlaceholder}
+                            />
+                          </div>
+                        ) : null}
+                      </div>
+
+                      {businessSector ? (
+                        <div className="event-profile-banner" style={{ marginTop: 14 }}>
+                          <div className="event-profile-banner__title">
+                            Dirección para {businessSectorProfile.title}
+                          </div>
+                          <div className="event-profile-banner__note">
+                            {businessSectorProfile.note}
+                          </div>
+                          <div className="event-profile-banner__hint">
+                            Buscaremos una propuesta {businessSectorProfile.toneHint}.
+                          </div>
+                        </div>
+                      ) : null}
+
+                      <div className="field-block field-block--full">
+                        <label className="field-label">
+                          Colores que te gustaría ver
+                        </label>
+                        <div className="field-helper">
+                          Elige hasta 2. Esto ayuda mucho a dirigir mejor el
+                          resultado.
+                        </div>
+
+                        <div className="color-pills">
+                          {COLOR_OPTIONS.map((color) => {
+                            const isActive = businessColors.includes(color.id);
+
+                            return (
+                              <button
+                                key={color.id}
+                                type="button"
+                                className={`color-pill ${
+                                  isActive ? "is-active" : ""
+                                }`}
+                                onClick={() => toggleBusinessColor(color.id)}
+                              >
+                                {color.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        <div className="chips-status-row chips-status-row--compact">
+                          <div className="chips-status">
+                            {businessColors.length}/{MAX_EVENT_COLORS} colores elegidos
+                          </div>
+                          {businessColorMessage ? (
+                            <div className="chip-message">{businessColorMessage}</div>
+                          ) : null}
+                        </div>
+
+                        <input
+                          className="text-input text-input--top-space"
+                          type="text"
+                          value={businessCustomColors}
+                          onChange={(e) =>
+                            setBusinessCustomColors(e.target.value)
+                          }
+                          placeholder="Otro color o combinación especial (opcional)"
+                        />
+                      </div>
+
+                      <div className="event-grid event-grid--lower">
+                        <div className="field-block">
+                          <label
+                            className="field-label"
+                            htmlFor="business-symbol"
+                          >
+                            {businessProjectProfile.symbolLabel}
+                          </label>
+                          <input
+                            id="business-symbol"
+                            className="text-input"
+                            type="text"
+                            value={businessSymbol}
+                            onChange={(e) => setBusinessSymbol(e.target.value)}
+                            placeholder={businessProjectProfile.symbolPlaceholder}
+                          />
+                        </div>
+
+                        <div className="field-block field-block--stretch">
+                          <label
+                            className="field-label"
+                            htmlFor="business-details"
+                          >
+                            Detalles extra
+                          </label>
+                          <textarea
+                            id="business-details"
+                            className="small-textarea"
+                            value={businessDetails}
+                            onChange={(e) =>
+                              setBusinessDetails(e.target.value)
+                            }
+                            placeholder={businessProjectProfile.detailsPlaceholder}
+                            rows={4}
+                          />
+                        </div>
+                      </div>
+
+                      {businessPriorityItems.length > 0 ? (
+                        <div className="priority-panel">
+                          <div className="priority-panel__head">
+                            <div className="priority-panel__title">
+                              {copy.priorityPanelTitle}
+                            </div>
+                            <div className="priority-panel__sub">
+                              {copy.priorityPanelSub}
+                            </div>
+                          </div>
+
+                          <div className="priority-panel__grid">
+                            {businessPriorityItems.map((item) => (
+                              <div
+                                key={`${item.label}-${item.value}`}
+                                className="priority-item"
+                              >
+                                <span className="priority-item__label">
+                                  {item.label}
+                                </span>
+                                <span className="priority-item__value">
+                                  {item.value}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                    </>
+                  ) : null}
+                </>
               )}
 
               <div className="chips-zone">
@@ -1447,7 +2307,7 @@ function HomePageInner() {
                       <span className="ai-generate-btn__sub">
                         {loading
                           ? "3 propuestas en proceso"
-                          : copy.primarySub}
+                          : primarySub}
                       </span>
                     </span>
                   </span>
@@ -1466,7 +2326,7 @@ function HomePageInner() {
 
                   <div className="loading-copy">
                     <div className="loading-title">{copy.loadingTitle}</div>
-                    <div className="loading-subtitle">{copy.loadingSub}</div>
+                    <div className="loading-subtitle">{loadingSub}</div>
                   </div>
                 </div>
 
@@ -1892,7 +2752,7 @@ function HomePageInner() {
           position: relative;
           z-index: 1;
           display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
+          grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 10px;
           margin-bottom: 16px;
         }
