@@ -3,12 +3,20 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-const ALLOWED_TYPES: Record<string, string> = {
+const ALLOWED_EXTENSIONS = ['pdf', 'png', 'jpg', 'jpeg', 'psd', 'ai', 'webp'];
+
+const MIME_TO_EXT: Record<string, string> = {
   "application/pdf": "pdf",
   "image/png": "png",
   "image/jpeg": "jpg",
   "image/jpg": "jpg",
   "image/webp": "webp",
+  "application/octet-stream": "bin",
+  "application/x-photoshop": "psd",
+  "image/vnd.adobe.photoshop": "psd",
+  "application/photoshop": "psd",
+  "application/x-illustrator": "ai",
+  "application/illustrator": "ai",
 };
 
 const MAX_SIZE_BYTES = 20 * 1024 * 1024;
@@ -42,15 +50,17 @@ export async function POST(req: Request) {
       );
     }
 
-    const mimeType = file.type;
-    const ext = ALLOWED_TYPES[mimeType];
+    const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
 
-    if (!ext) {
+    if (!ALLOWED_EXTENSIONS.includes(fileExt)) {
       return NextResponse.json(
-        { error: "Tipo de archivo no permitido." },
+        { error: "Tipo de archivo no permitido. Usa PDF, PNG, JPG, PSD o AI." },
         { status: 400, headers: corsHeaders }
       );
     }
+
+    const mimeType = file.type || "application/octet-stream";
+    const ext = MIME_TO_EXT[mimeType] || fileExt;
 
     const fileRef = `customer_${Date.now()}_${Math.random()
       .toString(36)
