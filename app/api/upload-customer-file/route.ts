@@ -2,7 +2,13 @@ import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
-
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '20mb',
+    },
+  },
+};
 const ALLOWED_EXTENSIONS = ['pdf', 'png', 'jpg', 'jpeg', 'psd', 'ai', 'webp'];
 
 const MIME_TO_EXT: Record<string, string> = {
