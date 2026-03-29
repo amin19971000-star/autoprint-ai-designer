@@ -13,6 +13,16 @@ const ALLOWED_TYPES: Record<string, string> = {
 
 const MAX_SIZE_BYTES = 20 * 1024 * 1024;
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
+export async function OPTIONS() {
+  return new Response(null, { status: 204, headers: corsHeaders });
+}
+
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
@@ -21,14 +31,14 @@ export async function POST(req: Request) {
     if (!file) {
       return NextResponse.json(
         { error: "No se recibió ningún archivo." },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       );
     }
 
     if (file.size > MAX_SIZE_BYTES) {
       return NextResponse.json(
         { error: "El archivo excede el límite de 20 MB." },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -38,7 +48,7 @@ export async function POST(req: Request) {
     if (!ext) {
       return NextResponse.json(
         { error: "Tipo de archivo no permitido." },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -51,7 +61,6 @@ export async function POST(req: Request) {
       .toLowerCase();
 
     const pathname = `customer-files/${fileRef}_${originalName}`;
-
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
@@ -61,18 +70,21 @@ export async function POST(req: Request) {
       addRandomSuffix: false,
     });
 
-    return NextResponse.json({
-      ok: true,
-      fileRef,
-      fileUrl: blob.url,
-      fileName: file.name,
-      fileType: mimeType,
-      fileSize: file.size,
-    });
+    return NextResponse.json(
+      {
+        ok: true,
+        fileRef,
+        fileUrl: blob.url,
+        fileName: file.name,
+        fileType: mimeType,
+        fileSize: file.size,
+      },
+      { headers: corsHeaders }
+    );
   } catch (error: any) {
     return NextResponse.json(
       { error: error?.message || "No se pudo subir el archivo." },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
   }
 }
