@@ -1,31 +1,7 @@
-import { put } from "@vercel/blob";
+import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '20mb',
-    },
-  },
-};
-const ALLOWED_EXTENSIONS = ['pdf', 'png', 'jpg', 'jpeg', 'psd', 'ai', 'webp'];
-
-const MIME_TO_EXT: Record<string, string> = {
-  "application/pdf": "pdf",
-  "image/png": "png",
-  "image/jpeg": "jpg",
-  "image/jpg": "jpg",
-  "image/webp": "webp",
-  "application/octet-stream": "bin",
-  "application/x-photoshop": "psd",
-  "image/vnd.adobe.photoshop": "psd",
-  "application/photoshop": "psd",
-  "application/x-illustrator": "ai",
-  "application/illustrator": "ai",
-};
-
-const MAX_SIZE_BYTES = 20 * 1024 * 1024;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -37,70 +13,42 @@ export async function OPTIONS() {
   return new Response(null, { status: 204, headers: corsHeaders });
 }
 
-export async function POST(req: Request) {
+export async function POST(request: Request): Promise<NextResponse> {
+  const body = (await request.json()) as HandleUploadBody;
+
   try {
-    const formData = await req.formData();
-    const file = formData.get("file") as File | null;
-
-    if (!file) {
-      return NextResponse.json(
-        { error: "No se recibió ningún archivo." },
-        { status: 400, headers: corsHeaders }
-      );
-    }
-
-    if (file.size > MAX_SIZE_BYTES) {
-      return NextResponse.json(
-        { error: "El archivo excede el límite de 20 MB." },
-        { status: 400, headers: corsHeaders }
-      );
-    }
-
-    const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
-
-    if (!ALLOWED_EXTENSIONS.includes(fileExt)) {
-      return NextResponse.json(
-        { error: "Tipo de archivo no permitido. Usa PDF, PNG, JPG, PSD o AI." },
-        { status: 400, headers: corsHeaders }
-      );
-    }
-
-    const mimeType = file.type || "application/octet-stream";
-    const ext = MIME_TO_EXT[mimeType] || fileExt;
-
-    const fileRef = `customer_${Date.now()}_${Math.random()
-      .toString(36)
-      .slice(2, 8)}`;
-
-    const originalName = file.name
-      .replace(/[^a-zA-Z0-9._-]/g, "_")
-      .toLowerCase();
-
-    const pathname = `customer-files/${fileRef}_${originalName}`;
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    const blob = await put(pathname, buffer, {
-      access: "public",
-      contentType: mimeType,
-      addRandomSuffix: false,
+    const jsonResponse = await handleUpload({
+      body,
+      request,
+      onBeforeGenerateToken: async (pathname) => {
+        return {
+          allowedContentTypes: [
+            "image/png",
+            "image/jpeg",
+            "image/jpg",
+            "image/webp",
+            "application/pdf",
+            "application/octet-stream",
+            "application/x-photoshop",
+            "image/vnd.adobe.photoshop",
+            "application/photoshop",
+            "application/x-illustrator",
+            "application/illustrator",
+          ],
+          maximumSizeInBytes: 20 * 1024 * 1024,
+          tokenPayload: JSON.stringify({ pathname }),
+        };
+      },
+      onUploadCompleted: async ({ blob }) => {
+        console.log("Archivo subido:", blob.url);
+      },
     });
 
+    return NextResponse.json(jsonResponse, { headers: corsHeaders });
+  } catch (error) {
     return NextResponse.json(
-      {
-        ok: true,
-        fileRef,
-        fileUrl: blob.url,
-        fileName: file.name,
-        fileType: mimeType,
-        fileSize: file.size,
-      },
-      { headers: corsHeaders }
-    );
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error?.message || "No se pudo subir el archivo." },
-      { status: 500, headers: corsHeaders }
+      { error: (error as Error).message },
+      { status: 400, headers: corsHeaders }
     );
   }
 }
