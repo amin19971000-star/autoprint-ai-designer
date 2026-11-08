@@ -862,6 +862,8 @@ function HomePageInner() {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  // "thinking" = la IA arma las ideas · "drawing" = FLUX dibuja (las tarjetas se llenan una por una)
+  const [genPhase, setGenPhase] = useState<"idle" | "thinking" | "drawing">("idle");
   const [error, setError] = useState("");
 
   const isEmbedded = searchParams.get("embed") === "1";
@@ -1164,7 +1166,30 @@ function HomePageInner() {
     });
   }
 
+  function isReadyImage(value: string | undefined) {
+    return !!value && value !== "__failed__";
+  }
+
+  function splitLabel(raw: string | undefined, index: number) {
+    const text = String(raw || "").trim();
+    const parts = text.split(" · ");
+    if (parts.length >= 2) {
+      return { style: parts[0], concept: parts.slice(1).join(" · ") };
+    }
+    return { style: text || `Propuesta ${index + 1}`, concept: "" };
+  }
+
+  function nextReadyIndex(from: number, step: number) {
+    const total = images.length;
+    for (let i = 1; i <= total; i++) {
+      const candidate = (from + step * i + total * total) % total;
+      if (isReadyImage(images[candidate])) return candidate;
+    }
+    return from;
+  }
+
   function openPreview(index: number) {
+    if (!isReadyImage(images[index])) return;
     if (typeof window !== "undefined") {
       const scrollEl = document.scrollingElement || document.documentElement;
       scrollRestoreRef.current = scrollEl.scrollTop || window.scrollY || 0;
@@ -1429,6 +1454,7 @@ function HomePageInner() {
 
     try {
       setLoading(true);
+      setGenPhase("thinking");
       setError("");
       setImages([]);
       setLabels([]);
@@ -1480,21 +1506,84 @@ function HomePageInner() {
         }),
       });
 
-      const data = await res.json();
-
       if (!res.ok) {
-        throw new Error(data?.error || "No se pudieron generar las imágenes.");
+        let message = "No se pudieron generar las imágenes.";
+        if (res.status === 429) {
+          message =
+            "Ya generaste varias propuestas seguidas. Espera unos minutos y vuelve a intentarlo.";
+        } else {
+          try {
+            const data = await res.json();
+            if (data?.error) message = data.error;
+          } catch {}
+        }
+        throw new Error(message);
       }
 
-      const generatedImages = Array.isArray(data?.images) ? data.images : [];
-      const generatedLabels = Array.isArray(data?.labels) ? data.labels : [];
-
-      if (!generatedImages.length) {
+      if (!res.body) {
         throw new Error("No se recibieron imágenes.");
       }
 
-      setImages(generatedImages);
-      setLabels(generatedLabels);
+      // Las imágenes llegan una por una: "" = en proceso · "__failed__" = no salió
+      const slots: string[] = [];
+      const slotLabels: string[] = [];
+      let okCount = 0;
+      let streamError = "";
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      const handleLine = (line: string) => {
+        if (!line.trim()) return;
+        let msg: any;
+        try {
+          msg = JSON.parse(line);
+        } catch {
+          return;
+        }
+
+        if (msg.type === "start") {
+          const total = Number(msg.total) || 3;
+          for (let i = 0; i < total; i++) {
+            slots[i] = "";
+            slotLabels[i] = Array.isArray(msg.labels) ? String(msg.labels[i] || "") : "";
+          }
+          setGenPhase("drawing");
+          setImages([...slots]);
+          setLabels([...slotLabels]);
+        } else if (msg.type === "image") {
+          slots[msg.index] = String(msg.image || "");
+          if (msg.label) slotLabels[msg.index] = String(msg.label);
+          okCount += 1;
+          setImages([...slots]);
+          setLabels([...slotLabels]);
+        } else if (msg.type === "failed") {
+          slots[msg.index] = "__failed__";
+          setImages([...slots]);
+        } else if (msg.type === "error") {
+          streamError = String(msg.error || "");
+        }
+      };
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let newlineIndex = buffer.indexOf("\n");
+        while (newlineIndex >= 0) {
+          handleLine(buffer.slice(0, newlineIndex));
+          buffer = buffer.slice(newlineIndex + 1);
+          newlineIndex = buffer.indexOf("\n");
+        }
+      }
+      handleLine(buffer);
+
+      if (!okCount) {
+        setImages([]);
+        setLabels([]);
+        throw new Error(streamError || "No se recibieron imágenes.");
+      }
 
       setTimeout(() => {
         postEmbedHeight();
@@ -1503,6 +1592,7 @@ function HomePageInner() {
       setError(err?.message || "Ocurrió un error.");
     } finally {
       setLoading(false);
+      setGenPhase("idle");
     }
   }
 
@@ -2331,17 +2421,19 @@ function HomePageInner() {
                 </div>
 
                 <div className="loading-steps">
-                  <div className="loading-step">
+                  <div className={`loading-step ${genPhase === "drawing" ? "is-done" : "is-active"}`}>
                     <span className="loading-step__bullet" />
-                    Entendiendo tu idea
+                    {genPhase === "drawing" ? "Idea entendida" : "Entendiendo tu idea…"}
                   </div>
-                  <div className="loading-step">
+                  <div className={`loading-step ${genPhase === "drawing" ? "is-done" : ""}`}>
                     <span className="loading-step__bullet" />
-                    Aplicando tu estilo elegido
+                    {genPhase === "drawing" ? "3 estilos distintos listos para dibujar" : "Eligiendo 3 estilos distintos"}
                   </div>
-                  <div className="loading-step">
+                  <div className={`loading-step ${genPhase === "drawing" ? "is-active" : ""}`}>
                     <span className="loading-step__bullet" />
-                    Preparando 3 propuestas para elegir
+                    {genPhase === "drawing"
+                      ? `Dibujando: ${images.filter((img) => isReadyImage(img)).length} de ${images.length || 3} listas`
+                      : "Dibujar tus 3 propuestas"}
                   </div>
                 </div>
               </div>
@@ -2365,7 +2457,35 @@ function HomePageInner() {
               <div className="results-grid results-grid--3">
                 {images.map((image, index) => {
                   const isSelected = selectedIndex === index;
-                  const label = labels[index] || `Concepto ${index + 1}`;
+                  const { style, concept } = splitLabel(labels[index], index);
+
+                  if (image === "" || image === "__failed__") {
+                    const failed = image === "__failed__";
+                    return (
+                      <div
+                        key={index}
+                        className={`design-card design-card--pending ${failed ? "is-failed" : ""}`}
+                        aria-busy={!failed}
+                      >
+                        <div className="design-card__image-wrap">
+                          <div className="design-card__skeleton">
+                            <span>
+                              {failed
+                                ? "Esta propuesta no se pudo crear"
+                                : `Dibujando propuesta ${index + 1}…`}
+                            </span>
+                          </div>
+                          {style ? <div className="design-card__badge">{style}</div> : null}
+                        </div>
+                        <div className="design-card__body">
+                          <div className="design-card__title">{concept || style}</div>
+                          <div className="design-card__meta">
+                            {failed ? "Elige una de las otras opciones." : "Aparecerá aquí en unos segundos."}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
 
                   return (
                     <div
@@ -2390,7 +2510,7 @@ function HomePageInner() {
                           className="design-card__image"
                         />
 
-                        <div className="design-card__badge">{label}</div>
+                        <div className="design-card__badge">{style}</div>
 
                         <button
                           type="button"
@@ -2411,14 +2531,12 @@ function HomePageInner() {
 
                       <div className="design-card__body">
                         <div className="design-card__title">
-                          {isSelected
-                            ? "Selección actual"
-                            : `Opción ${index + 1}`}
+                          {concept || style}
                         </div>
                         <div className="design-card__meta">
                           {isSelected
                             ? copy.selectionReady
-                            : "Haz clic para elegir esta opción."}
+                            : "Toca para elegir esta propuesta."}
                         </div>
                       </div>
                     </div>
@@ -2490,9 +2608,7 @@ function HomePageInner() {
                   type="button"
                   className="preview-modal__nav preview-modal__nav--left"
                   onClick={() =>
-                    setPreviewIndex(
-                      (previewIndex - 1 + images.length) % images.length
-                    )
+                    setPreviewIndex(nextReadyIndex(previewIndex, -1))
                   }
                 >
                   ‹
@@ -2510,7 +2626,7 @@ function HomePageInner() {
                   type="button"
                   className="preview-modal__nav preview-modal__nav--right"
                   onClick={() =>
-                    setPreviewIndex((previewIndex + 1) % images.length)
+                    setPreviewIndex(nextReadyIndex(previewIndex, 1))
                   }
                 >
                   ›
@@ -3672,6 +3788,38 @@ function HomePageInner() {
           object-fit: contain;
           display: block;
           padding: 12px;
+        }
+
+        .design-card--pending {
+          cursor: default;
+        }
+        .design-card__skeleton {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 16px;
+          text-align: center;
+          font-size: 13px;
+          font-weight: 700;
+          color: rgba(255, 255, 255, 0.72);
+          background: linear-gradient(110deg, rgba(255,255,255,0.04) 8%, rgba(255,255,255,0.12) 18%, rgba(255,255,255,0.04) 33%);
+          background-size: 200% 100%;
+          animation: apSkeleton 1.4s linear infinite;
+        }
+        .design-card--pending.is-failed .design-card__skeleton {
+          animation: none;
+          background: rgba(255, 255, 255, 0.04);
+          color: rgba(255, 255, 255, 0.55);
+        }
+        @keyframes apSkeleton {
+          to { background-position: -200% 0; }
+        }
+        .loading-step.is-done { opacity: 0.6; }
+        .loading-step.is-active { font-weight: 800; }
+        @media (prefers-reduced-motion: reduce) {
+          .design-card__skeleton { animation: none; }
         }
 
         .design-card__badge {
