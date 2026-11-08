@@ -646,7 +646,6 @@ function StudioInner() {
             {copy.titleA}
             <span className="ap-title__accent">{copy.titleB}</span>
           </h1>
-          <p className="ap-sub">{copy.sub}</p>
           {!isEmbedded && !forcedMode && (
             <div className="ap-mode" role="radiogroup" aria-label="Producto">
               {(["sticker", "playera"] as DesignMode[]).map((m) => (
@@ -1057,15 +1056,18 @@ function StudioInner() {
                         )}
                       </div>
                     ) : (
-                      <div className="ap-lid ap-lid--ghost">
-                        {!loading && (
-                          <span
-                            className="ap-lid__guide"
-                            style={{ width: `${(7.5 / LID_CM.w) * 100}%`, height: `${(7.5 / LID_CM.h) * 100}%` }}
-                          >
-                            Tu sticker
-                          </span>
-                        )}
+                      <div className="ap-laptop ap-laptop--ghost">
+                        <div className="ap-lid">
+                          {!loading && (
+                            <span
+                              className="ap-lid__guide"
+                              style={{ width: `${(7.5 / LID_CM.w) * 100}%`, height: `${(7.5 / LID_CM.h) * 100}%` }}
+                            >
+                              Tu sticker
+                            </span>
+                          )}
+                        </div>
+                        <span className="ap-laptop__base" aria-hidden="true" />
                       </div>
                     )}
                     {!loading && <p className="ap-empty__t">Tu diseño aparecerá aquí</p>}
@@ -1190,12 +1192,8 @@ function StudioInner() {
                   </div>
                 </div>
               )}
-              {view === "product" && selectedReady && !zoom && (
-                <p className={`ap-canvas__note ${mode === "sticker" ? "is-top" : ""}`}>
-                  {mode === "sticker"
-                    ? `${FINISHES[stkFinish].label} · ${stkSize} cm sobre una laptop de 13″`
-                    : "Vista aproximada"}
-                </p>
+              {view === "product" && selectedReady && !zoom && mode === "playera" && (
+                <p className="ap-canvas__note">Vista aproximada</p>
               )}
             </div>
 
@@ -2594,29 +2592,70 @@ function StudioInner() {
           box-shadow: 0 0 0 2px var(--blue), 0 0 12px rgba(91, 130, 255, 0.6);
         }
 
-        /* Sticker en laptop (aluminio gris espacial) */
+        /* Sticker en laptop plateada (tapa + base, vista desde atrás) */
+        .ap-laptop {
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          width: 88%;
+          width: min(88cqw, calc(100cqh * 1.3));
+          animation: apPop 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+          filter: drop-shadow(0 34px 34px rgba(0, 0, 0, 0.55));
+        }
+        .ap-empty > .ap-laptop {
+          flex: none;
+          width: 64%;
+          width: min(80cqw, calc((100cqh - 46px) * 1.3));
+        }
+        .ap-laptop--ghost {
+          opacity: 0.5;
+          animation: none;
+        }
         .ap-lid {
           position: relative;
-          width: 92%;
-          width: min(100cqw, calc(100cqh * 1.4286));
-          height: auto;
+          width: 100%;
           aspect-ratio: 30 / 21;
-          border-radius: 3.2% / 4.6%;
-          background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.011) 0 1px, transparent 1px 3px),
-            radial-gradient(120% 90% at 30% 15%, rgba(255, 255, 255, 0.16), transparent 55%),
-            linear-gradient(160deg, #50545c 0%, #3a3d44 45%, #2b2e33 100%);
-          box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1) inset, 0 2px 0 rgba(255, 255, 255, 0.08) inset,
-            0 -3px 0 rgba(0, 0, 0, 0.35) inset, 0 40px 60px -28px rgba(0, 0, 0, 0.9);
-          animation: apPop 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+          border-radius: 3.4% / 4.8%;
+          background: repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.014) 0 1px, transparent 1px 3px),
+            radial-gradient(110% 80% at 28% 8%, rgba(255, 255, 255, 0.75), transparent 55%),
+            linear-gradient(165deg, #eceef1 0%, #d3d7dc 42%, #b9bec6 100%);
+          box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.65) inset, 0 -3px 0 rgba(0, 0, 0, 0.1) inset,
+            0 0 0 1px rgba(0, 0, 0, 0.35);
         }
-        .ap-empty > .ap-lid {
-          flex: none;
-          width: 72%;
-          width: min(100cqw, calc((100cqh - 46px) * 1.4286));
+        /* Bisagra y base de la laptop */
+        .ap-laptop__base {
+          position: relative;
+          display: block;
+          width: 112%;
+          height: 0;
+          padding-bottom: 3.6%;
+          margin-top: -1px;
+          border-radius: 0 0 14px 14px / 0 0 60% 60%;
+          background: linear-gradient(180deg, #8d929a 0%, #d7dade 18%, #c3c7cd 55%, #9da2aa 100%);
+          clip-path: polygon(3% 0, 97% 0, 100% 100%, 0 100%);
         }
-        .ap-lid--ghost {
-          opacity: 0.55;
-          animation: none;
+        .ap-laptop__base::before {
+          content: "";
+          position: absolute;
+          left: 38%;
+          right: 38%;
+          top: 0;
+          height: 38%;
+          border-radius: 0 0 8px 8px;
+          background: rgba(0, 0, 0, 0.18);
+        }
+        .ap-lid__caption {
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: 4%;
+          text-align: center;
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.02em;
+          color: rgba(11, 13, 18, 0.45);
+          pointer-events: none;
         }
         .ap-lid__guide {
           position: absolute;
@@ -2624,7 +2663,7 @@ function StudioInner() {
           top: 48%;
           display: grid;
           place-items: center;
-          border: 1.5px dashed rgba(255, 255, 255, 0.45);
+          border: 1.5px dashed rgba(11, 13, 18, 0.4);
           border-radius: 22%;
           transform: translate(-50%, -50%) rotate(-5deg);
           font-size: 11px;
@@ -2632,7 +2671,7 @@ function StudioInner() {
           letter-spacing: 0.08em;
           text-transform: uppercase;
           text-align: center;
-          color: rgba(255, 255, 255, 0.7);
+          color: rgba(11, 13, 18, 0.55);
         }
         .ap-lid__stk {
           position: absolute;
@@ -3632,6 +3671,7 @@ async function makeDieCut(src: string, sizeCm: number): Promise<string> {
 
 function StickerMockup({ dieCut, finish, sizeCm }: { dieCut: string; finish: StickerFinish; sizeCm: number }) {
   return (
+    <div className="ap-laptop">
     <div className="ap-lid">
       <div
         className="ap-lid__stk"
@@ -3652,6 +3692,11 @@ function StickerMockup({ dieCut, finish, sizeCm }: { dieCut: string; finish: Sti
           <span className="ap-spinner ap-mock__wait" aria-hidden="true" />
         )}
       </div>
+      <span className="ap-lid__caption">
+        {FINISHES[finish].label} · {sizeCm} cm · laptop de 13″
+      </span>
+    </div>
+      <span className="ap-laptop__base" aria-hidden="true" />
     </div>
   );
 }
