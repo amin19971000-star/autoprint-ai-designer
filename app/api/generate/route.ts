@@ -2798,6 +2798,12 @@ Text rules (very important, image generators misspell long text):
 - For birthdays you may use the name and the age number only if the customer mentioned them. Keep the total text short (ideally 1 to 4 words).
 - The text must be large, fully visible and perfectly spelled. No character, object or decoration may cover or cut any letter.
 
+Understanding the request (common mistakes to avoid):
+- WHERE the sticker or shirt will be used (refrigerator, car, laptop, bottle, uniform…) is NOT the theme. Never draw the fridge, the car or food/drinks because of that. Use it only as a craft hint: car or outdoor → bold, simple, readable from a distance; fridge or laptop → compact and fun.
+- A shape the customer asks for (circular/round, square, rectangular, oval) is MANDATORY: the whole design must live inside that shape, with the text following or inside it. Say it clearly in enriched_prompt (for example: "round circular badge sticker, everything contained inside a perfect circle").
+- Names the customer gives are THEIR brand or person. Do not associate them with any real company, product or industry you may know with a similar name; base the concept only on what the customer described (their business, the occasion, the person).
+- When there is a brand name or a name, it is the hero: give the text its own clear area or band, never behind or under the character, and the character must not touch or cover any letter.
+
 Other rules:
 - Fix obvious typos in common words ("Haloween" → Halloween), but never change names or the exact texts.
 - Keep any name of a character, brand or person exactly as the customer wrote it; do not add new ones.
@@ -2857,6 +2863,7 @@ For "summary": 3 to 5 short items in Spanish (Mexico), each value under 45 chara
     return null;
   }
 }
+
 
 
 export async function POST(req: Request) {
