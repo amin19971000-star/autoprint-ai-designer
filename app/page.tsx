@@ -354,6 +354,13 @@ function StudioInner() {
     });
   }
 
+  // Si el cliente pide sticker redondo/circular, se manda como regla obligatoria (opción «circular» del servidor).
+  function requestChips() {
+    const style = mode === "sticker" ? styleDef.sticker : styleDef.playera;
+    const wantsRound = mode === "sticker" && /(circular|redond|c[ií]rculo)/i.test(prompt);
+    return Array.from(new Set([...(wantsRound ? ["circular"] : []), ...style])).slice(0, 3);
+  }
+
   // ---------- Generar (stream: start / image / failed / error / done) ----------
   async function handleGenerate() {
     if (!canGenerate) {
@@ -400,7 +407,7 @@ function StudioInner() {
         body: JSON.stringify({
           prompt: sentPrompt,
           mode,
-          chips: mode === "sticker" ? styleDef.sticker : styleDef.playera,
+          chips: requestChips(),
           studioTab: "free",
           eventData: null,
           businessData: null,
