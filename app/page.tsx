@@ -84,14 +84,16 @@ const ADJUST_OPTIONS: { id: string; label: string }[] = [
 const COPY: Record<DesignMode, { title: string; sub: string; placeholder: string; noun: string }> = {
   sticker: {
     title: "Crea tu sticker con IA",
-    sub: "Escribe tu idea con tus palabras. Te mostramos 3 propuestas y eliges la que más te guste.",
-    placeholder: "Describe qué quieres ver: personaje, objeto o idea, y para qué es.",
+    sub: "Cuéntanos tu idea como se la contarías a un diseñador. La IA entiende lo importante y te muestra 3 propuestas.",
+    placeholder:
+      "Ej.: Tengo una cafetería que se llama Café Luna y quiero stickers para regalar con cada pedido. Algo alegre, con una taza sonriente y una luna.",
     noun: "sticker",
   },
   playera: {
     title: "Crea el diseño de tu playera con IA",
-    sub: "Escribe tu idea con tus palabras. Te mostramos 3 propuestas y eliges la que más te guste.",
-    placeholder: "Describe qué quieres en tu playera: personaje, frase o idea, y para qué es.",
+    sub: "Cuéntanos tu idea como se la contarías a un diseñador. La IA entiende lo importante y te muestra 3 propuestas.",
+    placeholder:
+      "Ej.: Es para el cumpleaños de mi hija Ana, cumple 6 años y le encantan los gatos y las flores. Que diga su nombre y tenga colores pastel.",
     noun: "playera",
   },
 };
@@ -166,6 +168,7 @@ function StudioInner() {
   const [error, setError] = useState("");
   const [lastPrompt, setLastPrompt] = useState("");
   const [genOffset, setGenOffset] = useState(0);
+  const [brief, setBrief] = useState<{ label: string; value: string }[]>([]);
 
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [adjustPresets, setAdjustPresets] = useState<string[]>([]);
@@ -175,6 +178,9 @@ function StudioInner() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [view, setView] = useState<"design" | "product">("design");
+  const [shirtColor, setShirtColor] = useState<ShirtColor>("blanca");
+  const [mockTry, setMockTry] = useState<Record<ShirtColor, number>>({ blanca: 0, negra: 0 });
+  const [cutouts, setCutouts] = useState<Record<string, string>>({});
 
   const copy = COPY[mode];
   const apiBase = isEmbedded ? "https://autoprint-ai-designer.vercel.app/api/generate" : "/api/generate";
@@ -217,6 +223,25 @@ function StudioInner() {
       window.removeEventListener("resize", run);
     };
   }, [isEmbedded, images.length, selectedIndex, loading, error, panel, composerOpen, adjustOpen]);
+
+  // ---------- Recorte del fondo blanco (para ponerlo sobre la playera real) ----------
+  useEffect(() => {
+    if (mode !== "playera" || view !== "product") return;
+    if (selectedIndex === null) return;
+    const src = images[selectedIndex];
+    if (!src || src === FAILED) return;
+    const key = cutoutKey(src);
+    if (cutouts[key]) return;
+    let alive = true;
+    cutoutWhiteBackground(src)
+      .then((out) => {
+        if (alive && out) setCutouts((cur) => ({ ...cur, [key]: out }));
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [mode, view, selectedIndex, images, cutouts]);
 
   // ---------- Derivados ----------
   const readyCount = images.filter((img) => img && img !== FAILED).length;
@@ -315,6 +340,7 @@ function StudioInner() {
       setImages(keptImages);
       setLabels(keptLabels);
       setGenOffset(offset);
+      setBrief([]);
       setSelectedIndex(null);
       setAdjustOpen(false);
       setComposerOpen(false);
@@ -379,6 +405,14 @@ function StudioInner() {
           setGenPhase("drawing");
           setImages([...slots]);
           setLabels([...slotLabels]);
+          if (Array.isArray(msg.brief)) {
+            setBrief(
+              msg.brief
+                .map((b: any) => ({ label: String(b?.label || ""), value: String(b?.value || "") }))
+                .filter((b: { label: string; value: string }) => b.label && b.value)
+                .slice(0, 4)
+            );
+          }
         } else if (msg.type === "image") {
           const idx = offset + Number(msg.index);
           slots[idx] = String(msg.image || "");
@@ -612,9 +646,18 @@ function StudioInner() {
               <div className="ap-card__head">
                 <span className="ap-badge">1</span>
                 <label htmlFor="ap-prompt" className="ap-card__title">
-                  ¿Qué quieres en tu {copy.noun}?
+                  Cuéntanos qué necesitas
                 </label>
               </div>
+              <p className="ap-card__help">
+                Escríbelo con tus palabras, como si se lo contaras a un diseñador. Entre más nos cuentes, mejor:
+              </p>
+              <ul className="ap-guide" aria-label="Qué conviene contar">
+                <li>¿Para qué o para quién es?</li>
+                <li>¿Qué debe aparecer?</li>
+                <li>Nombre o frase</li>
+                <li>Colores o estilo</li>
+              </ul>
 
               <div className="ap-box">
                 <textarea
@@ -797,6 +840,26 @@ function StudioInner() {
               </button>
               <p className="ap-cta__note">3 propuestas con estilos distintos · luego ajustas la que elijas</p>
             </section>
+
+            {brief.length > 0 && (
+              <section className="ap-brief" aria-label="Así entendimos tu pedido">
+                <p className="ap-brief__head">
+                  <span className="ap-brief__ic">
+                    <Icon name="spark" />
+                  </span>
+                  Así entendió la IA tu pedido
+                </p>
+                <dl className="ap-brief__list">
+                  {brief.map((b) => (
+                    <div key={b.label + b.value}>
+                      <dt>{b.label}</dt>
+                      <dd>{b.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+                <p className="ap-brief__note">¿Algo no es así? Edita tu descripción y crea propuestas nuevas.</p>
+              </section>
+            )}
           </div>
 
           {/* ---------- Columna derecha: el lienzo ---------- */}
@@ -850,11 +913,13 @@ function StudioInner() {
                 {selectedReady ? (
                   view === "product" ? (
                     mode === "playera" ? (
-                      <div className="ap-tee">
-                        <TeeSvg />
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img className="ap-tee__print" src={selectedImage} alt="Vista del diseño en playera" />
-                      </div>
+                      <ShirtMockup
+                        color={shirtColor}
+                        tryIndex={mockTry[shirtColor]}
+                        onPhotoError={() => setMockTry((cur) => ({ ...cur, [shirtColor]: cur[shirtColor] + 1 }))}
+                        design={selectedImage}
+                        cutout={cutouts[cutoutKey(selectedImage)] || ""}
+                      />
                     ) : (
                       <div className="ap-stk">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -918,6 +983,24 @@ function StudioInner() {
                 )}
               </div>
 
+              {view === "product" && selectedReady && mode === "playera" && (
+                <div className="ap-shirtcolors" role="radiogroup" aria-label="Color de playera">
+                  {(Object.keys(SHIRTS) as ShirtColor[]).map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      role="radio"
+                      aria-checked={shirtColor === c}
+                      aria-label={`Playera ${SHIRTS[c].label.toLowerCase()}`}
+                      title={SHIRTS[c].label}
+                      className={shirtColor === c ? "is-on" : ""}
+                      onClick={() => setShirtColor(c)}
+                    >
+                      <i style={{ background: SHIRTS[c].swatch }} />
+                    </button>
+                  ))}
+                </div>
+              )}
               {view === "product" && selectedReady && <p className="ap-canvas__note">Vista aproximada</p>}
             </div>
 
@@ -1157,6 +1240,9 @@ function StudioInner() {
         .ap-head {
           margin-bottom: 24px;
         }
+        .is-embedded .ap-head__top {
+          padding-right: 56px;
+        }
         .ap-head__top {
           display: flex;
           align-items: center;
@@ -1252,7 +1338,7 @@ function StudioInner() {
           color: var(--ink);
         }
         .ap-sub {
-          max-width: 620px;
+          max-width: 720px;
           margin: 10px 0 0;
           font-size: 15px;
           line-height: 1.55;
@@ -1713,6 +1799,186 @@ function StudioInner() {
           display: none;
         }
 
+        /* Guía para describir el pedido */
+        .ap-card__help {
+          margin: -6px 0 10px;
+          font-size: 13px;
+          line-height: 1.5;
+          color: var(--muted);
+        }
+        .ap-guide {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin: 0 0 12px;
+          padding: 0;
+          list-style: none;
+        }
+        .ap-guide li {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 10px;
+          border-radius: 999px;
+          background: var(--tint);
+          font-size: 12px;
+          font-weight: 500;
+          color: var(--body);
+        }
+        .ap-guide li::before {
+          content: "";
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: var(--blue);
+          opacity: 0.6;
+        }
+
+        /* Así entendió la IA tu pedido */
+        .ap-brief {
+          padding: 16px 18px;
+          border: 1px solid #d9e1fb;
+          border-radius: 16px;
+          background: linear-gradient(180deg, #f5f7fe 0%, #ffffff 100%);
+          animation: apIn 0.3s ease both;
+        }
+        .ap-brief__head {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin: 0 0 12px;
+          font-size: 14px;
+          font-weight: 700;
+          color: var(--ink);
+        }
+        .ap-brief__ic {
+          display: grid;
+          place-items: center;
+          width: 28px;
+          height: 28px;
+          border-radius: 8px;
+          background: var(--blue);
+          color: #fff;
+        }
+        .ap-brief__ic .ap-ic {
+          width: 15px;
+          height: 15px;
+        }
+        .ap-brief__list {
+          display: grid;
+          gap: 8px;
+          margin: 0;
+        }
+        .ap-brief__list div {
+          display: grid;
+          grid-template-columns: 78px minmax(0, 1fr);
+          gap: 10px;
+          align-items: baseline;
+        }
+        .ap-brief__list dt {
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: var(--muted);
+        }
+        .ap-brief__list dd {
+          margin: 0;
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--ink);
+          overflow-wrap: anywhere;
+        }
+        .ap-brief__note {
+          margin: 12px 0 0;
+          font-size: 12px;
+          color: var(--muted);
+        }
+
+        /* Playera real (foto) */
+        .ap-mock {
+          position: relative;
+          height: 100%;
+          width: auto;
+          max-width: 100%;
+          aspect-ratio: 1 / 1;
+          border-radius: 14px;
+          overflow: hidden;
+          animation: apPop 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+        }
+        .ap-mock.is-svg {
+          border-radius: 0;
+          overflow: visible;
+        }
+        .ap-mock__photo,
+        .ap-mock > svg {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+        .ap-mock__print {
+          position: absolute;
+          aspect-ratio: 1 / 1;
+          object-fit: contain;
+        }
+        .ap-mock__print.is-multiply {
+          mix-blend-mode: multiply;
+          filter: brightness(1.05) contrast(1.06);
+        }
+        .ap-mock__shade {
+          position: absolute;
+          inset: 0;
+          background-size: cover;
+          background-position: center;
+          -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
+          pointer-events: none;
+        }
+        .ap-mock__shade.is-light {
+          mix-blend-mode: multiply;
+          opacity: 0.9;
+        }
+        .ap-mock__shade.is-dark {
+          mix-blend-mode: soft-light;
+          opacity: 0.35;
+        }
+        .ap-shirtcolors {
+          position: absolute;
+          left: 14px;
+          bottom: 12px;
+          z-index: 3;
+          display: flex;
+          gap: 6px;
+          padding: 4px;
+          border: 1px solid rgba(228, 231, 236, 0.9);
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.86);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+        }
+        .ap-shirtcolors button {
+          display: grid;
+          place-items: center;
+          width: 28px;
+          height: 28px;
+          padding: 0;
+          border: 0;
+          border-radius: 50%;
+          background: transparent;
+          cursor: pointer;
+        }
+        .ap-shirtcolors i {
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          box-shadow: inset 0 0 0 1px rgba(11, 18, 32, 0.18);
+        }
+        .ap-shirtcolors button.is-on {
+          box-shadow: 0 0 0 2px var(--blue);
+        }
+
         /* ---------- Lienzo ---------- */
         .ap-right {
           position: relative;
@@ -1822,13 +2088,20 @@ function StudioInner() {
           position: relative;
           display: grid;
           place-items: center;
-          aspect-ratio: 1 / 1;
-          padding: 64px 40px 40px;
+          grid-template-rows: minmax(0, 1fr);
+          grid-template-columns: minmax(0, 1fr);
+          aspect-ratio: 4 / 3;
+          min-height: 0;
+          padding: 60px 32px 34px;
+        }
+        .ap-scene > * {
+          min-height: 0;
         }
         .ap-art {
           display: block;
-          width: 100%;
-          max-width: 560px;
+          height: 100%;
+          width: auto;
+          max-width: 100%;
           aspect-ratio: 1 / 1;
           object-fit: contain;
           border-radius: 16px;
@@ -1850,7 +2123,9 @@ function StudioInner() {
         /* Playera */
         .ap-tee {
           position: relative;
-          width: min(88%, 520px);
+          height: 100%;
+          width: auto;
+          max-width: 100%;
           aspect-ratio: 600 / 640;
           animation: apPop 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
         }
@@ -1867,6 +2142,7 @@ function StudioInner() {
           aspect-ratio: 1 / 1;
           object-fit: contain;
           mix-blend-mode: multiply;
+          filter: brightness(1.05) contrast(1.06);
         }
         .ap-tee--ghost {
           opacity: 0.75;
@@ -1893,7 +2169,9 @@ function StudioInner() {
 
         /* Sticker */
         .ap-stk {
-          width: min(68%, 400px);
+          height: 88%;
+          width: auto;
+          aspect-ratio: 1 / 1;
           padding: 3.5%;
           border-radius: 22px;
           background: #fff;
@@ -1904,6 +2182,7 @@ function StudioInner() {
         .ap-stk img {
           display: block;
           width: 100%;
+          height: 100%;
           aspect-ratio: 1 / 1;
           object-fit: contain;
           border-radius: 14px;
@@ -1918,7 +2197,8 @@ function StudioInner() {
         .ap-stk-ghost {
           display: grid;
           place-items: center;
-          width: min(58%, 340px);
+          height: 72%;
+          width: auto;
           aspect-ratio: 1 / 1;
           border: 2px dashed #aab3c2;
           border-radius: 28px;
@@ -1937,9 +2217,15 @@ function StudioInner() {
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 18px;
+          gap: 12px;
           width: 100%;
           height: 100%;
+        }
+        .ap-empty > .ap-tee,
+        .ap-empty > .ap-stk-ghost {
+          flex: 1 1 auto;
+          height: auto;
+          min-height: 0;
         }
         .ap-empty__t {
           margin: 0;
@@ -2090,7 +2376,7 @@ function StudioInner() {
         }
         .ap-thumbs {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+          grid-template-columns: repeat(auto-fill, 80px);
           gap: 10px;
         }
         .ap-thumb {
@@ -2367,6 +2653,7 @@ function StudioInner() {
             padding: 16px;
           }
           .ap-scene {
+            aspect-ratio: 1 / 1;
             padding: 56px 18px 28px;
           }
           .ap-canvas__tag {
@@ -2479,16 +2766,176 @@ function StudioInner() {
   );
 }
 
-// Playera blanca dibujada (vista aproximada). El diseño se coloca encima con «multiply».
-function TeeSvg() {
+// ---------- Playeras reales para la vista previa ----------
+// Sube las fotos a la carpeta public/mockups del proyecto con estos nombres (frente, centrada, cuadrada).
+// «print» = dónde va el diseño, en % de la foto (x = izquierda, y = arriba, w = ancho).
+type ShirtColor = "blanca" | "negra";
+const SHIRTS: Record<
+  ShirtColor,
+  { label: string; swatch: string; dark: boolean; photos: string[]; print: { x: number; y: number; w: number } }
+> = {
+  blanca: {
+    label: "Blanca",
+    swatch: "#ffffff",
+    dark: false,
+    photos: ["/mockups/playera-blanca.jpg", "/mockups/playera-blanca.png", "/mockups/playera-blanca.webp"],
+    print: { x: 34, y: 26, w: 32 },
+  },
+  negra: {
+    label: "Negra",
+    swatch: "#17191e",
+    dark: true,
+    photos: ["/mockups/playera-negra.jpg", "/mockups/playera-negra.png", "/mockups/playera-negra.webp"],
+    print: { x: 34, y: 26, w: 32 },
+  },
+};
+// Si todavía no hay foto, se usa la playera dibujada (mismas proporciones).
+const SVG_PRINT = { x: 33.1, y: 21, w: 33.75 };
+
+function cutoutKey(src: string) {
+  return `${src.length}:${src.slice(-48)}`;
+}
+
+// Quita el fondo blanco que toca las orillas (como un corte de sticker) y suaviza el borde.
+// Los blancos que están DENTRO del diseño se conservan.
+async function cutoutWhiteBackground(src: string): Promise<string> {
+  if (typeof window === "undefined") return "";
+  const img = new Image();
+  img.decoding = "async";
+  img.src = src;
+  await img.decode();
+  const scale = Math.min(1, 1024 / Math.max(img.naturalWidth, img.naturalHeight));
+  const W = Math.max(1, Math.round(img.naturalWidth * scale));
+  const H = Math.max(1, Math.round(img.naturalHeight * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return "";
+  ctx.drawImage(img, 0, 0, W, H);
+  const data = ctx.getImageData(0, 0, W, H);
+  const px = data.data;
+  const isBg = (p: number) => {
+    const i = p * 4;
+    const r = px[i], g = px[i + 1], b = px[i + 2];
+    const mn = Math.min(r, g, b);
+    const mx = Math.max(r, g, b);
+    return mn >= 226 && mx - mn <= 24;
+  };
+  const seen = new Uint8Array(W * H);
+  const queue = new Int32Array(W * H);
+  let head = 0;
+  let tail = 0;
+  const push = (p: number) => {
+    if (!seen[p] && isBg(p)) {
+      seen[p] = 1;
+      queue[tail++] = p;
+    }
+  };
+  for (let x = 0; x < W; x++) {
+    push(x);
+    push((H - 1) * W + x);
+  }
+  for (let y = 0; y < H; y++) {
+    push(y * W);
+    push(y * W + W - 1);
+  }
+  while (head < tail) {
+    const p = queue[head++];
+    const x = p % W;
+    if (x > 0) push(p - 1);
+    if (x < W - 1) push(p + 1);
+    if (p >= W) push(p - W);
+    if (p < W * (H - 1)) push(p + W);
+  }
+  for (let p = 0; p < W * H; p++) {
+    if (seen[p]) {
+      px[p * 4 + 3] = 0;
+      continue;
+    }
+    // Borde suave: los pixeles casi blancos junto al fondo quitado se vuelven semitransparentes.
+    const x = p % W;
+    const nearBg =
+      (x > 0 && seen[p - 1]) || (x < W - 1 && seen[p + 1]) || (p >= W && seen[p - W]) || (p < W * (H - 1) && seen[p + W]);
+    if (nearBg) {
+      const i = p * 4;
+      const mn = Math.min(px[i], px[i + 1], px[i + 2]);
+      const whiteness = Math.max(0, Math.min(1, (mn - 170) / 85));
+      px[i + 3] = Math.round(255 * (1 - whiteness * 0.8));
+    }
+  }
+  ctx.putImageData(data, 0, 0);
+  return canvas.toDataURL("image/png");
+}
+
+function ShirtMockup({
+  color,
+  tryIndex,
+  onPhotoError,
+  design,
+  cutout,
+}: {
+  color: ShirtColor;
+  tryIndex: number;
+  onPhotoError: () => void;
+  design: string;
+  cutout: string;
+}) {
+  const shirt = SHIRTS[color];
+  const photo = tryIndex < shirt.photos.length ? shirt.photos[tryIndex] : "";
+  const box = photo ? shirt.print : SVG_PRINT;
+  // En playera clara el diseño se «tiñe» con la tela (multiply). En oscura necesita el recorte.
+  const printSrc = shirt.dark ? cutout : cutout || design;
+  const usesMultiply = !shirt.dark && !cutout;
+  const maskPos = (v: number) => `${(v / (100 - box.w)) * 100}%`;
+  return (
+    <div className={`ap-mock ${photo ? "" : "is-svg"}`}>
+      {photo ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img key={photo} className="ap-mock__photo" src={photo} alt="" onError={onPhotoError} />
+      ) : (
+        <TeeSvg dark={shirt.dark} />
+      )}
+      {printSrc ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          className={`ap-mock__print ${usesMultiply ? "is-multiply" : ""}`}
+          src={printSrc}
+          alt={`Vista del diseño en playera ${shirt.label.toLowerCase()}`}
+          style={{ left: `${box.x}%`, top: `${box.y}%`, width: `${box.w}%` }}
+        />
+      ) : (
+        <span className="ap-spinner ap-mock__wait" aria-hidden="true" style={{ position: "absolute", left: "50%", top: "40%" }} />
+      )}
+      {/* Pliegues y luces de la foto encima del diseño, solo donde hay tinta. */}
+      {photo && cutout && (
+        <div
+          className={`ap-mock__shade ${shirt.dark ? "is-dark" : "is-light"}`}
+          style={{
+            backgroundImage: `url(${photo})`,
+            WebkitMaskImage: `url(${cutout})`,
+            maskImage: `url(${cutout})`,
+            WebkitMaskSize: `${box.w}% ${box.w}%`,
+            maskSize: `${box.w}% ${box.w}%`,
+            WebkitMaskPosition: `${maskPos(box.x)} ${maskPos(box.y)}`,
+            maskPosition: `${maskPos(box.x)} ${maskPos(box.y)}`,
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// Playera dibujada (respaldo mientras no haya foto real).
+function TeeSvg({ dark = false }: { dark?: boolean }) {
   return (
     <svg viewBox="0 0 600 640" aria-hidden="true">
       <defs>
         <linearGradient id="apTeeBody" x1="0" x2="1" y1="0" y2="0">
-          <stop offset="0" stopColor="#e9ecf0" />
-          <stop offset="0.16" stopColor="#ffffff" />
-          <stop offset="0.84" stopColor="#ffffff" />
-          <stop offset="1" stopColor="#e6e9ee" />
+          <stop offset="0" stopColor={dark ? "#0f1115" : "#e9ecf0"} />
+          <stop offset="0.16" stopColor={dark ? "#1d2027" : "#ffffff"} />
+          <stop offset="0.84" stopColor={dark ? "#1d2027" : "#ffffff"} />
+          <stop offset="1" stopColor={dark ? "#0e1014" : "#e6e9ee"} />
         </linearGradient>
         <linearGradient id="apTeeFade" x1="0" x2="0" y1="0" y2="1">
           <stop offset="0" stopColor="#000" stopOpacity="0" />
@@ -2502,7 +2949,7 @@ function TeeSvg() {
         <path
           d="M206 52C236 41 258 35 268 34c14 30 50 30 64 0 10 1 32 7 62 18l126 52c20 8 32 24 38 44l28 102c3 12-4 22-16 26l-76 24c-10 3-20-2-23-12l-19-62v360c0 14-10 24-24 24H172c-14 0-24-10-24-24V226l-19 62c-3 10-13 15-23 12l-76-24c-12-4-19-14-16-26l28-102c6-20 18-36 38-44z"
           fill="url(#apTeeBody)"
-          stroke="#d3d8df"
+          stroke={dark ? "#0b0c10" : "#d3d8df"}
           strokeWidth="2"
         />
         <path
@@ -2510,11 +2957,11 @@ function TeeSvg() {
           fill="url(#apTeeFade)"
         />
       </g>
-      <path d="M262 36c12 40 64 40 76 0" fill="none" stroke="#dde1e7" strokeWidth="9" strokeLinecap="round" />
-      <path d="M148 226c-2-46 4-88 24-128" fill="none" stroke="#e1e4ea" strokeWidth="2" />
-      <path d="M452 226c2-46-4-88-24-128" fill="none" stroke="#e1e4ea" strokeWidth="2" />
-      <path d="M180 520c40 10 80 14 120 14" fill="none" stroke="#eceef2" strokeWidth="3" strokeLinecap="round" />
-      <path d="M330 470c30 8 60 10 90 6" fill="none" stroke="#eceef2" strokeWidth="3" strokeLinecap="round" />
+      <path d="M262 36c12 40 64 40 76 0" fill="none" stroke={dark ? "#2a2e36" : "#dde1e7"} strokeWidth="9" strokeLinecap="round" />
+      <path d="M148 226c-2-46 4-88 24-128" fill="none" stroke={dark ? "#2a2e36" : "#e1e4ea"} strokeWidth="2" />
+      <path d="M452 226c2-46-4-88-24-128" fill="none" stroke={dark ? "#2a2e36" : "#e1e4ea"} strokeWidth="2" />
+      <path d="M180 520c40 10 80 14 120 14" fill="none" stroke={dark ? "#262a31" : "#eceef2"} strokeWidth="3" strokeLinecap="round" />
+      <path d="M330 470c30 8 60 10 90 6" fill="none" stroke={dark ? "#262a31" : "#eceef2"} strokeWidth="3" strokeLinecap="round" />
     </svg>
   );
 }
