@@ -1,7 +1,7 @@
 "use client";
 
 /*
-  AutoPrint · Estudio IA — v3 («un solo cuadro», estilo Precisión claro)
+  AutoPrint Studio — v4 (estudio oscuro premium: el diseño es la estrella, como en un estudio profesional)
   - Un solo cuadro para la idea + 3 detalles opcionales (Texto exacto, Colores, Estilo).
   - Arranques que el cliente completa (no ejemplos inventados).
   - Asistente: si la idea menciona una frase o nombre, ofrece pasarlo a «Texto exacto».
@@ -62,7 +62,7 @@ const STYLE_OPTIONS: {
   sticker: string[];
   playera: string[];
 }[] = [
-  { id: "auto", label: "Automático", hint: "La IA elige", sticker: [], playera: [] },
+  { id: "auto", label: "Automático", hint: "AutoPrint elige", sticker: [], playera: [] },
   { id: "divertido", label: "Divertido", hint: "Alegre y colorido", sticker: ["divertido", "colores_vivos"], playera: ["divertido", "impacto_visual"] },
   { id: "elegante", label: "Elegante", hint: "Fino y limpio", sticker: ["elegante", "premium"], playera: ["elegante", "premium"] },
   { id: "retro", label: "Retro", hint: "Estilo clásico", sticker: ["vintage"], playera: ["vintage"] },
@@ -81,17 +81,22 @@ const ADJUST_OPTIONS: { id: string; label: string }[] = [
   { id: "elegante", label: "Más elegante" },
 ];
 
-const COPY: Record<DesignMode, { title: string; sub: string; placeholder: string; noun: string }> = {
+const COPY: Record<
+  DesignMode,
+  { titleA: string; titleB: string; sub: string; placeholder: string; noun: string }
+> = {
   sticker: {
-    title: "Crea tu sticker con IA",
-    sub: "Cuéntanos tu idea como se la contarías a un diseñador. La IA entiende lo importante y te muestra 3 propuestas.",
+    titleA: "Tu idea, convertida en ",
+    titleB: "un sticker único.",
+    sub: "Cuéntanos lo que imaginas como se lo contarías a un diseñador. AutoPrint Studio lo interpreta y te presenta 3 propuestas, cada una con su propia dirección de arte.",
     placeholder:
       "Ej.: Tengo una cafetería que se llama Café Luna y quiero stickers para regalar con cada pedido. Algo alegre, con una taza sonriente y una luna.",
     noun: "sticker",
   },
   playera: {
-    title: "Crea el diseño de tu playera con IA",
-    sub: "Cuéntanos tu idea como se la contarías a un diseñador. La IA entiende lo importante y te muestra 3 propuestas.",
+    titleA: "Tu idea, convertida en ",
+    titleB: "una playera única.",
+    sub: "Cuéntanos lo que imaginas como se lo contarías a un diseñador. AutoPrint Studio lo interpreta y te presenta 3 propuestas, cada una con su propia dirección de arte.",
     placeholder:
       "Ej.: Es para el cumpleaños de mi hija Ana, cumple 6 años y le encantan los gatos y las flores. Que diga su nombre y tenga colores pastel.",
     noun: "playera",
@@ -115,7 +120,22 @@ function splitLabel(raw: string | undefined, index: number) {
 function Icon({
   name,
 }: {
-  name: "text" | "palette" | "brush" | "spark" | "check" | "wand" | "edit" | "redo" | "x" | "image" | "shirt" | "sticker";
+  name:
+    | "text"
+    | "palette"
+    | "brush"
+    | "spark"
+    | "check"
+    | "wand"
+    | "edit"
+    | "redo"
+    | "x"
+    | "image"
+    | "shirt"
+    | "sticker"
+    | "zoomin"
+    | "zoomout"
+    | "alert";
 }) {
   const paths: Record<string, string> = {
     text: "M5 5h14v3h-2V7h-4v10h2v2H9v-2h2V7H7v1H5z",
@@ -133,6 +153,11 @@ function Icon({
     image: "M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm1 2v9.6l3.3-3.3 2.6 2.6 3.6-4.4L18 14V6zm2.5 1.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z",
     shirt: "M8.5 3 3 5.6 1.5 10.8l3.4 1.3L6 10.4V21h12V10.4l1.1 1.7 3.4-1.3L21 5.6 15.5 3c-.6 1.6-2 2.6-3.5 2.6S9.1 4.6 8.5 3z",
     sticker: "M5 3h9.6L21 9.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm9 1.8V8a2 2 0 0 0 2 2h3.2z",
+    zoomin:
+      "M10.5 3a7.5 7.5 0 0 1 5.9 12.1l4.8 4.8-1.4 1.4-4.8-4.8A7.5 7.5 0 1 1 10.5 3zm0 2a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11zm1 2.5v2h2v2h-2v2h-2v-2h-2v-2h2v-2z",
+    zoomout:
+      "M10.5 3a7.5 7.5 0 0 1 5.9 12.1l4.8 4.8-1.4 1.4-4.8-4.8A7.5 7.5 0 1 1 10.5 3zm0 2a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11zm-3 4.5h6v2h-6z",
+    alert: "M12 2 1 21h22zm0 4.8L19.6 19H4.4zM11 10v5h2v-5zm0 6v2h2v-2z",
     x: "M18.3 5.7 12 12l6.3 6.3-1.4 1.4L10.6 13.4 4.3 19.7 2.9 18.3 9.2 12 2.9 5.7 4.3 4.3l6.3 6.3 6.3-6.3z",
   };
   return (
@@ -179,6 +204,10 @@ function StudioInner() {
   const [saved, setSaved] = useState(false);
   const [view, setView] = useState<"design" | "product">("design");
   const [shirtColor, setShirtColor] = useState<ShirtColor>("blanca");
+  const [shirtChosen, setShirtChosen] = useState(false);
+  const [zoom, setZoom] = useState(false);
+  const [thinkStage, setThinkStage] = useState(0);
+  const [zoomOrigin, setZoomOrigin] = useState<{ x: number; y: number } | null>(null);
   const [photoFailed, setPhotoFailed] = useState<Partial<Record<ShirtColor, boolean>>>({});
   const [cutouts, setCutouts] = useState<Record<string, string>>({});
 
@@ -234,14 +263,30 @@ function StudioInner() {
     if (cutouts[key]) return;
     let alive = true;
     cutoutWhiteBackground(src)
-      .then((out) => {
-        if (alive && out) setCutouts((cur) => ({ ...cur, [key]: out }));
+      .then(async (out) => {
+        if (!alive || !out) return;
+        setCutouts((cur) => ({ ...cur, [key]: out }));
       })
       .catch(() => {});
     return () => {
       alive = false;
     };
   }, [mode, view, selectedIndex, images, cutouts]);
+
+  useEffect(() => {
+    setZoom(false);
+    setZoomOrigin(null);
+  }, [selectedIndex, view, shirtColor]);
+
+  // Paso «Dirección de arte» mientras el estudio prepara las ideas.
+  useEffect(() => {
+    if (genPhase !== "thinking") {
+      setThinkStage(0);
+      return;
+    }
+    const t = setTimeout(() => setThinkStage(1), 2600);
+    return () => clearTimeout(t);
+  }, [genPhase]);
 
   // ---------- Derivados ----------
   const readyCount = images.filter((img) => img && img !== FAILED).length;
@@ -256,6 +301,8 @@ function StudioInner() {
 
   const showTextHint =
     !hintDismissed && !exactText.trim() && panel !== "texto" && prompt.trim().length >= 8 && TEXT_HINT_RE.test(prompt);
+
+  const detectedGarment = mode === "playera" ? detectGarmentColor(prompt) : null;
 
   const fullPrompt = useMemo(() => {
     let p = prompt.trim().replace(/[.\s]+$/, "");
@@ -275,7 +322,7 @@ function StudioInner() {
       : `Paso 2 de 2 · Dibujando · ${Math.max(readyCount - genOffset, 0)} de ${images.length - genOffset || 3} listas`;
   const progressPct =
     genPhase === "thinking" ? 12 : 12 + (Math.max(readyCount - genOffset, 0) / Math.max(images.length - genOffset, 3)) * 88;
-  // Mientras la IA piensa, ya mostramos los 3 lugares nuevos (las propuestas anteriores se conservan).
+  // Mientras el estudio piensa, ya mostramos los 3 lugares nuevos (las propuestas anteriores se conservan).
   const thumbSlots = loading && genPhase === "thinking" ? [...images, "", "", ""] : images;
   const liveText = loading ? progressText : adjusting ? "Creando tu versión ajustada" : saved ? "Diseño agregado a tu producto" : "";
 
@@ -321,6 +368,7 @@ function StudioInner() {
       return;
     }
     const sentPrompt = fullPrompt;
+    if (mode === "playera" && !shirtChosen && detectedGarment) setShirtColor(detectedGarment);
     // Las propuestas que ya salieron se conservan; las nuevas se agregan después.
     const keptImages: string[] = [];
     const keptLabels: string[] = [];
@@ -575,9 +623,19 @@ function StudioInner() {
     <main className={`ap-shell ${dmSans.className} ${isEmbedded ? "is-embedded" : ""}`}>
       <div className={`page-wrap ap-studio is-${mode}`}>
         {/* ---------- Encabezado ---------- */}
-        <header className="ap-head">
+        <header className={`ap-head ${hasResults || loading ? "is-compact" : ""}`}>
           <div className="ap-head__top">
-            <p className="ap-eyebrow">AutoPrint · Estudio IA</p>
+            <div className="ap-brand">
+              <span className="ap-brand__mark" aria-hidden="true">
+                <svg viewBox="0 0 32 32">
+                  <path d="M16 5 5.5 27h4.6l2.1-4.6h7.6l2.1 4.6h4.6L16 5zm-2.3 14.1L16 14l2.3 5.1z" />
+                  <circle cx="25.5" cy="7.5" r="2.6" />
+                </svg>
+              </span>
+              <span className="ap-brand__name">
+                AutoPrint <b>Studio</b>
+              </span>
+            </div>
             <ol className="ap-stepper" aria-label="Pasos">
               {["Describe", "Elige", "Ajusta y usa"].map((name, i) => {
                 const n = i + 1;
@@ -591,7 +649,10 @@ function StudioInner() {
               })}
             </ol>
           </div>
-          <h1 className="ap-title">{copy.title}</h1>
+          <h1 className="ap-title">
+            {copy.titleA}
+            <span className="ap-title__accent">{copy.titleB}</span>
+          </h1>
           <p className="ap-sub">{copy.sub}</p>
           {!isEmbedded && !forcedMode && (
             <div className="ap-mode" role="radiogroup" aria-label="Producto">
@@ -780,7 +841,7 @@ function StudioInner() {
               {panel === "colores" && (
                 <div className="ap-panel">
                   <p className="ap-panel__title">Colores principales</p>
-                  <p className="ap-panel__help">Elige hasta 2. Si no eliges, la IA propone.</p>
+                  <p className="ap-panel__help">Elige hasta 2. Si no eliges, AutoPrint propone la paleta.</p>
                   <div className="ap-swatches">
                     {COLOR_OPTIONS.map((c) => {
                       const on = colors.includes(c.id);
@@ -838,7 +899,19 @@ function StudioInner() {
                 {loading ? <span className="ap-spinner ap-spinner--light" aria-hidden="true" /> : <Icon name="spark" />}
                 {loading ? "Creando propuestas…" : hasResults ? "Crear 3 propuestas nuevas" : "Crear 3 propuestas"}
               </button>
-              <p className="ap-cta__note">3 propuestas con estilos distintos · luego ajustas la que elijas</p>
+              <ul className="ap-trust" aria-label="Lo que incluye AutoPrint Studio">
+                <li>
+                  <Icon name="spark" />3 direcciones de arte
+                </li>
+                <li>
+                  <Icon name={mode === "playera" ? "shirt" : "sticker"} />
+                  {mode === "playera" ? "Vista en playera real" : "Vista como sticker"}
+                </li>
+                <li>
+                  <Icon name="wand" />
+                  Ajustes en un clic
+                </li>
+              </ul>
             </section>
 
             {brief.length > 0 && (
@@ -847,7 +920,10 @@ function StudioInner() {
                   <span className="ap-brief__ic">
                     <Icon name="spark" />
                   </span>
-                  Así entendió la IA tu pedido
+                  <span>
+                    Brief creativo AutoPrint
+                    <small>Así entendimos tu pedido</small>
+                  </span>
                 </p>
                 <dl className="ap-brief__list">
                   {brief.map((b) => (
@@ -869,7 +945,11 @@ function StudioInner() {
               {liveText}
             </p>
 
-            <div className={`ap-canvas ${canvasIdle ? "is-empty" : ""} ${view === "product" && selectedReady ? "is-product" : ""}`}>
+            <div
+              className={`ap-canvas ${canvasIdle ? "is-empty" : ""} ${loading ? "is-loading" : ""} ${
+                view === "product" && selectedReady ? "is-product" : ""
+              }`}
+            >
               {/* Barra superior del lienzo */}
               <div className="ap-canvas__bar">
                 {selectedReady && selectedLabel ? (
@@ -909,9 +989,38 @@ function StudioInner() {
               </div>
 
               {/* Escena */}
-              <div className="ap-scene">
+              <div
+                className={`ap-scene ${selectedReady ? "is-zoomable" : ""} ${zoom ? "is-zoomed" : ""}`}
+                onClick={(e) => {
+                  if (!selectedReady) return;
+                  if (!zoom) {
+                    const r = e.currentTarget.getBoundingClientRect();
+                    setZoomOrigin({ x: ((e.clientX - r.left) / r.width) * 100, y: ((e.clientY - r.top) / r.height) * 100 });
+                  }
+                  setZoom((z) => !z);
+                }}
+                onPointerMove={(e) => {
+                  if (!zoom) return;
+                  const r = e.currentTarget.getBoundingClientRect();
+                  setZoomOrigin({
+                    x: Math.max(0, Math.min(100, ((e.clientX - r.left) / r.width) * 100)),
+                    y: Math.max(0, Math.min(100, ((e.clientY - r.top) / r.height) * 100)),
+                  });
+                }}
+              >
                 {selectedReady ? (
-                  view === "product" ? (
+                  <div
+                    className="ap-zoom"
+                    style={{
+                      transform: zoom ? `scale(${view === "product" && mode === "playera" ? 2.3 : 1.9})` : undefined,
+                      transformOrigin: zoomOrigin
+                        ? `${zoomOrigin.x}% ${zoomOrigin.y}%`
+                        : view === "product" && mode === "playera"
+                        ? "50% 40%"
+                        : "50% 50%",
+                    }}
+                  >
+                  {view === "product" ? (
                     mode === "playera" ? (
                       <ShirtMockup
                         color={shirtColor}
@@ -934,13 +1043,14 @@ function StudioInner() {
                       src={selectedImage}
                       alt={selectedLabel ? `${selectedLabel.style} ${selectedLabel.concept}` : "Propuesta"}
                     />
-                  )
+                  )}
+                  </div>
                 ) : (
                   <div className="ap-empty" aria-hidden={loading ? "true" : undefined}>
                     {mode === "playera" ? (
                       <div className="ap-tee ap-tee--ghost">
-                        <TeeSvg />
-                        <span className="ap-tee__area">Área de impresión</span>
+                        <TeeSvg dark />
+                        {!loading && <span className="ap-tee__area">Área de impresión</span>}
                       </div>
                     ) : (
                       <div className="ap-stk-ghost">
@@ -955,16 +1065,33 @@ function StudioInner() {
                   <div className="ap-overlay">
                   <div className="ap-loadcard" role="presentation">
                     <span className="ap-ring" aria-hidden="true" />
-                    <p className="ap-loadcard__title">Creando tus propuestas</p>
+                    <p className="ap-loadcard__eyebrow">Método AutoPrint</p>
+                    <p className="ap-loadcard__title">Diseñando tus propuestas</p>
                     <ul className="ap-loadcard__steps">
-                      <li className={genPhase === "thinking" ? "is-now" : "is-done"}>
-                        <span>{genPhase === "thinking" ? <i className="ap-dot" /> : <Icon name="check" />}</span>
-                        Entendiendo tu idea
-                      </li>
-                      <li className={genPhase === "drawing" ? "is-now" : ""}>
-                        <span>{genPhase === "drawing" ? <i className="ap-dot" /> : <i className="ap-dot ap-dot--off" />}</span>
-                        Dibujando {genPhase === "drawing" ? `· ${busyDrawn} de ${busyTotal}` : "3 propuestas"}
-                      </li>
+                      {[
+                        { t: "Leemos tu pedido", st: genPhase === "thinking" && thinkStage === 0 ? "is-now" : "is-done" },
+                        {
+                          t: "Dirección de arte",
+                          st: genPhase === "drawing" ? "is-done" : thinkStage === 1 ? "is-now" : "",
+                        },
+                        {
+                          t: genPhase === "drawing" ? `Ilustramos · ${busyDrawn} de ${busyTotal}` : "Ilustramos 3 propuestas",
+                          st: genPhase === "drawing" ? "is-now" : "",
+                        },
+                      ].map((it) => (
+                        <li key={it.t.slice(0, 9)} className={it.st}>
+                          <span>
+                            {it.st === "is-done" ? (
+                              <Icon name="check" />
+                            ) : it.st === "is-now" ? (
+                              <i className="ap-dot" />
+                            ) : (
+                              <i className="ap-dot ap-dot--off" />
+                            )}
+                          </span>
+                          {it.t}
+                        </li>
+                      ))}
                     </ul>
                     <div className="ap-progress__bar">
                       <span style={{ width: `${progressPct}%` }} />
@@ -994,14 +1121,31 @@ function StudioInner() {
                       aria-label={`Playera ${SHIRTS[c].label.toLowerCase()}`}
                       title={SHIRTS[c].label}
                       className={shirtColor === c ? "is-on" : ""}
-                      onClick={() => setShirtColor(c)}
+                      onClick={() => {
+                        setShirtColor(c);
+                        setShirtChosen(true);
+                      }}
                     >
                       <i style={{ background: SHIRTS[c].swatch }} />
                     </button>
                   ))}
                 </div>
               )}
-              {view === "product" && selectedReady && <p className="ap-canvas__note">Vista aproximada</p>}
+              {selectedReady && (
+                <button
+                  type="button"
+                  className="ap-zoombtn"
+                  aria-pressed={zoom}
+                  onClick={() => {
+                    setZoomOrigin(null);
+                    setZoom((z) => !z);
+                  }}
+                >
+                  <Icon name={zoom ? "zoomout" : "zoomin"} />
+                  {zoom ? "Alejar" : "Ver de cerca"}
+                </button>
+              )}
+              {view === "product" && selectedReady && !zoom && <p className="ap-canvas__note">Vista aproximada</p>}
             </div>
 
             {/* Tira de propuestas */}
@@ -1158,27 +1302,37 @@ function StudioInner() {
       </div>
 
       <style jsx global>{`
+        /* =====================================================================
+           AutoPrint Studio · estudio oscuro (grafito neutro, no azul):
+           como Photoshop o Lightroom, el entorno neutro hace que el diseño resalte.
+           El azul AutoPrint solo marca lo que se toca.
+           ===================================================================== */
         .ap-shell {
-          --ink: #0b1220;
-          --body: #3d4554;
-          --muted: #6b7382;
-          --faint: #9aa2af;
-          --line: #e4e7ec;
-          --line-h: #c9ced6;
-          --soft: #f7f8fa;
-          --tint: #f1f4f9;
-          --blue: #2347d6;
-          --blue-h: #1b39b0;
-          --blue-soft: #eef2fd;
-          --green: #067a57;
-          --red: #b42318;
-          --shadow-sm: 0 1px 2px rgba(11, 18, 32, 0.05);
-          --shadow-md: 0 1px 2px rgba(11, 18, 32, 0.04), 0 8px 24px -12px rgba(11, 18, 32, 0.14);
+          --bg: #0b0d12;
+          --panel: #11141b;
+          --surface: #171b24;
+          --surface-2: #1e2330;
+          --ink: #f5f7fb;
+          --body: #c4cad6;
+          --muted: #8a92a4;
+          --faint: #5e6678;
+          --line: rgba(255, 255, 255, 0.08);
+          --line-h: rgba(255, 255, 255, 0.16);
+          --tint: rgba(255, 255, 255, 0.06);
+          --blue: #5b82ff;
+          --blue-h: #7898ff;
+          --blue-deep: #2347d6;
+          --blue-soft: rgba(91, 130, 255, 0.14);
+          --green: #3ddc97;
+          --red: #ff9b93;
+          --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+          --shadow-md: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 18px 40px -22px rgba(0, 0, 0, 0.8);
           min-height: 100%;
           padding: 24px 16px;
-          background: #ffffff;
+          background: #07080b;
           color: var(--body);
           -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
         }
         .ap-shell.is-embedded {
           padding: 0;
@@ -1193,6 +1347,10 @@ function StudioInner() {
         .ap-shell input,
         .ap-shell textarea {
           font-family: inherit;
+        }
+        .ap-shell ::selection {
+          background: rgba(91, 130, 255, 0.35);
+          color: #fff;
         }
         .ap-ic {
           width: 18px;
@@ -1214,58 +1372,79 @@ function StudioInner() {
           border: 0;
         }
 
+        /* ---------- Estudio ---------- */
         .ap-studio {
           position: relative;
           max-width: 1120px;
           margin: 0 auto;
           padding: 28px 32px 32px;
-          background: #ffffff;
-          border-radius: 20px;
+          border-radius: 22px;
+          background: radial-gradient(90% 60% at 100% 0%, rgba(91, 130, 255, 0.1), transparent 60%),
+            radial-gradient(70% 50% at 0% 0%, rgba(255, 255, 255, 0.05), transparent 60%), var(--bg);
+          box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06) inset;
           isolation: isolate;
+          overflow: hidden;
         }
-        /* Brillo sutil de marca detrás del encabezado */
-        .ap-studio::before {
+        /* Textura fina de película para que no se vea plano */
+        .ap-studio::after {
           content: "";
           position: absolute;
-          inset: 0 0 auto 0;
-          height: 220px;
-          border-radius: 20px 20px 0 0;
-          background: radial-gradient(60% 120% at 0% 0%, rgba(35, 71, 214, 0.07), transparent 60%),
-            radial-gradient(40% 90% at 100% 0%, rgba(35, 71, 214, 0.04), transparent 70%);
+          inset: 0;
           z-index: -1;
           pointer-events: none;
+          opacity: 0.35;
+          background-image: radial-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+          background-size: 3px 3px;
         }
 
         /* ---------- Encabezado ---------- */
         .ap-head {
-          margin-bottom: 24px;
-        }
-        .is-embedded .ap-head__top {
-          padding-right: 56px;
+          margin-bottom: 26px;
         }
         .ap-head__top {
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: 16px;
-          margin-bottom: 14px;
+          margin-bottom: 20px;
         }
-        .ap-eyebrow {
+        .is-embedded .ap-head__top {
+          padding-right: 56px;
+        }
+        .ap-brand {
           display: flex;
           align-items: center;
           gap: 10px;
-          margin: 0;
-          font-size: 11px;
-          font-weight: 600;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-          color: var(--muted);
         }
-        .ap-eyebrow::before {
-          content: "";
-          width: 22px;
-          height: 1.5px;
-          background: var(--line-h);
+        .ap-brand__mark {
+          display: grid;
+          place-items: center;
+          width: 32px;
+          height: 32px;
+          border-radius: 9px;
+          background: linear-gradient(135deg, #6f92ff 0%, #2347d6 70%);
+          box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18) inset, 0 6px 18px -6px rgba(91, 130, 255, 0.7);
+        }
+        .ap-brand__mark svg {
+          width: 20px;
+          height: 20px;
+        }
+        .ap-brand__mark path,
+        .ap-brand__mark circle {
+          fill: #fff;
+        }
+        .ap-brand__name {
+          font-size: 15px;
+          font-weight: 600;
+          letter-spacing: -0.01em;
+          color: var(--ink);
+        }
+        .ap-brand__name b {
+          font-weight: 700;
+          background: linear-gradient(90deg, #a9bcff, #5b82ff);
+          -webkit-background-clip: text;
+          background-clip: text;
+          color: transparent;
         }
         .ap-stepper {
           display: flex;
@@ -1289,11 +1468,10 @@ function StudioInner() {
           height: 1.5px;
           margin-right: 2px;
           border-radius: 2px;
-          background: var(--line);
+          background: var(--line-h);
         }
-        .ap-stepper li.is-done + li::before,
-        .ap-stepper li.is-done + li.is-now::before {
-          background: var(--blue);
+        .ap-stepper li.is-done + li::before {
+          background: linear-gradient(90deg, var(--blue), rgba(91, 130, 255, 0.4));
         }
         .ap-stepper__n {
           display: grid;
@@ -1302,7 +1480,6 @@ function StudioInner() {
           height: 24px;
           border-radius: 50%;
           border: 1.5px solid var(--line-h);
-          background: #fff;
           font-size: 12px;
           font-weight: 700;
           color: var(--muted);
@@ -1319,37 +1496,58 @@ function StudioInner() {
           border-color: var(--blue);
           background: var(--blue);
           color: #fff;
-          box-shadow: 0 0 0 4px rgba(35, 71, 214, 0.12);
+          box-shadow: 0 0 0 4px rgba(91, 130, 255, 0.18), 0 0 18px rgba(91, 130, 255, 0.5);
         }
         .ap-stepper li.is-done {
           color: var(--body);
         }
         .ap-stepper li.is-done .ap-stepper__n {
-          border-color: var(--blue);
+          border-color: rgba(91, 130, 255, 0.6);
           background: var(--blue-soft);
-          color: var(--blue);
+          color: var(--blue-h);
         }
         .ap-title {
+          max-width: 760px;
           margin: 0;
-          font-size: clamp(24px, 3.4vw, 34px);
-          line-height: 1.1;
+          font-size: clamp(26px, 3.4vw, 38px);
+          line-height: 1.08;
+          transition: font-size 0.3s ease;
           font-weight: 700;
-          letter-spacing: -0.03em;
+          letter-spacing: -0.035em;
           color: var(--ink);
         }
+        .ap-title__accent {
+          background: linear-gradient(92deg, #ffffff 0%, #b9c8ff 45%, #5b82ff 100%);
+          -webkit-background-clip: text;
+          background-clip: text;
+          color: transparent;
+        }
+        .ap-head.is-compact {
+          margin-bottom: 18px;
+        }
+        .ap-head.is-compact .ap-head__top {
+          margin-bottom: 12px;
+        }
+        .ap-head.is-compact .ap-title {
+          font-size: clamp(20px, 2.4vw, 26px);
+        }
+        .ap-head.is-compact .ap-sub {
+          display: none;
+        }
         .ap-sub {
-          max-width: 720px;
-          margin: 10px 0 0;
-          font-size: 15px;
-          line-height: 1.55;
+          max-width: 640px;
+          margin: 12px 0 0;
+          font-size: 15.5px;
+          line-height: 1.6;
           color: var(--body);
         }
         .ap-mode {
           display: inline-flex;
-          margin-top: 16px;
+          margin-top: 18px;
           padding: 4px;
           border-radius: 12px;
           background: var(--tint);
+          box-shadow: 0 0 0 1px var(--line) inset;
         }
         .ap-mode__btn {
           height: 36px;
@@ -1363,16 +1561,16 @@ function StudioInner() {
           cursor: pointer;
         }
         .ap-mode__btn.is-on {
-          background: #fff;
+          background: var(--surface-2);
           color: var(--ink);
-          box-shadow: 0 1px 3px rgba(11, 18, 32, 0.12);
+          box-shadow: 0 0 0 1px var(--line-h) inset;
         }
         .ap-mode__btn:disabled {
           cursor: not-allowed;
           opacity: 0.6;
         }
 
-        /* ---------- Rejilla del estudio ---------- */
+        /* ---------- Rejilla ---------- */
         .ap-grid {
           display: grid;
           grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
@@ -1386,14 +1584,16 @@ function StudioInner() {
           gap: 16px;
           min-width: 0;
         }
+        .ap-right {
+          position: relative;
+        }
 
         /* ---------- Tarjeta de la idea ---------- */
         .ap-card {
-          padding: 20px;
-          border: 1px solid var(--line);
-          border-radius: 18px;
-          background: #fff;
-          box-shadow: var(--shadow-md);
+          padding: 22px;
+          border-radius: 20px;
+          background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015));
+          box-shadow: 0 0 0 1px var(--line) inset, var(--shadow-md);
         }
         .ap-card__head {
           display: flex;
@@ -1409,43 +1609,79 @@ function StudioInner() {
           flex: 0 0 auto;
           border-radius: 8px;
           background: var(--blue-soft);
-          color: var(--blue);
+          box-shadow: 0 0 0 1px rgba(91, 130, 255, 0.35) inset;
+          color: var(--blue-h);
           font-size: 13px;
           font-weight: 700;
         }
         .ap-card__title {
           margin: 0;
-          font-size: 16px;
+          font-size: 17px;
           font-weight: 700;
-          letter-spacing: -0.01em;
+          letter-spacing: -0.015em;
           color: var(--ink);
         }
+        .ap-card__help {
+          margin: -6px 0 10px;
+          font-size: 13px;
+          line-height: 1.55;
+          color: var(--muted);
+        }
+        .ap-guide {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin: 0 0 14px;
+          padding: 0;
+          list-style: none;
+        }
+        .ap-guide li {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 10px;
+          border-radius: 999px;
+          background: var(--tint);
+          box-shadow: 0 0 0 1px var(--line) inset;
+          font-size: 12px;
+          font-weight: 500;
+          color: var(--body);
+        }
+        .ap-guide li::before {
+          content: "";
+          width: 5px;
+          height: 5px;
+          border-radius: 50%;
+          background: var(--blue);
+          box-shadow: 0 0 6px var(--blue);
+        }
         .ap-box {
-          border: 1px solid var(--line);
-          border-radius: 14px;
-          background: var(--soft);
-          transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+          border-radius: 16px;
+          background: rgba(0, 0, 0, 0.32);
+          box-shadow: 0 0 0 1px var(--line) inset;
+          transition: box-shadow 0.2s, background 0.2s;
         }
         .ap-box:hover {
-          border-color: var(--line-h);
+          box-shadow: 0 0 0 1px var(--line-h) inset;
         }
         .ap-box:focus-within {
-          border-color: var(--blue);
-          background: #fff;
-          box-shadow: 0 0 0 4px rgba(35, 71, 214, 0.1);
+          background: rgba(0, 0, 0, 0.45);
+          box-shadow: 0 0 0 1px rgba(91, 130, 255, 0.7) inset, 0 0 0 4px rgba(91, 130, 255, 0.14),
+            0 0 30px -8px rgba(91, 130, 255, 0.45);
         }
         .ap-box__input {
           display: block;
           width: 100%;
-          min-height: 112px;
-          padding: 14px 14px 6px;
+          min-height: 118px;
+          padding: 15px 15px 6px;
           border: 0;
           outline: 0;
           resize: none;
           background: transparent;
           font-size: 16px;
-          line-height: 1.5;
+          line-height: 1.55;
           color: var(--ink);
+          caret-color: var(--blue-h);
         }
         .ap-box__input::placeholder {
           color: var(--faint);
@@ -1470,9 +1706,10 @@ function StudioInner() {
           height: 32px;
           max-width: 100%;
           padding: 0 11px;
-          border: 1px solid var(--line);
+          border: 0;
           border-radius: 999px;
-          background: #fff;
+          background: var(--surface);
+          box-shadow: 0 0 0 1px var(--line) inset;
           font-size: 13px;
           font-weight: 600;
           color: var(--body);
@@ -1480,8 +1717,7 @@ function StudioInner() {
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
-          box-shadow: var(--shadow-sm);
-          transition: border-color 0.15s, background 0.15s, color 0.15s;
+          transition: box-shadow 0.15s, background 0.15s, color 0.15s;
         }
         .ap-tool .ap-ic {
           width: 16px;
@@ -1489,20 +1725,20 @@ function StudioInner() {
           color: var(--muted);
         }
         .ap-tool:hover {
-          border-color: var(--line-h);
+          background: var(--surface-2);
           color: var(--ink);
         }
         .ap-tool.is-open {
-          border-color: var(--ink);
+          box-shadow: 0 0 0 1px var(--line-h) inset;
           color: var(--ink);
         }
         .ap-tool.is-set {
-          border-color: var(--blue);
           background: var(--blue-soft);
-          color: var(--blue);
+          box-shadow: 0 0 0 1px rgba(91, 130, 255, 0.55) inset;
+          color: #dfe6ff;
         }
         .ap-tool.is-set .ap-ic {
-          color: var(--blue);
+          color: var(--blue-h);
         }
         .ap-tool__dots {
           display: inline-flex;
@@ -1511,13 +1747,12 @@ function StudioInner() {
           width: 14px;
           height: 14px;
           border-radius: 50%;
-          border: 2px solid #fff;
-          box-shadow: 0 0 0 1px var(--line);
+          border: 2px solid var(--surface);
+          box-shadow: 0 0 0 1px var(--line-h);
         }
         .ap-tool__dots i + i {
           margin-left: -5px;
         }
-
         .ap-starters {
           display: flex;
           flex-wrap: wrap;
@@ -1535,28 +1770,28 @@ function StudioInner() {
           padding: 0 11px;
           border: 1px dashed var(--line-h);
           border-radius: 999px;
-          background: #fff;
+          background: transparent;
           font-size: 12.5px;
           font-weight: 500;
           color: var(--body);
           cursor: pointer;
-          transition: border-color 0.15s, color 0.15s;
+          transition: border-color 0.15s, color 0.15s, background 0.15s;
         }
         .ap-starter:hover {
           border-color: var(--blue);
           border-style: solid;
-          color: var(--blue);
+          background: var(--blue-soft);
+          color: #fff;
         }
-
         .ap-hint {
           display: flex;
           align-items: center;
           gap: 10px;
           margin-top: 12px;
           padding: 10px 8px 10px 10px;
-          border: 1px solid #d9e1fb;
-          border-radius: 12px;
-          background: var(--blue-soft);
+          border-radius: 14px;
+          background: linear-gradient(90deg, rgba(91, 130, 255, 0.16), rgba(91, 130, 255, 0.06));
+          box-shadow: 0 0 0 1px rgba(91, 130, 255, 0.3) inset;
           color: var(--ink);
           animation: apIn 0.25s ease both;
         }
@@ -1567,14 +1802,18 @@ function StudioInner() {
           height: 32px;
           flex: 0 0 auto;
           border-radius: 9px;
-          background: #fff;
-          color: var(--blue);
+          background: rgba(91, 130, 255, 0.2);
+          color: var(--blue-h);
         }
         .ap-hint p {
           flex: 1;
           margin: 0;
           font-size: 13px;
           line-height: 1.45;
+          color: var(--body);
+        }
+        .ap-hint p strong {
+          color: var(--ink);
         }
         .ap-hint__yes {
           height: 32px;
@@ -1602,15 +1841,15 @@ function StudioInner() {
           cursor: pointer;
         }
         .ap-hint__no:hover {
-          background: rgba(11, 18, 32, 0.06);
+          background: var(--tint);
+          color: var(--ink);
         }
-
         .ap-panel {
           margin-top: 12px;
           padding: 14px;
-          border: 1px solid var(--line);
-          border-radius: 14px;
-          background: var(--soft);
+          border-radius: 16px;
+          background: rgba(0, 0, 0, 0.25);
+          box-shadow: 0 0 0 1px var(--line) inset;
           animation: apIn 0.2s ease both;
         }
         .ap-panel__title {
@@ -1633,9 +1872,10 @@ function StudioInner() {
           width: 100%;
           height: 44px;
           padding: 0 14px;
-          border: 1px solid var(--line);
-          border-radius: 11px;
-          background: #fff;
+          border: 0;
+          border-radius: 12px;
+          background: var(--surface);
+          box-shadow: 0 0 0 1px var(--line) inset;
           font-size: 16px;
           color: var(--ink);
           outline: 0;
@@ -1644,8 +1884,7 @@ function StudioInner() {
           padding-right: 62px;
         }
         .ap-input:focus {
-          border-color: var(--blue);
-          box-shadow: 0 0 0 4px rgba(35, 71, 214, 0.1);
+          box-shadow: 0 0 0 1px rgba(91, 130, 255, 0.7) inset, 0 0 0 4px rgba(91, 130, 255, 0.14);
         }
         .ap-input::placeholder {
           color: var(--faint);
@@ -1666,7 +1905,7 @@ function StudioInner() {
           background: none;
           font-size: 13px;
           font-weight: 600;
-          color: var(--blue);
+          color: var(--blue-h);
           cursor: pointer;
         }
         .ap-link:hover {
@@ -1684,9 +1923,10 @@ function StudioInner() {
           min-width: 0;
           height: 38px;
           padding: 0 10px;
-          border: 1px solid var(--line);
+          border: 0;
           border-radius: 10px;
-          background: #fff;
+          background: var(--surface);
+          box-shadow: 0 0 0 1px var(--line) inset;
           font-size: 13px;
           font-weight: 500;
           color: var(--body);
@@ -1698,14 +1938,13 @@ function StudioInner() {
           height: 18px;
           flex: 0 0 auto;
           border-radius: 50%;
-          box-shadow: inset 0 0 0 1px rgba(11, 18, 32, 0.12);
+          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
         }
         .ap-swatch:hover {
-          border-color: var(--line-h);
+          background: var(--surface-2);
         }
         .ap-swatch.is-on {
-          border-color: var(--blue);
-          box-shadow: 0 0 0 1px var(--blue);
+          box-shadow: 0 0 0 1.5px var(--blue) inset;
           color: var(--ink);
           font-weight: 600;
         }
@@ -1721,18 +1960,19 @@ function StudioInner() {
           gap: 1px;
           min-width: 0;
           padding: 9px 11px;
-          border: 1px solid var(--line);
-          border-radius: 11px;
-          background: #fff;
+          border: 0;
+          border-radius: 12px;
+          background: var(--surface);
+          box-shadow: 0 0 0 1px var(--line) inset;
           text-align: left;
           cursor: pointer;
         }
         .ap-style:hover {
-          border-color: var(--line-h);
+          background: var(--surface-2);
         }
         .ap-style.is-on {
-          border-color: var(--blue);
-          box-shadow: 0 0 0 1px var(--blue);
+          background: var(--blue-soft);
+          box-shadow: 0 0 0 1.5px var(--blue) inset;
         }
         .ap-style__name {
           font-size: 13.5px;
@@ -1744,6 +1984,7 @@ function StudioInner() {
           color: var(--muted);
         }
 
+        /* ---------- Botón principal: el «momento» del estudio ---------- */
         .ap-cta {
           position: relative;
           display: flex;
@@ -1751,134 +1992,143 @@ function StudioInner() {
           justify-content: center;
           gap: 8px;
           width: 100%;
-          height: 52px;
+          height: 54px;
           margin-top: 16px;
           border: 0;
-          border-radius: 12px;
-          background: linear-gradient(180deg, #2b50e0 0%, var(--blue) 100%);
-          box-shadow: 0 1px 0 rgba(255, 255, 255, 0.18) inset, 0 8px 18px -8px rgba(35, 71, 214, 0.55);
+          border-radius: 14px;
+          background: linear-gradient(135deg, #6f92ff 0%, #3a63f0 45%, #2347d6 100%);
+          box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18) inset, 0 12px 30px -10px rgba(58, 99, 240, 0.85);
           color: #fff;
           font-size: 16px;
           font-weight: 700;
           letter-spacing: -0.01em;
           cursor: pointer;
-          transition: filter 0.15s, transform 0.1s, box-shadow 0.15s;
+          overflow: hidden;
+          transition: transform 0.12s, box-shadow 0.2s, filter 0.2s;
+        }
+        .ap-cta::after {
+          content: "";
+          position: absolute;
+          top: 0;
+          bottom: 0;
+          left: -60%;
+          width: 50%;
+          background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.28), transparent);
+          transform: skewX(-18deg);
+          transition: left 0.6s ease;
+        }
+        .ap-cta:hover:not(:disabled)::after {
+          left: 120%;
         }
         .ap-cta:hover:not(:disabled) {
-          filter: brightness(0.94);
+          box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25) inset, 0 16px 36px -10px rgba(58, 99, 240, 1);
         }
         .ap-cta:active:not(:disabled) {
           transform: translateY(1px);
         }
         .ap-cta:disabled {
-          background: #c9d1ee;
-          box-shadow: none;
+          background: rgba(91, 130, 255, 0.22);
+          box-shadow: 0 0 0 1px rgba(91, 130, 255, 0.25) inset;
+          color: rgba(255, 255, 255, 0.55);
           cursor: not-allowed;
         }
         .ap-cta.is-saved:disabled {
-          background: var(--green);
+          background: linear-gradient(135deg, #2bbf83, #138a5c);
+          box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18) inset;
+          color: #fff;
           cursor: default;
         }
-        .ap-cta__note {
-          margin: 10px 0 0;
-          text-align: center;
-          font-size: 12.5px;
+        .ap-trust {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: center;
+          gap: 6px 16px;
+          margin: 14px 0 0;
+          padding: 0;
+          list-style: none;
+        }
+        .ap-trust li {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 12px;
+          font-weight: 500;
           color: var(--muted);
+        }
+        .ap-trust .ap-ic {
+          width: 14px;
+          height: 14px;
+          color: var(--blue-h);
         }
         .ap-error {
           margin: 12px 0 0;
           padding: 10px 14px;
-          border-radius: 10px;
-          background: #fef3f2;
+          border-radius: 12px;
+          background: rgba(240, 68, 56, 0.12);
+          box-shadow: 0 0 0 1px rgba(240, 68, 56, 0.3) inset;
           color: var(--red);
           font-size: 14px;
           line-height: 1.45;
         }
-
         .ap-summary {
           display: none;
         }
 
-        /* Guía para describir el pedido */
-        .ap-card__help {
-          margin: -6px 0 10px;
-          font-size: 13px;
-          line-height: 1.5;
-          color: var(--muted);
-        }
-        .ap-guide {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 6px;
-          margin: 0 0 12px;
-          padding: 0;
-          list-style: none;
-        }
-        .ap-guide li {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          padding: 4px 10px;
-          border-radius: 999px;
-          background: var(--tint);
-          font-size: 12px;
-          font-weight: 500;
-          color: var(--body);
-        }
-        .ap-guide li::before {
-          content: "";
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          background: var(--blue);
-          opacity: 0.6;
-        }
-
-        /* Así entendió la IA tu pedido */
+        /* ---------- Brief creativo ---------- */
         .ap-brief {
-          padding: 16px 18px;
-          border: 1px solid #d9e1fb;
-          border-radius: 16px;
-          background: linear-gradient(180deg, #f5f7fe 0%, #ffffff 100%);
-          animation: apIn 0.3s ease both;
+          position: relative;
+          padding: 18px 20px;
+          border-radius: 20px;
+          background: linear-gradient(160deg, rgba(91, 130, 255, 0.14), rgba(91, 130, 255, 0.03) 55%);
+          box-shadow: 0 0 0 1px rgba(91, 130, 255, 0.25) inset, var(--shadow-md);
+          animation: apIn 0.35s ease both;
         }
         .ap-brief__head {
           display: flex;
           align-items: center;
-          gap: 10px;
-          margin: 0 0 12px;
-          font-size: 14px;
+          gap: 12px;
+          margin: 0 0 14px;
+          font-size: 14.5px;
           font-weight: 700;
           color: var(--ink);
+        }
+        .ap-brief__head small {
+          display: block;
+          margin-top: 1px;
+          font-size: 12px;
+          font-weight: 500;
+          color: var(--muted);
         }
         .ap-brief__ic {
           display: grid;
           place-items: center;
-          width: 28px;
-          height: 28px;
-          border-radius: 8px;
-          background: var(--blue);
+          width: 32px;
+          height: 32px;
+          flex: 0 0 auto;
+          border-radius: 10px;
+          background: linear-gradient(135deg, #6f92ff, #2347d6);
           color: #fff;
+          box-shadow: 0 6px 16px -6px rgba(91, 130, 255, 0.8);
         }
         .ap-brief__ic .ap-ic {
-          width: 15px;
-          height: 15px;
+          width: 16px;
+          height: 16px;
         }
         .ap-brief__list {
           display: grid;
-          gap: 8px;
+          gap: 9px;
           margin: 0;
         }
         .ap-brief__list div {
           display: grid;
-          grid-template-columns: 78px minmax(0, 1fr);
+          grid-template-columns: 80px minmax(0, 1fr);
           gap: 10px;
           align-items: baseline;
         }
         .ap-brief__list dt {
-          font-size: 11px;
+          font-size: 10.5px;
           font-weight: 700;
-          letter-spacing: 0.08em;
+          letter-spacing: 0.12em;
           text-transform: uppercase;
           color: var(--muted);
         }
@@ -1890,108 +2140,12 @@ function StudioInner() {
           overflow-wrap: anywhere;
         }
         .ap-brief__note {
-          margin: 12px 0 0;
+          margin: 14px 0 0;
           font-size: 12px;
           color: var(--muted);
         }
 
-        /* Playera real (foto) */
-        .ap-mock {
-          position: relative;
-          height: 100%;
-          width: auto;
-          max-width: 100%;
-          aspect-ratio: 1 / 1;
-          border-radius: 14px;
-          overflow: hidden;
-          animation: apPop 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-        }
-        .ap-mock.is-svg {
-          border-radius: 0;
-          overflow: visible;
-        }
-        .ap-mock__photo,
-        .ap-mock > svg {
-          position: absolute;
-          inset: 0;
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-        .ap-mock__area {
-          position: absolute;
-        }
-        .ap-mock__print {
-          position: absolute;
-          inset: 0;
-          width: 100%;
-          height: 100%;
-          object-fit: contain;
-          object-position: center top;
-        }
-        .ap-mock__wait {
-          position: absolute;
-          left: 50%;
-          top: 30%;
-          margin-left: -9px;
-        }
-        .ap-mock__print.is-multiply {
-          mix-blend-mode: multiply;
-          filter: brightness(1.05) contrast(1.06);
-        }
-        .ap-mock__shade {
-          position: absolute;
-          inset: 0;
-          background-repeat: no-repeat;
-          -webkit-mask-repeat: no-repeat;
-          mask-repeat: no-repeat;
-          -webkit-mask-size: contain;
-          mask-size: contain;
-          -webkit-mask-position: center top;
-          mask-position: center top;
-          mix-blend-mode: multiply;
-          opacity: 0.85;
-          pointer-events: none;
-        }
-        .ap-shirtcolors {
-          position: absolute;
-          left: 14px;
-          bottom: 12px;
-          z-index: 3;
-          display: flex;
-          gap: 6px;
-          padding: 4px;
-          border: 1px solid rgba(228, 231, 236, 0.9);
-          border-radius: 999px;
-          background: rgba(255, 255, 255, 0.86);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-        }
-        .ap-shirtcolors button {
-          display: grid;
-          place-items: center;
-          width: 28px;
-          height: 28px;
-          padding: 0;
-          border: 0;
-          border-radius: 50%;
-          background: transparent;
-          cursor: pointer;
-        }
-        .ap-shirtcolors i {
-          width: 20px;
-          height: 20px;
-          border-radius: 50%;
-          box-shadow: inset 0 0 0 1px rgba(11, 18, 32, 0.18);
-        }
-        .ap-shirtcolors button.is-on {
-          box-shadow: 0 0 0 2px var(--blue);
-        }
-
-        /* ---------- Lienzo ---------- */
-        .ap-right {
-          position: relative;
-        }
+        /* ---------- Lienzo: la «galería» donde brilla el diseño ---------- */
         .ap-results-anchor {
           position: absolute;
           top: 0;
@@ -2005,13 +2159,36 @@ function StudioInner() {
           position: relative;
           display: flex;
           flex-direction: column;
-          border: 1px solid var(--line);
-          border-radius: 20px;
-          background-color: #f4f6f9;
-          background-image: radial-gradient(#d6dbe3 1px, transparent 1.2px);
-          background-size: 18px 18px;
-          box-shadow: var(--shadow-md);
+          border-radius: 22px;
+          background: radial-gradient(60% 55% at 50% 45%, #232a39 0%, #151922 55%, #0e1117 100%);
+          box-shadow: 0 0 0 1px var(--line) inset, 0 30px 60px -30px rgba(0, 0, 0, 0.9);
           overflow: hidden;
+          isolation: isolate;
+        }
+        .ap-canvas::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          z-index: -1;
+          background-image: radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1.2px);
+          background-size: 20px 20px;
+          -webkit-mask-image: radial-gradient(75% 70% at 50% 45%, #000 30%, transparent 100%);
+          mask-image: radial-gradient(75% 70% at 50% 45%, #000 30%, transparent 100%);
+          pointer-events: none;
+        }
+        /* Borde de luz que respira mientras el estudio trabaja */
+        .ap-canvas.is-loading::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          z-index: 4;
+          border-radius: inherit;
+          box-shadow: 0 0 0 1.5px rgba(91, 130, 255, 0.75) inset, 0 0 40px -6px rgba(91, 130, 255, 0.45) inset;
+          animation: apGlow 1.8s ease-in-out infinite;
+          pointer-events: none;
+        }
+        .ap-canvas.is-product {
+          background: radial-gradient(62% 58% at 50% 46%, #2c3446 0%, #171b25 58%, #0e1117 100%);
         }
         .ap-canvas__bar {
           position: absolute;
@@ -2036,12 +2213,11 @@ function StudioInner() {
           max-width: 60%;
           margin: 0;
           padding: 7px 12px;
-          border: 1px solid rgba(228, 231, 236, 0.9);
           border-radius: 999px;
-          background: rgba(255, 255, 255, 0.86);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-          box-shadow: var(--shadow-sm);
+          background: rgba(12, 14, 19, 0.72);
+          box-shadow: 0 0 0 1px var(--line-h) inset;
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -2049,8 +2225,11 @@ function StudioInner() {
         .ap-canvas__tag span {
           font-size: 10.5px;
           font-weight: 700;
-          letter-spacing: 0.1em;
+          letter-spacing: 0.12em;
           text-transform: uppercase;
+          color: var(--blue-h);
+        }
+        .ap-canvas__tag--muted span {
           color: var(--muted);
         }
         .ap-canvas__tag strong {
@@ -2063,12 +2242,11 @@ function StudioInner() {
         .ap-view {
           display: inline-flex;
           padding: 3px;
-          border: 1px solid rgba(228, 231, 236, 0.9);
           border-radius: 999px;
-          background: rgba(255, 255, 255, 0.86);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-          box-shadow: var(--shadow-sm);
+          background: rgba(12, 14, 19, 0.72);
+          box-shadow: 0 0 0 1px var(--line-h) inset;
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
         }
         .ap-view button {
           display: inline-flex;
@@ -2090,8 +2268,8 @@ function StudioInner() {
           height: 15px;
         }
         .ap-view button.is-on {
-          background: var(--ink);
-          color: #fff;
+          background: #fff;
+          color: #0b0d12;
         }
         .ap-scene {
           position: relative;
@@ -2106,6 +2284,26 @@ function StudioInner() {
         .ap-scene > * {
           min-height: 0;
         }
+        .ap-scene.is-zoomable {
+          cursor: zoom-in;
+          overflow: hidden;
+        }
+        .ap-scene.is-zoomed {
+          cursor: zoom-out;
+          touch-action: none;
+        }
+        .ap-zoom {
+          display: grid;
+          place-items: center;
+          grid-template-rows: minmax(0, 1fr);
+          grid-template-columns: minmax(0, 1fr);
+          width: 100%;
+          height: 100%;
+          min-height: 0;
+          transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+          will-change: transform;
+        }
+        /* El diseño se presenta como una impresión sobre la mesa de luz */
         .ap-art {
           display: block;
           height: 100%;
@@ -2113,23 +2311,57 @@ function StudioInner() {
           max-width: 100%;
           aspect-ratio: 1 / 1;
           object-fit: contain;
-          border-radius: 16px;
+          border-radius: 14px;
           background: #fff;
-          box-shadow: 0 1px 2px rgba(11, 18, 32, 0.06), 0 24px 48px -24px rgba(11, 18, 32, 0.28);
-          animation: apPop 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+          box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5), 0 30px 60px -20px rgba(0, 0, 0, 0.85),
+            0 0 80px -20px rgba(91, 130, 255, 0.35);
+          animation: apPop 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
         }
         .ap-canvas__note {
           position: absolute;
-          bottom: 12px;
+          bottom: 14px;
           left: 0;
           right: 0;
           margin: 0;
           text-align: center;
           font-size: 11.5px;
           color: var(--muted);
+          pointer-events: none;
+        }
+        .ap-zoombtn {
+          position: absolute;
+          right: 14px;
+          bottom: 12px;
+          z-index: 3;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          height: 36px;
+          padding: 0 12px;
+          border: 0;
+          border-radius: 999px;
+          background: rgba(12, 14, 19, 0.72);
+          box-shadow: 0 0 0 1px var(--line-h) inset;
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
+          font-size: 12.5px;
+          font-weight: 600;
+          color: var(--ink);
+          cursor: pointer;
+        }
+        .ap-zoombtn .ap-ic {
+          width: 16px;
+          height: 16px;
+        }
+        .ap-zoombtn:hover {
+          background: rgba(30, 35, 48, 0.9);
+        }
+        .ap-zoombtn[aria-pressed="true"] {
+          background: #fff;
+          color: #0b0d12;
         }
 
-        /* Playera */
+        /* Playera dibujada (respaldo) y estado vacío */
         .ap-tee {
           position: relative;
           height: 100%;
@@ -2143,18 +2375,7 @@ function StudioInner() {
           width: 100%;
           height: 100%;
         }
-        .ap-tee__print {
-          position: absolute;
-          left: 32%;
-          top: 21%;
-          width: 36%;
-          aspect-ratio: 1 / 1;
-          object-fit: contain;
-          mix-blend-mode: multiply;
-          filter: brightness(1.05) contrast(1.06);
-        }
         .ap-tee--ghost {
-          opacity: 0.75;
           animation: none;
         }
         .ap-tee__area {
@@ -2165,68 +2386,22 @@ function StudioInner() {
           aspect-ratio: 1 / 1;
           display: grid;
           place-items: center;
-          border: 1.5px dashed #aab3c2;
+          padding: 6px;
+          border: 1.5px dashed rgba(255, 255, 255, 0.28);
           border-radius: 8px;
           font-size: 11px;
-          font-weight: 600;
-          letter-spacing: 0.06em;
+          font-weight: 700;
+          letter-spacing: 0.1em;
           text-transform: uppercase;
-          color: #8b94a3;
+          color: rgba(255, 255, 255, 0.45);
           text-align: center;
-          padding: 6px;
-        }
-
-        /* Sticker */
-        .ap-stk {
-          height: 88%;
-          width: auto;
-          aspect-ratio: 1 / 1;
-          padding: 3.5%;
-          border-radius: 22px;
-          background: #fff;
-          box-shadow: 0 2px 4px rgba(11, 18, 32, 0.08), 0 30px 50px -22px rgba(11, 18, 32, 0.35);
-          transform: rotate(-4deg);
-          animation: apStick 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-        }
-        .ap-stk img {
-          display: block;
-          width: 100%;
-          height: 100%;
-          aspect-ratio: 1 / 1;
-          object-fit: contain;
-          border-radius: 14px;
-        }
-        .ap-canvas.is-product {
-          background-color: #e6ebf2;
-          background-image: radial-gradient(rgba(255, 255, 255, 0.55) 1px, transparent 1.2px);
-        }
-        .is-playera .ap-canvas.is-product {
-          background-color: #eef1f5;
-        }
-        .ap-stk-ghost {
-          display: grid;
-          place-items: center;
-          height: 72%;
-          width: auto;
-          aspect-ratio: 1 / 1;
-          border: 2px dashed #aab3c2;
-          border-radius: 28px;
-          background: rgba(255, 255, 255, 0.6);
-          transform: rotate(-4deg);
-        }
-        .ap-stk-ghost span {
-          font-size: 12px;
-          font-weight: 600;
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
-          color: #8b94a3;
         }
         .ap-empty {
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 12px;
+          gap: 14px;
           width: 100%;
           height: 100%;
         }
@@ -2243,7 +2418,134 @@ function StudioInner() {
           color: var(--muted);
         }
 
-        /* Cargando */
+        /* Playera real (foto) */
+        .ap-mock {
+          position: relative;
+          height: 100%;
+          width: auto;
+          max-width: 100%;
+          aspect-ratio: 1 / 1;
+          animation: apPop 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+          filter: drop-shadow(0 30px 40px rgba(0, 0, 0, 0.55));
+        }
+        .ap-mock__photo,
+        .ap-mock > svg {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+        .ap-mock__area {
+          position: absolute;
+        }
+        .ap-mock__print {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          object-position: center top;
+        }
+        .ap-mock__print.is-multiply {
+          mix-blend-mode: multiply;
+          filter: brightness(1.05) contrast(1.06);
+        }
+        .ap-mock__shade {
+          position: absolute;
+          inset: 0;
+          background-repeat: no-repeat;
+          -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
+          -webkit-mask-size: contain;
+          mask-size: contain;
+          -webkit-mask-position: center top;
+          mask-position: center top;
+          mix-blend-mode: multiply;
+          opacity: 0.85;
+          pointer-events: none;
+        }
+        .ap-mock__wait {
+          position: absolute;
+          left: 50%;
+          top: 30%;
+          margin-left: -9px;
+        }
+        .ap-shirtcolors {
+          position: absolute;
+          left: 14px;
+          bottom: 12px;
+          z-index: 3;
+          display: flex;
+          gap: 6px;
+          padding: 4px;
+          border-radius: 999px;
+          background: rgba(12, 14, 19, 0.72);
+          box-shadow: 0 0 0 1px var(--line-h) inset;
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
+        }
+        .ap-shirtcolors button {
+          display: grid;
+          place-items: center;
+          width: 28px;
+          height: 28px;
+          padding: 0;
+          border: 0;
+          border-radius: 50%;
+          background: transparent;
+          cursor: pointer;
+        }
+        .ap-shirtcolors i {
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+        }
+        .ap-shirtcolors button.is-on {
+          box-shadow: 0 0 0 2px var(--blue), 0 0 12px rgba(91, 130, 255, 0.6);
+        }
+
+        /* Sticker */
+        .ap-stk {
+          height: 88%;
+          width: auto;
+          aspect-ratio: 1 / 1;
+          padding: 3.5%;
+          border-radius: 22px;
+          background: #fff;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3), 0 40px 60px -24px rgba(0, 0, 0, 0.9);
+          transform: rotate(-4deg);
+          animation: apStick 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+        }
+        .ap-stk img {
+          display: block;
+          width: 100%;
+          height: 100%;
+          aspect-ratio: 1 / 1;
+          object-fit: contain;
+          border-radius: 14px;
+        }
+        .ap-stk-ghost {
+          display: grid;
+          place-items: center;
+          height: 72%;
+          width: auto;
+          aspect-ratio: 1 / 1;
+          border: 2px dashed var(--line-h);
+          border-radius: 28px;
+          background: rgba(255, 255, 255, 0.03);
+          transform: rotate(-4deg);
+        }
+        .ap-stk-ghost span {
+          font-size: 12px;
+          font-weight: 600;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: var(--faint);
+        }
+
+        /* ---------- Cargando ---------- */
         .ap-overlay {
           position: absolute;
           inset: 0;
@@ -2253,18 +2555,19 @@ function StudioInner() {
           padding: 20px;
         }
         .ap-overlay--veil {
-          background: rgba(244, 246, 249, 0.55);
+          background: rgba(11, 13, 18, 0.55);
+          backdrop-filter: blur(3px);
+          -webkit-backdrop-filter: blur(3px);
         }
         .ap-loadcard,
         .ap-veil {
-          width: min(100%, 320px);
-          padding: 22px 22px 20px;
-          border: 1px solid var(--line);
-          border-radius: 18px;
-          background: rgba(255, 255, 255, 0.94);
-          backdrop-filter: blur(10px);
-          -webkit-backdrop-filter: blur(10px);
-          box-shadow: 0 24px 48px -20px rgba(11, 18, 32, 0.3);
+          width: min(100%, 330px);
+          padding: 24px 24px 22px;
+          border-radius: 20px;
+          background: rgba(17, 20, 27, 0.94);
+          box-shadow: 0 0 0 1px var(--line-h) inset, 0 30px 60px -20px rgba(0, 0, 0, 0.8);
+          backdrop-filter: blur(14px);
+          -webkit-backdrop-filter: blur(14px);
           text-align: center;
           animation: apIn 0.3s ease both;
         }
@@ -2276,23 +2579,33 @@ function StudioInner() {
         }
         .ap-ring {
           display: inline-block;
-          width: 34px;
-          height: 34px;
+          width: 38px;
+          height: 38px;
           border-radius: 50%;
-          border: 3px solid rgba(35, 71, 214, 0.15);
-          border-top-color: var(--blue);
-          animation: apSpin 0.85s linear infinite;
+          background: conic-gradient(from 0deg, rgba(91, 130, 255, 0) 0deg, #5b82ff 300deg, #b9c8ff 360deg);
+          -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+          mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+          animation: apSpin 0.9s linear infinite;
+        }
+        .ap-loadcard__eyebrow {
+          margin: 12px 0 0;
+          font-size: 10.5px;
+          font-weight: 700;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+          color: var(--blue-h);
         }
         .ap-loadcard__title {
-          margin: 12px 0 14px;
-          font-size: 15px;
+          margin: 4px 0 16px;
+          font-size: 16px;
           font-weight: 700;
+          letter-spacing: -0.01em;
           color: var(--ink);
         }
         .ap-loadcard__steps {
           display: grid;
-          gap: 8px;
-          margin: 0 0 16px;
+          gap: 9px;
+          margin: 0 0 18px;
           padding: 0;
           list-style: none;
           text-align: left;
@@ -2303,6 +2616,7 @@ function StudioInner() {
           gap: 10px;
           font-size: 13.5px;
           color: var(--faint);
+          transition: color 0.3s;
         }
         .ap-loadcard__steps li > span {
           display: grid;
@@ -2326,21 +2640,23 @@ function StudioInner() {
           color: var(--body);
         }
         .ap-loadcard__steps li.is-done > span {
-          background: #e7f5ef;
+          background: rgba(61, 220, 151, 0.14);
         }
         .ap-dot {
           width: 8px;
           height: 8px;
           border-radius: 50%;
           background: var(--blue);
+          box-shadow: 0 0 10px var(--blue);
           animation: apPulse 1s ease-in-out infinite;
         }
         .ap-dot--off {
-          background: var(--line-h);
+          background: var(--faint);
+          box-shadow: none;
           animation: none;
         }
         .ap-progress__bar {
-          height: 6px;
+          height: 5px;
           border-radius: 999px;
           background: var(--tint);
           overflow: hidden;
@@ -2349,14 +2665,15 @@ function StudioInner() {
           display: block;
           height: 100%;
           border-radius: inherit;
-          background: var(--blue);
+          background: linear-gradient(90deg, #2347d6, #5b82ff, #b9c8ff);
+          box-shadow: 0 0 12px rgba(91, 130, 255, 0.8);
           transition: width 0.6s ease;
         }
         .ap-spinner {
           width: 18px;
           height: 18px;
           border-radius: 50%;
-          border: 2px solid rgba(35, 71, 214, 0.18);
+          border: 2px solid rgba(91, 130, 255, 0.25);
           border-top-color: var(--blue);
           animation: apSpin 0.8s linear infinite;
         }
@@ -2365,7 +2682,7 @@ function StudioInner() {
           border-top-color: #fff;
         }
 
-        /* ---------- Tira de propuestas ---------- */
+        /* ---------- Propuestas ---------- */
         .ap-strip__head {
           display: flex;
           align-items: center;
@@ -2379,6 +2696,7 @@ function StudioInner() {
           padding: 1px 8px;
           border-radius: 999px;
           background: var(--tint);
+          box-shadow: 0 0 0 1px var(--line) inset;
           font-size: 12px;
           font-weight: 600;
           color: var(--muted);
@@ -2386,12 +2704,12 @@ function StudioInner() {
         .ap-thumbs {
           display: grid;
           grid-template-columns: repeat(auto-fill, 80px);
-          gap: 10px;
+          gap: 12px;
         }
         .ap-thumb {
           display: flex;
           flex-direction: column;
-          gap: 6px;
+          gap: 7px;
           min-width: 0;
           padding: 0;
           border: 0;
@@ -2407,12 +2725,15 @@ function StudioInner() {
           display: grid;
           place-items: center;
           aspect-ratio: 1 / 1;
-          border: 1px solid var(--line);
           border-radius: 12px;
           background: #fff;
           overflow: hidden;
-          box-shadow: var(--shadow-sm);
-          transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+          box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12), 0 10px 20px -12px rgba(0, 0, 0, 0.9);
+          transition: box-shadow 0.2s, transform 0.2s;
+        }
+        .ap-thumb.is-wait .ap-thumb__img,
+        .ap-thumb.is-failed .ap-thumb__img {
+          background: var(--surface);
         }
         .ap-thumb__img img {
           width: 100%;
@@ -2421,15 +2742,10 @@ function StudioInner() {
           animation: apFade 0.35s ease both;
         }
         .ap-thumb:not(:disabled):hover .ap-thumb__img {
-          border-color: var(--line-h);
-          transform: translateY(-2px);
+          transform: translateY(-3px);
         }
         .ap-thumb.is-on .ap-thumb__img {
-          border-color: var(--blue);
-          box-shadow: 0 0 0 2px var(--blue);
-        }
-        .ap-thumb.is-failed .ap-thumb__img {
-          background: var(--soft);
+          box-shadow: 0 0 0 2px var(--blue), 0 0 22px -2px rgba(91, 130, 255, 0.7);
         }
         .ap-thumb em {
           font-style: normal;
@@ -2468,7 +2784,7 @@ function StudioInner() {
         .ap-shimmer {
           position: absolute;
           inset: 0;
-          background: linear-gradient(110deg, #f4f5f8 30%, #e9ecf1 50%, #f4f5f8 70%);
+          background: linear-gradient(110deg, rgba(255, 255, 255, 0.03) 30%, rgba(255, 255, 255, 0.1) 50%, rgba(255, 255, 255, 0.03) 70%);
           background-size: 220% 100%;
           animation: apShimmer 1.6s linear infinite;
         }
@@ -2481,6 +2797,7 @@ function StudioInner() {
         }
         .ap-actions .ap-cta {
           margin-top: 0;
+          height: 52px;
         }
         .ap-btn {
           display: inline-flex;
@@ -2489,50 +2806,48 @@ function StudioInner() {
           gap: 7px;
           height: 52px;
           padding: 0 14px;
-          border: 1px solid var(--line);
-          border-radius: 12px;
-          background: #fff;
+          border: 0;
+          border-radius: 14px;
+          background: var(--surface);
+          box-shadow: 0 0 0 1px var(--line) inset;
           font-size: 14px;
           font-weight: 600;
           color: var(--ink);
           cursor: pointer;
           white-space: nowrap;
-          box-shadow: var(--shadow-sm);
-          transition: border-color 0.15s, background 0.15s;
+          transition: background 0.15s, box-shadow 0.15s;
         }
         .ap-btn .ap-ic {
           width: 17px;
           height: 17px;
-          color: var(--muted);
+          color: var(--blue-h);
         }
         .ap-btn:hover:not(:disabled) {
-          border-color: var(--line-h);
-          background: var(--soft);
+          background: var(--surface-2);
+          box-shadow: 0 0 0 1px var(--line-h) inset;
         }
         .ap-btn.is-on {
-          border-color: var(--ink);
+          box-shadow: 0 0 0 1.5px var(--blue) inset;
         }
         .ap-btn:disabled {
-          opacity: 0.5;
+          opacity: 0.45;
           cursor: not-allowed;
         }
         .ap-btn--ghost {
           background: transparent;
-          box-shadow: none;
         }
         .ap-btn--primary {
-          border-color: var(--blue);
-          background: var(--blue);
+          background: linear-gradient(135deg, #6f92ff, #2347d6);
+          box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18) inset;
           color: #fff;
         }
         .ap-btn--primary:hover:not(:disabled) {
-          border-color: var(--blue-h);
-          background: var(--blue-h);
+          background: linear-gradient(135deg, #7d9cff, #2a50e0);
         }
         .ap-adjust {
           margin-top: 0;
-          background: #fff;
-          box-shadow: var(--shadow-md);
+          background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015));
+          box-shadow: 0 0 0 1px var(--line) inset, var(--shadow-md);
         }
         .ap-adjust .ap-card__head {
           margin-bottom: 4px;
@@ -2558,9 +2873,10 @@ function StudioInner() {
           gap: 5px;
           height: 34px;
           padding: 0 12px;
-          border: 1px solid var(--line);
+          border: 0;
           border-radius: 999px;
-          background: #fff;
+          background: var(--surface);
+          box-shadow: 0 0 0 1px var(--line) inset;
           font-size: 13px;
           font-weight: 500;
           color: var(--body);
@@ -2571,12 +2887,12 @@ function StudioInner() {
           height: 15px;
         }
         .ap-chip:hover:not(:disabled) {
-          border-color: var(--line-h);
+          background: var(--surface-2);
         }
         .ap-chip.is-on {
-          border-color: var(--blue);
           background: var(--blue-soft);
-          color: var(--blue);
+          box-shadow: 0 0 0 1.5px var(--blue) inset;
+          color: #fff;
           font-weight: 600;
         }
 
@@ -2592,6 +2908,22 @@ function StudioInner() {
           .ap-right.is-idle {
             display: none;
           }
+          /* En celular: primero el diseño, luego el brief */
+          .ap-left {
+            display: contents;
+          }
+          .ap-summary {
+            order: 1;
+          }
+          .ap-compose {
+            order: 2;
+          }
+          .ap-right {
+            order: 3;
+          }
+          .ap-brief {
+            order: 4;
+          }
           .ap-compose.is-collapsed {
             display: none;
           }
@@ -2600,9 +2932,9 @@ function StudioInner() {
             align-items: flex-start;
             gap: 14px;
             padding: 14px 14px 14px 16px;
-            border: 1px solid var(--line);
-            border-radius: 14px;
-            background: var(--soft);
+            border-radius: 16px;
+            background: var(--tint);
+            box-shadow: 0 0 0 1px var(--line) inset;
           }
           .ap-summary__body {
             flex: 1;
@@ -2610,11 +2942,11 @@ function StudioInner() {
           }
           .ap-summary__label {
             margin: 0 0 2px;
-            font-size: 11px;
-            font-weight: 600;
-            letter-spacing: 0.1em;
+            font-size: 10.5px;
+            font-weight: 700;
+            letter-spacing: 0.12em;
             text-transform: uppercase;
-            color: var(--muted);
+            color: var(--blue-h);
           }
           .ap-summary__text {
             margin: 0;
@@ -2636,21 +2968,21 @@ function StudioInner() {
           .ap-summary__chips span {
             padding: 3px 10px;
             border-radius: 999px;
-            background: #fff;
-            border: 1px solid var(--line);
+            background: var(--surface);
+            box-shadow: 0 0 0 1px var(--line) inset;
             font-size: 12px;
             color: var(--body);
           }
           .ap-summary .ap-btn {
             height: 40px;
-            background: #fff;
+            background: var(--surface);
           }
         }
         @media (max-width: 640px) {
           .ap-head__top {
             flex-direction: column;
             align-items: flex-start;
-            gap: 12px;
+            gap: 14px;
           }
           .ap-stepper li + li::before {
             width: 14px;
@@ -2667,6 +2999,9 @@ function StudioInner() {
           }
           .ap-canvas__tag {
             max-width: 52%;
+          }
+          .ap-canvas__note {
+            display: none;
           }
           .ap-view button {
             padding: 0 9px;
@@ -2705,8 +3040,20 @@ function StudioInner() {
           .ap-adjust__row {
             grid-template-columns: 1fr;
           }
+          .ap-zoombtn {
+            padding: 0 10px;
+          }
         }
 
+        @keyframes apGlow {
+          0%,
+          100% {
+            opacity: 0.35;
+          }
+          50% {
+            opacity: 1;
+          }
+        }
         @keyframes apIn {
           from {
             opacity: 0;
@@ -2790,6 +3137,25 @@ const SHIRTS: Record<ShirtColor, { label: string; swatch: string; dark: boolean;
 const SHIRT_SHADE = "/mockup-playera-sombras.webp";
 // Si la foto no carga, se usa la playera dibujada (mismas proporciones).
 const SVG_PRINT = { x: 33.1, y: 21, w: 33.75, h: 36 };
+
+// «...sobre tela azul marino», «playera negra», «camisa roja»…
+function detectGarmentColor(text: string): ShirtColor | null {
+  const t = text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  const m = t.match(
+    /(playera|tela|camisa|camiseta|prenda|shirt)s?\s+(de\s+)?(color\s+)?(blanca|blanco|negra|negro|gris(\s+jaspe)?|jaspe|azul\s+marino|marino|azul|roja|rojo)/
+  );
+  if (!m) return null;
+  const c = m[4];
+  if (c.startsWith("blanc")) return "blanca";
+  if (c.startsWith("negr")) return "negra";
+  if (c.startsWith("gris") || c === "jaspe") return "gris";
+  if (c.includes("marino") || c === "azul") return "marino";
+  if (c.startsWith("roj")) return "roja";
+  return null;
+}
 
 function cutoutKey(src: string) {
   return `${src.length}:${src.slice(-48)}`;
