@@ -26,21 +26,6 @@ const MAX_COLORS = 2;
 const MAX_TEXT = 40;
 const FAILED = "__failed__";
 
-const STARTERS: Record<DesignMode, { label: string; opener: string }[]> = {
-  sticker: [
-    { label: "Para mi negocio", opener: "Sticker para mi negocio de " },
-    { label: "Para un cumpleaños", opener: "Sticker de cumpleaños para " },
-    { label: "De mi mascota", opener: "Caricatura de mi mascota, " },
-    { label: "Para regalar", opener: "Sticker para regalarle a " },
-  ],
-  playera: [
-    { label: "Para mi negocio", opener: "Playera para mi negocio de " },
-    { label: "Para un evento", opener: "Playera para el evento de " },
-    { label: "Para mi equipo", opener: "Playera para mi equipo de " },
-    { label: "Para un cumpleaños", opener: "Playera de cumpleaños para " },
-  ],
-};
-
 const COLOR_OPTIONS: { id: string; label: string; swatch: string }[] = [
   { id: "rojo", label: "Rojo", swatch: "#E5484D" },
   { id: "azul", label: "Azul", swatch: "#2F6FED" },
@@ -224,7 +209,7 @@ function StudioInner() {
     if (typeof window === "undefined" || window.parent === window) return;
     const wrap = document.querySelector(".page-wrap");
     if (!wrap) return;
-    const height = wrap.scrollHeight + 24;
+    const height = Math.ceil(wrap.getBoundingClientRect().height);
     const win = window as typeof window & { __lastSentHeight?: number };
     if (typeof win.__lastSentHeight === "number" && Math.abs(win.__lastSentHeight - height) < 8) return;
     win.__lastSentHeight = height;
@@ -327,17 +312,6 @@ function StudioInner() {
   const liveText = loading ? progressText : adjusting ? "Creando tu versión ajustada" : saved ? "Diseño agregado a tu producto" : "";
 
   // ---------- Acciones del formulario ----------
-  function applyStarter(opener: string) {
-    setPrompt(opener);
-    setError("");
-    requestAnimationFrame(() => {
-      const el = promptRef.current;
-      if (!el) return;
-      el.focus();
-      el.setSelectionRange(opener.length, opener.length);
-    });
-  }
-
   function openComposer() {
     setComposerOpen(true);
     requestAnimationFrame(() => promptRef.current?.focus({ preventScroll: isEmbedded }));
@@ -710,9 +684,6 @@ function StudioInner() {
                   Cuéntanos qué necesitas
                 </label>
               </div>
-              <p className="ap-card__help">
-                Escríbelo con tus palabras, como si se lo contaras a un diseñador. Entre más nos cuentes, mejor:
-              </p>
               <ul className="ap-guide" aria-label="Qué conviene contar">
                 <li>¿Para qué o para quién es?</li>
                 <li>¿Qué debe aparecer?</li>
@@ -780,17 +751,6 @@ function StudioInner() {
                   </span>
                 </div>
               </div>
-
-              {!prompt.trim() && (
-                <div className="ap-starters">
-                  <span className="ap-starters__lead">Empieza con:</span>
-                  {STARTERS[mode].map((s) => (
-                    <button key={s.label} type="button" className="ap-starter" onClick={() => applyStarter(s.opener)}>
-                      {s.label}
-                    </button>
-                  ))}
-                </div>
-              )}
 
               {showTextHint && (
                 <div className="ap-hint" role="status">
@@ -1048,9 +1008,31 @@ function StudioInner() {
                 ) : (
                   <div className="ap-empty" aria-hidden={loading ? "true" : undefined}>
                     {mode === "playera" ? (
-                      <div className="ap-tee ap-tee--ghost">
-                        <TeeSvg dark />
-                        {!loading && <span className="ap-tee__area">Área de impresión</span>}
+                      <div className="ap-mock ap-mock--ghost">
+                        {photoFailed.negra ? (
+                          <TeeSvg dark />
+                        ) : (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            className="ap-mock__photo"
+                            src={SHIRTS.negra.photo}
+                            alt=""
+                            onError={() => setPhotoFailed((cur) => ({ ...cur, negra: true }))}
+                          />
+                        )}
+                        {!loading && (
+                          <span
+                            className="ap-mock__guide"
+                            style={{
+                              left: `${SHIRT_PRINT.x}%`,
+                              top: `${SHIRT_PRINT.y}%`,
+                              width: `${SHIRT_PRINT.w}%`,
+                              height: `${SHIRT_PRINT.h}%`,
+                            }}
+                          >
+                            Área de impresión
+                          </span>
+                        )}
                       </div>
                     ) : (
                       <div className="ap-stk-ghost">
@@ -1336,7 +1318,15 @@ function StudioInner() {
         }
         .ap-shell.is-embedded {
           padding: 0;
-          background: transparent;
+          background: #0b0d12;
+        }
+        html:has(.ap-shell.is-embedded),
+        body:has(.ap-shell.is-embedded) {
+          background: #0b0d12 !important;
+        }
+        .is-embedded .ap-studio {
+          border-radius: 0;
+          box-shadow: none;
         }
         .ap-shell *,
         .ap-shell *::before,
@@ -2427,6 +2417,29 @@ function StudioInner() {
           aspect-ratio: 1 / 1;
           animation: apPop 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
           filter: drop-shadow(0 30px 40px rgba(0, 0, 0, 0.55));
+        }
+        .ap-mock--ghost {
+          animation: none;
+          filter: drop-shadow(0 24px 30px rgba(0, 0, 0, 0.5));
+        }
+        .ap-empty > .ap-mock--ghost {
+          flex: 1 1 auto;
+          height: auto;
+          min-height: 0;
+        }
+        .ap-mock__guide {
+          position: absolute;
+          display: grid;
+          place-items: center;
+          padding: 6px;
+          border: 1.5px dashed rgba(255, 255, 255, 0.32);
+          border-radius: 8px;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          text-align: center;
+          color: rgba(255, 255, 255, 0.55);
         }
         .ap-mock__photo,
         .ap-mock > svg {
