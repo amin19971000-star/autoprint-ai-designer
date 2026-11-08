@@ -6,7 +6,7 @@
   - Arranques que el cliente completa (no ejemplos inventados).
   - Asistente: si la idea menciona una frase o nombre, ofrece pasarlo a «Texto exacto».
   - Resultados: vista grande + miniaturas; la primera propuesta lista queda elegida sola.
-  - Mismo backend: /api/generate (stream NDJSON), action "adjust", /api/save-selected-design. jeje
+  - Mismo backend: /api/generate (stream NDJSON), action "adjust", /api/save-selected-design.
 */
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
@@ -179,7 +179,7 @@ function StudioInner() {
   const [saved, setSaved] = useState(false);
   const [view, setView] = useState<"design" | "product">("design");
   const [shirtColor, setShirtColor] = useState<ShirtColor>("blanca");
-  const [mockTry, setMockTry] = useState<Record<ShirtColor, number>>({ blanca: 0, negra: 0 });
+  const [photoFailed, setPhotoFailed] = useState<Partial<Record<ShirtColor, boolean>>>({});
   const [cutouts, setCutouts] = useState<Record<string, string>>({});
 
   const copy = COPY[mode];
@@ -915,8 +915,8 @@ function StudioInner() {
                     mode === "playera" ? (
                       <ShirtMockup
                         color={shirtColor}
-                        tryIndex={mockTry[shirtColor]}
-                        onPhotoError={() => setMockTry((cur) => ({ ...cur, [shirtColor]: cur[shirtColor] + 1 }))}
+                        photoFailed={!!photoFailed[shirtColor]}
+                        onPhotoError={() => setPhotoFailed((cur) => ({ ...cur, [shirtColor]: true }))}
                         design={selectedImage}
                         cutout={cutouts[cutoutKey(selectedImage)] || ""}
                       />
@@ -1918,10 +1918,22 @@ function StudioInner() {
           height: 100%;
           object-fit: cover;
         }
+        .ap-mock__area {
+          position: absolute;
+        }
         .ap-mock__print {
           position: absolute;
-          aspect-ratio: 1 / 1;
+          inset: 0;
+          width: 100%;
+          height: 100%;
           object-fit: contain;
+          object-position: center top;
+        }
+        .ap-mock__wait {
+          position: absolute;
+          left: 50%;
+          top: 30%;
+          margin-left: -9px;
         }
         .ap-mock__print.is-multiply {
           mix-blend-mode: multiply;
@@ -1930,19 +1942,16 @@ function StudioInner() {
         .ap-mock__shade {
           position: absolute;
           inset: 0;
-          background-size: cover;
-          background-position: center;
+          background-repeat: no-repeat;
           -webkit-mask-repeat: no-repeat;
           mask-repeat: no-repeat;
-          pointer-events: none;
-        }
-        .ap-mock__shade.is-light {
+          -webkit-mask-size: contain;
+          mask-size: contain;
+          -webkit-mask-position: center top;
+          mask-position: center top;
           mix-blend-mode: multiply;
-          opacity: 0.9;
-        }
-        .ap-mock__shade.is-dark {
-          mix-blend-mode: soft-light;
-          opacity: 0.35;
+          opacity: 0.85;
+          pointer-events: none;
         }
         .ap-shirtcolors {
           position: absolute;
@@ -2767,36 +2776,27 @@ function StudioInner() {
 }
 
 // ---------- Playeras reales para la vista previa ----------
-// Sube las fotos a la carpeta public/mockups del proyecto con estos nombres (frente, centrada, cuadrada).
-// «print» = dónde va el diseño, en % de la foto (x = izquierda, y = arriba, w = ancho).
-type ShirtColor = "blanca" | "negra";
-const SHIRTS: Record<
-  ShirtColor,
-  { label: string; swatch: string; dark: boolean; photos: string[]; print: { x: number; y: number; w: number } }
-> = {
-  blanca: {
-    label: "Blanca",
-    swatch: "#ffffff",
-    dark: false,
-    photos: ["/mockups/playera-blanca.jpg", "/mockups/playera-blanca.png", "/mockups/playera-blanca.webp"],
-    print: { x: 34, y: 26, w: 32 },
-  },
-  negra: {
-    label: "Negra",
-    swatch: "#17191e",
-    dark: true,
-    photos: ["/mockups/playera-negra.jpg", "/mockups/playera-negra.png", "/mockups/playera-negra.webp"],
-    print: { x: 34, y: 26, w: 32 },
-  },
+// Fotos en la carpeta public del proyecto (misma foto, 5 colores). «print» = zona de impresión del pecho
+// en % de la foto: x/y = esquina superior izquierda, w/h = ancho y alto máximos.
+type ShirtColor = "blanca" | "negra" | "gris" | "marino" | "roja";
+const SHIRT_PRINT = { x: 35.4, y: 20, w: 28.75, h: 35 };
+const SHIRTS: Record<ShirtColor, { label: string; swatch: string; dark: boolean; photo: string }> = {
+  blanca: { label: "Blanca", swatch: "#ffffff", dark: false, photo: "/mockup-playera-blanca.webp" },
+  negra: { label: "Negra", swatch: "#1b1c20", dark: true, photo: "/mockup-playera-negra.webp" },
+  gris: { label: "Gris jaspe", swatch: "#c9cbce", dark: false, photo: "/mockup-playera-gris.webp" },
+  marino: { label: "Azul marino", swatch: "#1d2850", dark: true, photo: "/mockup-playera-marino.webp" },
+  roja: { label: "Roja", swatch: "#cf222a", dark: true, photo: "/mockup-playera-roja.webp" },
 };
-// Si todavía no hay foto, se usa la playera dibujada (mismas proporciones).
-const SVG_PRINT = { x: 33.1, y: 21, w: 33.75 };
+const SHIRT_SHADE = "/mockup-playera-sombras.webp";
+// Si la foto no carga, se usa la playera dibujada (mismas proporciones).
+const SVG_PRINT = { x: 33.1, y: 21, w: 33.75, h: 36 };
 
 function cutoutKey(src: string) {
   return `${src.length}:${src.slice(-48)}`;
 }
 
-// Quita el fondo blanco que toca las orillas (como un corte de sticker) y suaviza el borde.
+// Quita el fondo blanco que toca las orillas (como un corte de sticker), suaviza el borde y recorta
+// el espacio vacío alrededor, para que el diseño ocupe bien la zona de impresión.
 // Los blancos que están DENTRO del diseño se conservan.
 async function cutoutWhiteBackground(src: string): Promise<string> {
   if (typeof window === "undefined") return "";
@@ -2848,13 +2848,13 @@ async function cutoutWhiteBackground(src: string): Promise<string> {
     if (p >= W) push(p - W);
     if (p < W * (H - 1)) push(p + W);
   }
+  let minX = W, minY = H, maxX = -1, maxY = -1;
   for (let p = 0; p < W * H; p++) {
+    const x = p % W;
     if (seen[p]) {
       px[p * 4 + 3] = 0;
       continue;
     }
-    // Borde suave: los pixeles casi blancos junto al fondo quitado se vuelven semitransparentes.
-    const x = p % W;
     const nearBg =
       (x > 0 && seen[p - 1]) || (x < W - 1 && seen[p + 1]) || (p >= W && seen[p - W]) || (p < W * (H - 1) && seen[p + W]);
     if (nearBg) {
@@ -2863,65 +2863,88 @@ async function cutoutWhiteBackground(src: string): Promise<string> {
       const whiteness = Math.max(0, Math.min(1, (mn - 170) / 85));
       px[i + 3] = Math.round(255 * (1 - whiteness * 0.8));
     }
+    if (px[p * 4 + 3] > 24) {
+      const y = (p - x) / W;
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
   }
   ctx.putImageData(data, 0, 0);
-  return canvas.toDataURL("image/png");
+  if (maxX < minX || maxY < minY) return canvas.toDataURL("image/png");
+  // Recorta al contenido real (con un pequeño margen).
+  const pad = Math.round(Math.max(W, H) * 0.01);
+  const cx = Math.max(0, minX - pad);
+  const cy = Math.max(0, minY - pad);
+  const cw = Math.min(W, maxX + pad + 1) - cx;
+  const ch = Math.min(H, maxY + pad + 1) - cy;
+  const out = document.createElement("canvas");
+  out.width = cw;
+  out.height = ch;
+  const octx = out.getContext("2d");
+  if (!octx) return canvas.toDataURL("image/png");
+  octx.drawImage(canvas, cx, cy, cw, ch, 0, 0, cw, ch);
+  return out.toDataURL("image/png");
 }
 
 function ShirtMockup({
   color,
-  tryIndex,
+  photoFailed,
   onPhotoError,
   design,
   cutout,
 }: {
   color: ShirtColor;
-  tryIndex: number;
+  photoFailed: boolean;
   onPhotoError: () => void;
   design: string;
   cutout: string;
 }) {
   const shirt = SHIRTS[color];
-  const photo = tryIndex < shirt.photos.length ? shirt.photos[tryIndex] : "";
-  const box = photo ? shirt.print : SVG_PRINT;
-  // En playera clara el diseño se «tiñe» con la tela (multiply). En oscura necesita el recorte.
-  const printSrc = shirt.dark ? cutout : cutout || design;
-  const usesMultiply = !shirt.dark && !cutout;
-  const maskPos = (v: number) => `${(v / (100 - box.w)) * 100}%`;
+  const usePhoto = !photoFailed;
+  const box = usePhoto ? SHIRT_PRINT : SVG_PRINT;
+  // Con el recorte el diseño se ve como impreso en cualquier color. Mientras se recorta, en blanca se usa «multiply».
+  const printSrc = cutout || (color === "blanca" ? design : "");
+  const pct = (v: number, size: number) => `${size >= 100 ? 0 : (v / (100 - size)) * 100}%`;
   return (
-    <div className={`ap-mock ${photo ? "" : "is-svg"}`}>
-      {photo ? (
+    <div className={`ap-mock ${usePhoto ? "" : "is-svg"}`}>
+      {usePhoto ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img key={photo} className="ap-mock__photo" src={photo} alt="" onError={onPhotoError} />
+        <img key={shirt.photo} className="ap-mock__photo" src={shirt.photo} alt="" onError={onPhotoError} />
       ) : (
         <TeeSvg dark={shirt.dark} />
       )}
-      {printSrc ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          className={`ap-mock__print ${usesMultiply ? "is-multiply" : ""}`}
-          src={printSrc}
-          alt={`Vista del diseño en playera ${shirt.label.toLowerCase()}`}
-          style={{ left: `${box.x}%`, top: `${box.y}%`, width: `${box.w}%` }}
-        />
-      ) : (
-        <span className="ap-spinner ap-mock__wait" aria-hidden="true" style={{ position: "absolute", left: "50%", top: "40%" }} />
-      )}
-      {/* Pliegues y luces de la foto encima del diseño, solo donde hay tinta. */}
-      {photo && cutout && (
-        <div
-          className={`ap-mock__shade ${shirt.dark ? "is-dark" : "is-light"}`}
-          style={{
-            backgroundImage: `url(${photo})`,
-            WebkitMaskImage: `url(${cutout})`,
-            maskImage: `url(${cutout})`,
-            WebkitMaskSize: `${box.w}% ${box.w}%`,
-            maskSize: `${box.w}% ${box.w}%`,
-            WebkitMaskPosition: `${maskPos(box.x)} ${maskPos(box.y)}`,
-            maskPosition: `${maskPos(box.x)} ${maskPos(box.y)}`,
-          }}
-        />
-      )}
+      <div
+        className="ap-mock__area"
+        style={{ left: `${box.x}%`, top: `${box.y}%`, width: `${box.w}%`, height: `${box.h}%` }}
+      >
+        {printSrc ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              className={`ap-mock__print ${cutout ? "" : "is-multiply"}`}
+              src={printSrc}
+              alt={`Vista del diseño en playera ${shirt.label.toLowerCase()}`}
+            />
+            {/* Pliegues de la tela encima de la tinta (solo donde hay diseño). */}
+            {usePhoto && cutout && (
+              <div
+                className="ap-mock__shade"
+                style={{
+                  backgroundImage: `url(${SHIRT_SHADE})`,
+                  backgroundSize: `${(100 / box.w) * 100}% ${(100 / box.h) * 100}%`,
+                  backgroundPosition: `${pct(box.x, box.w)} ${pct(box.y, box.h)}`,
+                  WebkitMaskImage: `url(${cutout})`,
+                  maskImage: `url(${cutout})`,
+                }}
+              />
+            )}
+          </>
+        ) : (
+          <span className="ap-spinner ap-mock__wait" aria-hidden="true" />
+        )}
+      </div>
     </div>
   );
 }
