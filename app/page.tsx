@@ -157,6 +157,7 @@ function StudioInner() {
   const isEmbedded = searchParams.get("embed") === "1";
   const forcedMode = searchParams.get("mode");
   const promptRef = useRef<HTMLTextAreaElement | null>(null);
+  const busyJobs = useRef<Set<string>>(new Set());
   const resultsRef = useRef<HTMLDivElement | null>(null);
 
   const [mode, setMode] = useState<DesignMode>(() =>
@@ -190,6 +191,9 @@ function StudioInner() {
   const [view, setView] = useState<"design" | "product">("design");
   const [shirtColor, setShirtColor] = useState<ShirtColor>("blanca");
   const [shirtChosen, setShirtChosen] = useState(false);
+  const [stkFinish, setStkFinish] = useState<StickerFinish>("brillante");
+  const [stkSize, setStkSize] = useState<number>(7.5);
+  const [dieCuts, setDieCuts] = useState<Record<string, string>>({});
   const [zoom, setZoom] = useState(false);
   const [thinkStage, setThinkStage] = useState(0);
   const [zoomOrigin, setZoomOrigin] = useState<{ x: number; y: number } | null>(null);
@@ -240,28 +244,43 @@ function StudioInner() {
 
   // ---------- Recorte del fondo blanco (para ponerlo sobre la playera real) ----------
   useEffect(() => {
-    if (mode !== "playera" || view !== "product") return;
+    if (view !== "product") return;
     if (selectedIndex === null) return;
     const src = images[selectedIndex];
     if (!src || src === FAILED) return;
     const key = cutoutKey(src);
-    if (cutouts[key]) return;
-    let alive = true;
-    cutoutWhiteBackground(src)
-      .then(async (out) => {
-        if (!alive || !out) return;
-        setCutouts((cur) => ({ ...cur, [key]: out }));
-      })
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, [mode, view, selectedIndex, images, cutouts]);
+    const dieKey = `${key}|${stkSize}`;
+    const needCut = !cutouts[key];
+    const needDie = mode === "sticker" && !dieCuts[dieKey];
+    if (!needCut && !needDie) return;
+    const jobKey = `${mode}|${dieKey}`;
+    if (busyJobs.current.has(jobKey)) return;
+    busyJobs.current.add(jobKey);
+    (async () => {
+      let out = cutouts[key];
+      try {
+        if (!out) out = await cutoutWhiteBackground(src);
+      } catch {
+        out = "";
+      }
+      let die = "";
+      if (mode === "sticker") {
+        try {
+          die = out ? await makeDieCut(out, stkSize) : "";
+        } catch {
+          die = "";
+        }
+      }
+      // Se guardan juntos para no repetir el trabajo. Si algo falla, se muestra el diseño tal cual.
+      if (needCut) setCutouts((cur) => ({ ...cur, [key]: out || src }));
+      if (mode === "sticker") setDieCuts((cur) => ({ ...cur, [dieKey]: die || out || src }));
+    })().finally(() => busyJobs.current.delete(jobKey));
+  }, [mode, view, selectedIndex, images, cutouts, dieCuts, stkSize]);
 
   useEffect(() => {
     setZoom(false);
     setZoomOrigin(null);
-  }, [selectedIndex, view, shirtColor]);
+  }, [selectedIndex, view, shirtColor, stkSize]);
 
   // Paso «Dirección de arte» mientras el estudio prepara las ideas.
   useEffect(() => {
@@ -432,7 +451,7 @@ function StudioInner() {
               msg.brief
                 .map((b: any) => ({ label: String(b?.label || ""), value: String(b?.value || "") }))
                 .filter((b: { label: string; value: string }) => b.label && b.value)
-                .slice(0, 4)
+                .slice(0, 5)
             );
           }
         } else if (msg.type === "image") {
@@ -865,7 +884,7 @@ function StudioInner() {
                 </li>
                 <li>
                   <Icon name={mode === "playera" ? "shirt" : "sticker"} />
-                  {mode === "playera" ? "Vista en playera real" : "Vista como sticker"}
+                  {mode === "playera" ? "Vista en playera real" : "Vista en laptop a tamaño real"}
                 </li>
                 <li>
                   <Icon name="wand" />
@@ -942,7 +961,7 @@ function StudioInner() {
                       onClick={() => setView("product")}
                     >
                       <Icon name={mode === "playera" ? "shirt" : "sticker"} />
-                      {mode === "playera" ? "En playera" : "Como sticker"}
+                      {mode === "playera" ? "En playera" : "En laptop"}
                     </button>
                   </div>
                 )}
@@ -972,11 +991,13 @@ function StudioInner() {
                   <div
                     className="ap-zoom"
                     style={{
-                      transform: zoom ? `scale(${view === "product" && mode === "playera" ? 2.3 : 1.9})` : undefined,
+                      transform: zoom ? `scale(${view === "product" ? 2.3 : 1.9})` : undefined,
                       transformOrigin: zoomOrigin
                         ? `${zoomOrigin.x}% ${zoomOrigin.y}%`
                         : view === "product" && mode === "playera"
                         ? "50% 40%"
+                        : view === "product"
+                        ? "50% 48%"
                         : "50% 50%",
                     }}
                   >
@@ -990,10 +1011,11 @@ function StudioInner() {
                         cutout={cutouts[cutoutKey(selectedImage)] || ""}
                       />
                     ) : (
-                      <div className="ap-stk">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={selectedImage} alt="Vista del diseño como sticker" />
-                      </div>
+                      <StickerMockup
+                        dieCut={dieCuts[`${cutoutKey(selectedImage)}|${stkSize}`] || ""}
+                        finish={stkFinish}
+                        sizeCm={stkSize}
+                      />
                     )
                   ) : (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -1035,8 +1057,15 @@ function StudioInner() {
                         )}
                       </div>
                     ) : (
-                      <div className="ap-stk-ghost">
-                        <span>Tu sticker</span>
+                      <div className="ap-lid ap-lid--ghost">
+                        {!loading && (
+                          <span
+                            className="ap-lid__guide"
+                            style={{ width: `${(7.5 / LID_CM.w) * 100}%`, height: `${(7.5 / LID_CM.h) * 100}%` }}
+                          >
+                            Tu sticker
+                          </span>
+                        )}
                       </div>
                     )}
                     {!loading && <p className="ap-empty__t">Tu diseño aparecerá aquí</p>}
@@ -1124,10 +1153,50 @@ function StudioInner() {
                   }}
                 >
                   <Icon name={zoom ? "zoomout" : "zoomin"} />
-                  {zoom ? "Alejar" : "Ver de cerca"}
+                  <span>{zoom ? "Alejar" : "Ver de cerca"}</span>
                 </button>
               )}
-              {view === "product" && selectedReady && !zoom && <p className="ap-canvas__note">Vista aproximada</p>}
+              {view === "product" && selectedReady && mode === "sticker" && (
+                <div className="ap-stkctl">
+                  <div className="ap-shirtcolors ap-finishes" role="radiogroup" aria-label="Acabado">
+                    {(Object.keys(FINISHES) as StickerFinish[]).map((f) => (
+                      <button
+                        key={f}
+                        type="button"
+                        role="radio"
+                        aria-checked={stkFinish === f}
+                        aria-label={`Acabado ${FINISHES[f].label.toLowerCase()}`}
+                        title={FINISHES[f].label}
+                        className={stkFinish === f ? "is-on" : ""}
+                        onClick={() => setStkFinish(f)}
+                      >
+                        <i className={`ap-finsw ap-finsw--${f}`} />
+                      </button>
+                    ))}
+                  </div>
+                  <div className="ap-sizes" role="radiogroup" aria-label="Tamaño">
+                    {STICKER_SIZES.map((cm) => (
+                      <button
+                        key={cm}
+                        type="button"
+                        role="radio"
+                        aria-checked={stkSize === cm}
+                        className={stkSize === cm ? "is-on" : ""}
+                        onClick={() => setStkSize(cm)}
+                      >
+                        {cm} cm
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {view === "product" && selectedReady && !zoom && (
+                <p className={`ap-canvas__note ${mode === "sticker" ? "is-top" : ""}`}>
+                  {mode === "sticker"
+                    ? `${FINISHES[stkFinish].label} · ${stkSize} cm sobre una laptop de 13″`
+                    : "Vista aproximada"}
+                </p>
+              )}
             </div>
 
             {/* Tira de propuestas */}
@@ -2290,6 +2359,7 @@ function StudioInner() {
           width: 100%;
           height: 100%;
           min-height: 0;
+          container-type: size;
           transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
           will-change: transform;
         }
@@ -2317,6 +2387,10 @@ function StudioInner() {
           font-size: 11.5px;
           color: var(--muted);
           pointer-events: none;
+        }
+        .ap-canvas__note.is-top {
+          top: 60px;
+          bottom: auto;
         }
         .ap-zoombtn {
           position: absolute;
@@ -2394,6 +2468,7 @@ function StudioInner() {
           gap: 14px;
           width: 100%;
           height: 100%;
+          container-type: size;
         }
         .ap-empty > .ap-tee,
         .ap-empty > .ap-stk-ghost {
@@ -2517,6 +2592,153 @@ function StudioInner() {
         }
         .ap-shirtcolors button.is-on {
           box-shadow: 0 0 0 2px var(--blue), 0 0 12px rgba(91, 130, 255, 0.6);
+        }
+
+        /* Sticker en laptop (aluminio gris espacial) */
+        .ap-lid {
+          position: relative;
+          width: 92%;
+          width: min(100cqw, calc(100cqh * 1.4286));
+          height: auto;
+          aspect-ratio: 30 / 21;
+          border-radius: 3.2% / 4.6%;
+          background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.011) 0 1px, transparent 1px 3px),
+            radial-gradient(120% 90% at 30% 15%, rgba(255, 255, 255, 0.16), transparent 55%),
+            linear-gradient(160deg, #50545c 0%, #3a3d44 45%, #2b2e33 100%);
+          box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1) inset, 0 2px 0 rgba(255, 255, 255, 0.08) inset,
+            0 -3px 0 rgba(0, 0, 0, 0.35) inset, 0 40px 60px -28px rgba(0, 0, 0, 0.9);
+          animation: apPop 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+        }
+        .ap-empty > .ap-lid {
+          flex: none;
+          width: 72%;
+          width: min(100cqw, calc((100cqh - 46px) * 1.4286));
+        }
+        .ap-lid--ghost {
+          opacity: 0.55;
+          animation: none;
+        }
+        .ap-lid__guide {
+          position: absolute;
+          left: 50%;
+          top: 48%;
+          display: grid;
+          place-items: center;
+          border: 1.5px dashed rgba(255, 255, 255, 0.45);
+          border-radius: 22%;
+          transform: translate(-50%, -50%) rotate(-5deg);
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          text-align: center;
+          color: rgba(255, 255, 255, 0.7);
+        }
+        .ap-lid__stk {
+          position: absolute;
+          left: 50%;
+          top: 48%;
+          transform: translate(-50%, -50%) rotate(-5deg);
+        }
+        .ap-lid__inner {
+          position: absolute;
+          inset: 0;
+          animation: apStickOn 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+        }
+        .ap-lid__inner img {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45)) drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35));
+        }
+        .ap-lid__inner.is-mate img {
+          filter: saturate(0.88) contrast(0.95) brightness(0.98) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45))
+            drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35));
+        }
+        .ap-fin {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          -webkit-mask-size: contain;
+          mask-size: contain;
+          -webkit-mask-position: center;
+          mask-position: center;
+          -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
+        }
+        .ap-fin--brillante {
+          background: linear-gradient(120deg, rgba(255, 255, 255, 0) 38%, rgba(255, 255, 255, 0.6) 48%, rgba(255, 255, 255, 0) 58%);
+          background-size: 260% 100%;
+          mix-blend-mode: screen;
+          animation: apSheen 4s ease-in-out infinite;
+        }
+        .ap-fin--holo {
+          background: linear-gradient(115deg, #ff8ac2, #ffd56e, #8bffb0, #6fd0ff, #b993ff, #ff8ac2);
+          background-size: 300% 300%;
+          mix-blend-mode: multiply;
+          opacity: 0.5;
+          animation: apHolo 6s linear infinite;
+        }
+        .ap-fin--holo::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(60deg, transparent 20%, rgba(255, 255, 255, 0.9) 45%, transparent 60%),
+            linear-gradient(115deg, #ff8ac2, #ffd56e, #8bffb0, #6fd0ff, #b993ff);
+          background-size: 250% 100%, 200% 200%;
+          mix-blend-mode: overlay;
+          animation: apSheen 5s ease-in-out infinite;
+        }
+        .ap-stkctl {
+          position: absolute;
+          left: 14px;
+          bottom: 12px;
+          z-index: 3;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .ap-stkctl .ap-shirtcolors {
+          position: static;
+        }
+        .ap-finsw {
+          display: block;
+        }
+        .ap-finsw--brillante {
+          background: linear-gradient(135deg, #ffffff 0%, #dfe4ee 45%, #ffffff 55%, #cfd6e2 100%);
+        }
+        .ap-finsw--mate {
+          background: #c9ccd2;
+        }
+        .ap-finsw--holo {
+          background: conic-gradient(#ff8ac2, #ffd56e, #8bffb0, #6fd0ff, #b993ff, #ff8ac2);
+        }
+        .ap-sizes {
+          display: flex;
+          padding: 4px;
+          border-radius: 999px;
+          background: rgba(12, 14, 19, 0.72);
+          box-shadow: 0 0 0 1px var(--line-h) inset;
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
+        }
+        .ap-sizes button {
+          height: 28px;
+          padding: 0 10px;
+          border: 0;
+          border-radius: 999px;
+          background: transparent;
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--muted);
+          cursor: pointer;
+          white-space: nowrap;
+        }
+        .ap-sizes button.is-on {
+          background: #fff;
+          color: #0b0d12;
         }
 
         /* Sticker */
@@ -3056,6 +3278,9 @@ function StudioInner() {
           .ap-zoombtn {
             padding: 0 10px;
           }
+          .ap-zoombtn span {
+            display: none;
+          }
         }
 
         @keyframes apGlow {
@@ -3093,6 +3318,30 @@ function StudioInner() {
           to {
             opacity: 1;
             transform: none;
+          }
+        }
+        @keyframes apStickOn {
+          from {
+            opacity: 0;
+            transform: scale(1.08) translateY(-4%);
+          }
+          to {
+            opacity: 1;
+            transform: none;
+          }
+        }
+        @keyframes apSheen {
+          0%,
+          100% {
+            background-position: 100% 0;
+          }
+          50% {
+            background-position: 0 0;
+          }
+        }
+        @keyframes apHolo {
+          to {
+            background-position: 300% 300%;
           }
         }
         @keyframes apStick {
@@ -3264,7 +3513,10 @@ async function cutoutWhiteBackground(src: string): Promise<string> {
   const octx = out.getContext("2d");
   if (!octx) return canvas.toDataURL("image/png");
   octx.drawImage(canvas, cx, cy, cw, ch, 0, 0, cw, ch);
-  return out.toDataURL("image/png");
+  const url = out.toDataURL("image/png");
+  canvas.width = 0;
+  out.width = 0;
+  return url;
 }
 
 function ShirtMockup({
@@ -3320,6 +3572,82 @@ function ShirtMockup({
               />
             )}
           </>
+        ) : (
+          <span className="ap-spinner ap-mock__wait" aria-hidden="true" />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------- Sticker en laptop (tamaño real) ----------
+// Tapa de laptop de 13″ ≈ 30 × 21 cm: sirve de referencia para ver qué tan grande queda el sticker.
+const LID_CM = { w: 30, h: 21 };
+const STICKER_SIZES = [5, 7.5, 10];
+type StickerFinish = "brillante" | "mate" | "holo";
+const FINISHES: Record<StickerFinish, { label: string }> = {
+  brillante: { label: "Brillante" },
+  mate: { label: "Mate" },
+  holo: { label: "Holográfico" },
+};
+
+// Troquel: agrega el borde blanco que sigue la forma del diseño (como un sticker recortado de verdad).
+// El borde mide ~2.5 mm en la vida real, sin importar el tamaño del sticker.
+async function makeDieCut(src: string, sizeCm: number): Promise<string> {
+  if (typeof window === "undefined") return "";
+  const img = new Image();
+  img.src = src;
+  await img.decode();
+  const w = img.naturalWidth;
+  const h = img.naturalHeight;
+  const r = Math.max(3, Math.round(Math.max(w, h) * (0.25 / sizeCm)));
+  const pad = r + 3;
+  const sil = document.createElement("canvas");
+  sil.width = w;
+  sil.height = h;
+  const sctx = sil.getContext("2d");
+  if (!sctx) return "";
+  sctx.drawImage(img, 0, 0);
+  sctx.globalCompositeOperation = "source-in";
+  sctx.fillStyle = "#ffffff";
+  sctx.fillRect(0, 0, w, h);
+  const out = document.createElement("canvas");
+  out.width = w + pad * 2;
+  out.height = h + pad * 2;
+  const ctx = out.getContext("2d");
+  if (!ctx) return "";
+  for (const k of [1, 0.66, 0.33]) {
+    for (let a = 0; a < 360; a += 10) {
+      const rad = (a * Math.PI) / 180;
+      ctx.drawImage(sil, pad + Math.cos(rad) * r * k, pad + Math.sin(rad) * r * k);
+    }
+  }
+  ctx.drawImage(img, pad, pad);
+  const url = out.toDataURL("image/png");
+  // Libera memoria (importante en celulares).
+  sil.width = 0;
+  out.width = 0;
+  return url;
+}
+
+function StickerMockup({ dieCut, finish, sizeCm }: { dieCut: string; finish: StickerFinish; sizeCm: number }) {
+  return (
+    <div className="ap-lid">
+      <div
+        className="ap-lid__stk"
+        style={{ width: `${(sizeCm / LID_CM.w) * 100}%`, height: `${(sizeCm / LID_CM.h) * 100}%` }}
+      >
+        {dieCut ? (
+          <div className={`ap-lid__inner is-${finish}`} key={dieCut.length}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={dieCut} alt={`Vista del sticker ${FINISHES[finish].label.toLowerCase()} de ${sizeCm} cm`} />
+            {finish !== "mate" && (
+              <span
+                className={`ap-fin ap-fin--${finish}`}
+                style={{ WebkitMaskImage: `url(${dieCut})`, maskImage: `url(${dieCut})` }}
+              />
+            )}
+          </div>
         ) : (
           <span className="ap-spinner ap-mock__wait" aria-hidden="true" />
         )}
