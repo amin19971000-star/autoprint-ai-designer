@@ -2752,6 +2752,96 @@ Keep a pure solid white background, clean print-ready artwork, no mockup, no sce
   });
 }
 
+// «Intérprete»: el cliente escribe como habla (con faltas, desordenado). Esta función saca lo importante
+// (ocasión, para quién, tema, elementos, textos exactos, colores, estilo) y lo convierte en un pedido
+// claro para el ilustrador. Si falla, el estudio sigue con lo que escribió el cliente.
+type CustomerBrief = {
+  enriched: string;
+  summary: { label: string; value: string }[];
+};
+
+async function interpretCustomerRequest(
+  customerText: string,
+  mode: DesignMode
+): Promise<CustomerBrief | null> {
+  try {
+    const product = mode === "playera" ? "a T-shirt graphic" : "a die-cut sticker";
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      temperature: 0.3,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content: `
+You are the senior creative director of a Mexican print shop. A regular customer (not a designer) describes in casual Spanish, often with typos and in no particular order, what they want printed as ${product}.
+Your job: understand what the person really wants and turn it into a clear, rich creative brief for an illustrator.
+
+Extract:
+- occasion (birthday, business, team, gift, event, personal…) and who it is for (age, relationship, profession) when mentioned.
+- main subject and the supporting elements the customer asked for. Keep ALL of them; do not drop any.
+- exact texts that must appear (names, phrases, brand names, ages if they ask for them). Copy them EXACTLY as the customer wrote them, keeping their spelling even if unusual (for example a name like "Jozue" stays "Jozue"). Never invent text the customer did not ask for.
+- colors, style or mood if mentioned. If not mentioned, infer a fitting mood from the occasion and recipient (for example: a 5-year-old's birthday → cheerful, friendly, bright).
+
+Rules:
+- Fix obvious typos in common words ("Haloween" → Halloween), but never change names or the exact texts.
+- Keep any name of a character, brand or person exactly as the customer wrote it; do not add new ones.
+- Do not add elements that contradict the request. You may add small fitting details that support it (for example, for Halloween: pumpkins, bats).
+- If an age is mentioned for a birthday, the number may appear as a design element unless the customer says otherwise.
+
+Return ONLY valid JSON:
+{
+  "enriched_prompt": "One rich English paragraph (60–120 words) describing the design to create: occasion, recipient, main subject, every requested element, composition idea, mood, palette, and the exact texts written as: Text to render exactly: \\"...\\". If there is no text requested, say: No text.",
+  "summary": [
+    { "label": "Ocasión", "value": "..." },
+    { "label": "Tema", "value": "..." },
+    { "label": "Texto", "value": "..." },
+    { "label": "Colores", "value": "..." }
+  ]
+}
+For "summary": 2 to 4 short items in Spanish (Mexico), each value under 40 characters, only with information that is actually useful. Use labels from: Ocasión, Para, Tema, Elementos, Texto, Colores, Estilo. Omit items you do not know.
+          `.trim(),
+        },
+        { role: "user", content: customerText.slice(0, 600) },
+      ],
+    });
+
+    const raw = completion.choices?.[0]?.message?.content || "";
+    let parsed: any = null;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      const match = raw.match(/\{[\s\S]*\}/);
+      if (match) {
+        try {
+          parsed = JSON.parse(match[0]);
+        } catch {}
+      }
+    }
+
+    const enrichedPrompt = cleanInput(String(parsed?.enriched_prompt || ""));
+    if (!enrichedPrompt) return null;
+
+    const summary = Array.isArray(parsed?.summary)
+      ? parsed.summary
+          .map((item: any) => ({
+            label: cleanInput(String(item?.label || "")).slice(0, 20),
+            value: cleanInput(String(item?.value || "")).slice(0, 60),
+          }))
+          .filter((item: { label: string; value: string }) => item.label && item.value)
+          .slice(0, 4)
+      : [];
+
+    return {
+      // Se conserva lo que escribió el cliente al final, para no perder ningún detalle.
+      enriched: `${enrichedPrompt} Original customer request (Spanish): "${customerText.slice(0, 600)}"`,
+      summary,
+    };
+  } catch (error: any) {
+    console.warn(`No se pudo interpretar el pedido: ${error?.message || error}`);
+    return null;
+  }
+}
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -2759,7 +2849,7 @@ export async function POST(req: Request) {
     if (body?.action === "adjust") {
       return await handleAdjust(body);
     }
-    const rawPrompt = cleanInput(body?.prompt);
+    route-2_linea-rawPrompt.txt
     const mode: DesignMode =
       body?.mode === "playera" || body?.mode === "shirt" ? "playera" : "sticker";
     const chips = normalizeRequestedChips(body?.chips, mode);
@@ -2844,7 +2934,7 @@ export async function POST(req: Request) {
           controller.enqueue(encoder.encode(JSON.stringify(payload) + "\n"));
         };
 
-        send({ type: "start", total: prompts.length, labels: optionLabels });
+        send({ type: "start", total: prompts.length, route-1_linea-start.txt
 
         let okCount = 0;
         await Promise.all(
