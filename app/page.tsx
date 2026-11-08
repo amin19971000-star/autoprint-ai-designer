@@ -864,6 +864,12 @@ function HomePageInner() {
   const [loading, setLoading] = useState(false);
   // "thinking" = la IA arma las ideas · "drawing" = FLUX dibuja (las tarjetas se llenan una por una)
   const [genPhase, setGenPhase] = useState<"idle" | "thinking" | "drawing">("idle");
+  // «Ajustar esta»
+  const [adjustOpen, setAdjustOpen] = useState(false);
+  const [adjustPresets, setAdjustPresets] = useState<string[]>([]);
+  const [adjustNote, setAdjustNote] = useState("");
+  const [adjusting, setAdjusting] = useState(false);
+  const [adjustError, setAdjustError] = useState("");
   const [error, setError] = useState("");
 
   const isEmbedded = searchParams.get("embed") === "1";
@@ -1596,6 +1602,90 @@ function HomePageInner() {
     }
   }
 
+  const ADJUST_OPTIONS: { id: string; label: string }[] = [
+    { id: "simple", label: "Más simple" },
+    { id: "colorido", label: "Más colorido" },
+    { id: "colores", label: "Otros colores" },
+    { id: "sintexto", label: "Sin texto" },
+    { id: "textogrande", label: "Texto más grande" },
+    { id: "tierno", label: "Más tierno" },
+    { id: "elegante", label: "Más elegante" },
+  ];
+
+  function toggleAdjustPreset(id: string) {
+    setAdjustError("");
+    setAdjustPresets((current) => {
+      if (current.includes(id)) return current.filter((item) => item !== id);
+      if (current.length >= 3) return current;
+      return [...current, id];
+    });
+  }
+
+  async function handleAdjust() {
+    if (selectedIndex === null || adjusting) return;
+    const baseImage = images[selectedIndex];
+    if (!baseImage || baseImage === "__failed__") return;
+
+    if (!adjustPresets.length && !adjustNote.trim()) {
+      setAdjustError("Elige qué quieres cambiar o escríbelo.");
+      return;
+    }
+
+    try {
+      setAdjusting(true);
+      setAdjustError("");
+
+      const apiBase = isEmbedded
+        ? "https://autoprint-ai-designer.vercel.app/api/generate"
+        : "/api/generate";
+
+      const res = await fetch(apiBase, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "adjust",
+          image: baseImage,
+          presets: adjustPresets,
+          note: adjustNote.trim(),
+          mode,
+        }),
+      });
+
+      if (!res.ok) {
+        let message = "No pudimos crear el ajuste.";
+        if (res.status === 429) {
+          message =
+            "Ya hiciste varios cambios seguidos. Espera unos minutos y vuelve a intentarlo.";
+        } else {
+          try {
+            const data = await res.json();
+            if (data?.error) message = data.error;
+          } catch {}
+        }
+        throw new Error(message);
+      }
+
+      const data = await res.json();
+      if (!data?.image) throw new Error("No pudimos crear el ajuste.");
+
+      const newIndex = images.length;
+      setImages((current) => [...current, String(data.image)]);
+      setLabels((current) => [...current, String(data.label || "Ajuste")]);
+      setSelectedIndex(newIndex);
+      setAdjustOpen(false);
+      setAdjustPresets([]);
+      setAdjustNote("");
+
+      setTimeout(() => {
+        postEmbedHeight();
+      }, 80);
+    } catch (err: any) {
+      setAdjustError(err?.message || "No pudimos crear el ajuste.");
+    } finally {
+      setAdjusting(false);
+    }
+  }
+
   async function handleContinueWithDesign() {
     if (selectedIndex === null) return;
 
@@ -1732,6 +1822,33 @@ function HomePageInner() {
                     rows={4}
                     className="prompt-textarea"
                   />
+                  <div className="idea-examples">
+                    <span className="idea-examples__label">¿Sin ideas? Prueba con:</span>
+                    {(mode === "playera"
+                      ? [
+                          "Cumpleaños de Sofía, 6 años, con unicornios",
+                          "Equipo de fútbol Los Halcones con un halcón",
+                          "La frase «Primero el café» con una taza vintage",
+                        ]
+                      : [
+                          "Mi perro Max con lentes de sol y gorra",
+                          "Logo de Café Luna con una taza y una luna",
+                          "Gatito astronauta flotando con una estrella",
+                        ]
+                    ).map((example) => (
+                      <button
+                        key={example}
+                        type="button"
+                        className="idea-example"
+                        onClick={() => {
+                          setPrompt(example);
+                          if (error) setError("");
+                        }}
+                      >
+                        {example}
+                      </button>
+                    ))}
+                  </div>
                 </>
               ) : studioTab === "event" ? (
                 <>
@@ -2562,6 +2679,18 @@ function HomePageInner() {
                 <div className="studio-actionbar__actions">
                   <button
                     type="button"
+                    className={`studio-secondary-btn ${adjustOpen ? "is-on" : ""}`}
+                    disabled={selectedIndex === null || adjusting || loading}
+                    onClick={() => {
+                      setAdjustError("");
+                      setAdjustOpen((open) => !open);
+                    }}
+                  >
+                    Ajustar esta
+                  </button>
+
+                  <button
+                    type="button"
                     className="studio-secondary-btn"
                     disabled={selectedIndex === null}
                     onClick={() => {
@@ -2581,6 +2710,67 @@ function HomePageInner() {
                   </button>
                 </div>
               </div>
+
+              {adjustOpen && selectedIndex !== null ? (
+                <div className="adjust-panel">
+                  <div className="adjust-panel__head">
+                    <strong>¿Qué le cambiamos a esta propuesta?</strong>
+                    <span>Elige hasta 3 opciones o escríbelo. Se crea 1 versión nueva y la original se queda.</span>
+                  </div>
+
+                  <div className="adjust-panel__chips">
+                    {ADJUST_OPTIONS.map((option) => {
+                      const on = adjustPresets.includes(option.id);
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          className={`adjust-chip ${on ? "is-on" : ""}`}
+                          aria-pressed={on}
+                          disabled={adjusting}
+                          onClick={() => toggleAdjustPreset(option.id)}
+                        >
+                          {option.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <input
+                    type="text"
+                    className="adjust-panel__input"
+                    value={adjustNote}
+                    maxLength={300}
+                    disabled={adjusting}
+                    placeholder="O escribe qué cambiar, ej.: que el tigre sonría y quita las estrellas"
+                    onChange={(e) => {
+                      setAdjustNote(e.target.value);
+                      if (adjustError) setAdjustError("");
+                    }}
+                  />
+
+                  {adjustError ? <div className="error-box">{adjustError}</div> : null}
+
+                  <div className="adjust-panel__foot">
+                    <button
+                      type="button"
+                      className="studio-secondary-btn"
+                      disabled={adjusting}
+                      onClick={() => setAdjustOpen(false)}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      className="studio-primary-btn"
+                      disabled={adjusting}
+                      onClick={handleAdjust}
+                    >
+                      {adjusting ? "Creando ajuste…" : "Crear versión ajustada"}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </section>
           ) : null}
         </div>
@@ -3788,6 +3978,96 @@ function HomePageInner() {
           object-fit: contain;
           display: block;
           padding: 12px;
+        }
+
+        .adjust-panel {
+          margin-top: 14px;
+          padding: 16px;
+          border-radius: 18px;
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          display: grid;
+          gap: 12px;
+        }
+        .adjust-panel__head {
+          display: grid;
+          gap: 4px;
+          color: #f8fafc;
+          font-size: 15px;
+        }
+        .adjust-panel__head span {
+          font-size: 13px;
+          color: rgba(226, 232, 240, 0.72);
+        }
+        .adjust-panel__chips {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+        .adjust-chip,
+        .idea-example {
+          appearance: none;
+          font: inherit;
+          cursor: pointer;
+          min-height: 38px;
+          padding: 0 14px;
+          border-radius: 999px;
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          background: rgba(255, 255, 255, 0.05);
+          color: #e2e8f0;
+          font-size: 13px;
+          font-weight: 700;
+          transition: border-color 0.15s ease, background-color 0.15s ease;
+        }
+        .adjust-chip:hover,
+        .idea-example:hover {
+          border-color: rgba(255, 255, 255, 0.28);
+        }
+        .adjust-chip.is-on {
+          border-color: #38bdf8;
+          background: rgba(56, 189, 248, 0.16);
+          color: #ffffff;
+        }
+        .adjust-chip:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        .adjust-panel__input {
+          width: 100%;
+          min-height: 46px;
+          padding: 0 14px;
+          border-radius: 14px;
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          background: rgba(15, 23, 42, 0.6);
+          color: #f8fafc;
+          font: inherit;
+          font-size: 14px;
+        }
+        .adjust-panel__foot {
+          display: flex;
+          justify-content: flex-end;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+        .studio-secondary-btn.is-on {
+          border-color: #38bdf8;
+        }
+        .idea-examples {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 8px;
+          margin-top: 10px;
+        }
+        .idea-examples__label {
+          font-size: 12px;
+          font-weight: 700;
+          color: rgba(226, 232, 240, 0.7);
+        }
+        .idea-example {
+          min-height: 32px;
+          font-size: 12px;
+          text-align: left;
         }
 
         .design-card--pending {
