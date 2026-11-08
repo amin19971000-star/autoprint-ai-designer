@@ -2302,10 +2302,11 @@ Design blueprint to obey:
 Mode requirements:
 ${getModeSystemRules(mode)}
 
-Variation logic:
-- Option A = most commercially attractive, clearest, safest, most instantly lovable version within the chosen family.
-- Option B = more energetic, more expressive, more dramatic or visually powerful, still highly wearable.
-- Option C = more design-driven, more iconic, more badge/poster/emblem oriented, with stronger graphic identity.
+Variation logic (THREE DIFFERENT ART ROUTES, not three versions of the same image):
+- Option A = ILUSTRADO: illustration-led. The subject/character is the hero, drawn with personality and expression. Any requested text is secondary and small.
+- Option B = TIPOGRÁFICO: lettering-led. The requested name/phrase/number is the hero, with expressive custom lettering; the subject becomes a small integrated accent. If NO text was requested, Option B becomes ICÓNICO instead: a bold, flat, simplified iconic version of the subject (2 to 4 flat colors, thick clean outline, no text).
+- Option C = INSIGNIA: badge/emblem/seal composition (circle, shield or crest) that contains the subject and the text in an organized, logo-like layout.
+- The three options MUST differ in composition, rendering style and color treatment. Never repeat the same layout with small changes.
 
 SPECIAL PERSONALIZATION RULES:
 - If exact short text is requested, keep it short, bold, readable, and intentionally integrated.
@@ -2330,13 +2331,16 @@ ${
     ? `
 STICKER OUTPUT RESTRICTIONS:
 - Do not invent extra decorative elements unless they are necessary for silhouette, readability, or the core visual joke.
-- Do not add stars, badges, emblems, rings, halos, frames, or background symbols unless the blueprint clearly requires them.
+- Do not add stars, badges, emblems, rings, halos, frames, or background symbols unless the blueprint clearly requires them. EXCEPTION: Option C (INSIGNIA) must be a clean, compact badge/emblem shape.
 - Do not place subtle elements in the background behind the subject.
 - Keep the final sticker prompt focused on the main subject and the primary attached accessory or accent only.
 - Minimize ornamental extras.
 `
     : ``
 }
+LABEL RULES (very important, the customer reads these):
+- Every label MUST be in Spanish (Mexico), never in English.
+- Format: "<Ruta> · <concepto>" where <Ruta> is exactly "Ilustrado", "Tipográfico", "Icónico" or "Insignia", and <concepto> is 2 to 4 simple Spanish words that describe that specific design (for example: "Ilustrado · Montaña festiva", "Tipográfico · Ian en grande", "Insignia · Escudo de cumpleaños").
 Return exactly:
 {
   "option_a_label": "...",
@@ -2401,7 +2405,7 @@ Structured business data:
   const support = blueprint.support_elements.join(", ");
 
   return {
-    option_a_label: `${family} A`,
+    option_a_label: "Ilustrado",
     option_a_prompt: `
 ${blueprint.translated_intent},
 ${mode === "playera" ? "premium t-shirt graphic design" : "premium sticker design"},
@@ -2434,7 +2438,7 @@ ${mode === "sticker" ? "no scenery," : "artwork only, no garment,"}
 no mockup
     `.trim(),
 
-    option_b_label: `${family} B`,
+    option_b_label: "Icónico",
     option_b_prompt: `
 ${blueprint.translated_intent},
 ${mode === "playera" ? "premium t-shirt graphic design" : "premium sticker design"},
@@ -2468,7 +2472,7 @@ ${mode === "sticker" ? "no scenery," : "artwork only, no garment,"}
 no mockup
     `.trim(),
 
-    option_c_label: `${family} C`,
+    option_c_label: "Insignia",
     option_c_prompt: `
 ${blueprint.translated_intent},
 ${mode === "playera" ? "premium t-shirt graphic design" : "premium sticker design"},
@@ -2684,56 +2688,60 @@ export async function POST(req: Request) {
       console.log("C:", compiled.option_c_label, compiled.option_c_prompt);
     }
 
-    const [imageA, imageB, imageC] = await Promise.all([
-      generateOneImage(compiled.option_a_prompt),
-      generateOneImage(compiled.option_b_prompt),
-      generateOneImage(compiled.option_c_prompt),
-    ]);
+        const prompts = [
+      compiled.option_a_prompt,
+      compiled.option_b_prompt,
+      compiled.option_c_prompt,
+    ];
+    const optionLabels = [
+      compiled.option_a_label,
+      compiled.option_b_label,
+      compiled.option_c_label,
+    ];
 
-    const finalImages: string[] = [];
-    const finalLabels: string[] = [];
+    // Respuesta por partes (NDJSON): cada imagen se manda en cuanto FLUX la termina,
+    // así el cliente ve la primera sin esperar a las tres.
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        const send = (payload: Record<string, unknown>) => {
+          controller.enqueue(encoder.encode(JSON.stringify(payload) + "\n"));
+        };
 
-    if (imageA) {
-      finalImages.push(imageA);
-      finalLabels.push(compiled.option_a_label);
-    }
-    if (imageB) {
-      finalImages.push(imageB);
-      finalLabels.push(compiled.option_b_label);
-    }
-    if (imageC) {
-      finalImages.push(imageC);
-      finalLabels.push(compiled.option_c_label);
-    }
+        send({ type: "start", total: prompts.length, labels: optionLabels });
 
-    if (!finalImages.length) {
-      return NextResponse.json(
-        {
-          error:
-            "El filtro de seguridad bloqueó la idea por completo. Intenta describirla de otra forma.",
-        },
-        { status: 400 }
-      );
-    }
+        let okCount = 0;
+        await Promise.all(
+          prompts.map(async (optionPrompt, index) => {
+            const image = await generateOneImage(optionPrompt);
+            if (image) {
+              okCount += 1;
+              send({ type: "image", index, image, label: optionLabels[index] });
+            } else {
+              send({ type: "failed", index });
+            }
+          })
+        );
 
-    const debugPayload = DEBUG_PROMPTS
-      ? {
-          studioTab,
-          eventData,
-          businessData,
-          chips,
-          prompts: [
-            compiled.option_a_prompt,
-            compiled.option_b_prompt,
-            compiled.option_c_prompt,
-          ],
+        if (!okCount) {
+          send({
+            type: "error",
+            error:
+              "El filtro de seguridad bloqueó la idea por completo. Intenta describirla de otra forma.",
+          });
         }
-      : {};
 
-    return NextResponse.json({
-      images: finalImages,
-      labels: finalLabels,
-      ...debugPayload,
+        send({ type: "done", ok: okCount });
+        controller.close();
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "application/x-ndjson; charset=utf-8",
+        "Cache-Control": "no-store",
+        "X-Accel-Buffering": "no",
+      },
     });
   } catch (error: any) {
     const rawMessage = String(error?.message || "");
