@@ -2766,9 +2766,13 @@ async function interpretCustomerRequest(
 ): Promise<CustomerBrief | null> {
   try {
     const product = mode === "playera" ? "a T-shirt graphic" : "a die-cut sticker";
+    const productCraft =
+      mode === "playera"
+        ? "Premium graphic-tee illustration: strong chest-piece composition, confident shapes, readable from 2 meters, print-friendly flat colors with controlled shading."
+        : "Premium die-cut sticker illustration like the best-selling stickers of top sticker brands: ONE strong, compact silhouette, bold clean vector shapes, confident consistent outlines, a cohesive palette of 3 to 5 colors, subtle cel shading and small highlights, readable at 5 cm. Nothing floating or detached around it: any text sits on a banner, base or shape that is attached to the main subject.";
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      temperature: 0.3,
+      model: "gpt-4.1",
+      temperature: 0.6,
       response_format: { type: "json_object" },
       messages: [
         {
@@ -2780,26 +2784,38 @@ Your job: understand what the person really wants and turn it into a clear, rich
 Extract:
 - occasion (birthday, business, team, gift, event, personal…) and who it is for (age, relationship, profession) when mentioned.
 - main subject and the supporting elements the customer asked for. Keep ALL of them; do not drop any.
-- exact texts that must appear (names, phrases, brand names, ages if they ask for them). Copy them EXACTLY as the customer wrote them, keeping their spelling even if unusual (for example a name like "Jozue" stays "Jozue"). Never invent text the customer did not ask for.
+- exact texts that must appear (names, phrases, brand names, ages). Keep names and brand names EXACTLY as the customer wrote them, even if unusual (for example "Jozue" stays "Jozue"); inside a requested phrase you may only fix obvious typos in common words. Never invent text the customer did not ask for.
 - colors, style or mood if mentioned. If not mentioned, infer a fitting mood from the occasion and recipient (for example: a 5-year-old's birthday → cheerful, friendly, bright).
 
-Rules:
+Creative direction (this is what makes the result great instead of generic clip-art):
+- Find ONE clever concept that merges the customer's world (their business, hobby, the person's tastes) with the occasion. Example of the thinking: a print shop that wants Christmas stickers → a cheerful printer character wearing a Santa hat with ink drops as ornaments, instead of a generic Christmas tree. Never fall back to the most obvious stock image.
+- Give the design personality: expression, attitude, a small story or wit.
+- Craft: ${productCraft}
+- Avoid: generic clip-art, stock-photo realism, cheap gradients, clutter, tiny details, random sparkles, extra frames.
+
+Text rules (very important, image generators misspell long text):
+- Only include text the customer explicitly asked for (names, phrases, brand names). Never invent slogans or greetings such as "Feliz Cumpleaños" unless the customer asked for them.
+- For birthdays you may use the name and the age number only if the customer mentioned them. Keep the total text short (ideally 1 to 4 words).
+- The text must be large, fully visible and perfectly spelled. No character, object or decoration may cover or cut any letter.
+
+Other rules:
 - Fix obvious typos in common words ("Haloween" → Halloween), but never change names or the exact texts.
 - Keep any name of a character, brand or person exactly as the customer wrote it; do not add new ones.
-- Do not add elements that contradict the request. You may add small fitting details that support it (for example, for Halloween: pumpkins, bats).
-- If an age is mentioned for a birthday, the number may appear as a design element unless the customer says otherwise.
+- Do not add elements that contradict the request.
 
 Return ONLY valid JSON:
 {
-  "enriched_prompt": "One rich English paragraph (60–120 words) describing the design to create: occasion, recipient, main subject, every requested element, composition idea, mood, palette, and the exact texts written as: Text to render exactly: \\"...\\". If there is no text requested, say: No text.",
+  "enriched_prompt": "One rich English paragraph (80–140 words) describing the design to create: the creative concept, occasion, recipient, main subject, every requested element, composition, mood, palette and craft, and the exact texts written as: Text to render exactly: \\"...\\" (fully visible, nothing covering the letters). If there is no text requested, say: No text.",
   "summary": [
+    { "label": "Idea", "value": "..." },
     { "label": "Ocasión", "value": "..." },
     { "label": "Tema", "value": "..." },
     { "label": "Texto", "value": "..." },
     { "label": "Colores", "value": "..." }
   ]
 }
-For "summary": 2 to 4 short items in Spanish (Mexico), each value under 40 characters, only with information that is actually useful. Use labels from: Ocasión, Para, Tema, Elementos, Texto, Colores, Estilo. Omit items you do not know.
+Never output placeholder or guessed values; if you do not know something, leave it out.
+For "summary": 3 to 5 short items in Spanish (Mexico), each value under 45 characters. The FIRST item is always "Idea": the creative concept in a few words (for example "Impresora navideña con gorro de Santa"). Then use labels from: Ocasión, Para, Tema, Texto, Colores, Estilo. Omit items you do not know.
           `.trim(),
         },
         { role: "user", content: customerText.slice(0, 600) },
@@ -2829,12 +2845,11 @@ For "summary": 2 to 4 short items in Spanish (Mexico), each value under 40 chara
             value: cleanInput(String(item?.value || "")).slice(0, 60),
           }))
           .filter((item: { label: string; value: string }) => item.label && item.value)
-          .slice(0, 4)
+          .slice(0, 5)
       : [];
 
     return {
-      // Se conserva lo que escribió el cliente al final, para no perder ningún detalle.
-      enriched: `${enrichedPrompt} Original customer request (Spanish): "${customerText.slice(0, 600)}"`,
+      enriched: enrichedPrompt,
       summary,
     };
   } catch (error: any) {
@@ -2842,6 +2857,8 @@ For "summary": 2 to 4 short items in Spanish (Mexico), each value under 40 chara
     return null;
   }
 }
+
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
