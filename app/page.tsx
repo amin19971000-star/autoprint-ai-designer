@@ -6,7 +6,7 @@
   - Arranques que el cliente completa (no ejemplos inventados).
   - Asistente: si la idea menciona una frase o nombre, ofrece pasarlo a «Texto exacto».
   - Resultados: vista grande + miniaturas; la primera propuesta lista queda elegida sola.
-  - Mismo backend: /api/generate (stream NDJSON), action "adjust", /api/save-selected-design.
+  - Mismo backend: /api/generate (stream NDJSON), action "adjust", /api/save-selected-design. jeje
 */
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
