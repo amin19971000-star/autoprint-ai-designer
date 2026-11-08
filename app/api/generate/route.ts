@@ -2849,7 +2849,16 @@ export async function POST(req: Request) {
     if (body?.action === "adjust") {
       return await handleAdjust(body);
     }
-    route-2_linea-rawPrompt.txt
+    const customerText = cleanInput(body?.prompt);
+    // La IA lee lo que escribió el cliente y arma un pedido claro para el ilustrador.
+    const brief =
+      normalizeStudioTab(body?.studioTab) === "free" && customerText
+        ? await interpretCustomerRequest(
+            customerText,
+            body?.mode === "playera" || body?.mode === "shirt" ? "playera" : "sticker"
+          )
+        : null;
+    const rawPrompt = brief?.enriched || customerText;
     const mode: DesignMode =
       body?.mode === "playera" || body?.mode === "shirt" ? "playera" : "sticker";
     const chips = normalizeRequestedChips(body?.chips, mode);
@@ -2934,7 +2943,7 @@ export async function POST(req: Request) {
           controller.enqueue(encoder.encode(JSON.stringify(payload) + "\n"));
         };
 
-        send({ type: "start", total: prompts.length, route-1_linea-start.txt
+        send({ type: "start", total: prompts.length, send({ type: "start", total: prompts.length, labels: optionLabels, brief: brief?.summary || [] });
 
         let okCount = 0;
         await Promise.all(
