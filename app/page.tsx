@@ -1,1522 +1,341 @@
 "use client";
 
+/*
+  AutoPrint · Estudio IA — v3 («un solo cuadro», estilo Precisión claro)
+  - Un solo cuadro para la idea + 3 detalles opcionales (Texto exacto, Colores, Estilo).
+  - Arranques que el cliente completa (no ejemplos inventados).
+  - Asistente: si la idea menciona una frase o nombre, ofrece pasarlo a «Texto exacto».
+  - Resultados: vista grande + miniaturas; la primera propuesta lista queda elegida sola.
+  - Mismo backend: /api/generate (stream NDJSON), action "adjust", /api/save-selected-design.
+*/
+
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
+import { DM_Sans } from "next/font/google";
+
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+});
 
 type DesignMode = "sticker" | "playera";
-type StudioTab = "free" | "event" | "business";
+type DetailPanel = "" | "texto" | "colores" | "estilo";
 
-type BusinessProjectType =
-  | ""
-  | "Identidad de marca"
-  | "Etiqueta de producto"
-  | "Sticker promocional";
+const MAX_COLORS = 2;
+const MAX_TEXT = 40;
+const FAILED = "__failed__";
 
-type BusinessSector =
-  | ""
-  | "Cafetería"
-  | "Taller / maquinados"
-  | "Moda / ropa"
-  | "Belleza / cosmética"
-  | "Alimentos y bebidas"
-  | "Servicios"
-  | "Tecnología"
-  | "Artesanal"
-  | "Otro";
-
-type BusinessProjectProfile = {
-  key: "brand_identity" | "product_label" | "promo_sticker";
-  title: string;
-  note: string;
-  showProductName: boolean;
-  nameLabel: string;
-  namePlaceholder: string;
-  productLabel: string;
-  productPlaceholder: string;
-  messageLabel: string;
-  messagePlaceholder: string;
-  symbolLabel: string;
-  symbolPlaceholder: string;
-  detailsPlaceholder: string;
-  summaryHint: string;
+const STARTERS: Record<DesignMode, { label: string; opener: string }[]> = {
+  sticker: [
+    { label: "Para mi negocio", opener: "Sticker para mi negocio de " },
+    { label: "Para un cumpleaños", opener: "Sticker de cumpleaños para " },
+    { label: "De mi mascota", opener: "Caricatura de mi mascota, " },
+    { label: "Para regalar", opener: "Sticker para regalarle a " },
+  ],
+  playera: [
+    { label: "Para mi negocio", opener: "Playera para mi negocio de " },
+    { label: "Para un evento", opener: "Playera para el evento de " },
+    { label: "Para mi equipo", opener: "Playera para mi equipo de " },
+    { label: "Para un cumpleaños", opener: "Playera de cumpleaños para " },
+  ],
 };
 
-type BusinessSectorProfile = {
-  title: string;
-  note: string;
-  toneHint: string;
-  visualTraits: string[];
-  avoid: string[];
-};
+const COLOR_OPTIONS: { id: string; label: string; swatch: string }[] = [
+  { id: "rojo", label: "Rojo", swatch: "#E5484D" },
+  { id: "azul", label: "Azul", swatch: "#2F6FED" },
+  { id: "rosa", label: "Rosa", swatch: "#F27BB0" },
+  { id: "morado", label: "Morado", swatch: "#8E4EC6" },
+  { id: "verde", label: "Verde", swatch: "#2E9E5B" },
+  { id: "amarillo", label: "Amarillo", swatch: "#F5C518" },
+  { id: "negro", label: "Negro", swatch: "#14171F" },
+  { id: "dorado", label: "Dorado", swatch: "linear-gradient(135deg,#F6E3A1,#C9A227 55%,#8C6A12)" },
+  { id: "pastel", label: "Pastel", swatch: "linear-gradient(135deg,#FBD3E9,#C9E4FF 50%,#D9F5DD)" },
+  { id: "multicolor", label: "Multicolor", swatch: "conic-gradient(#E5484D,#F5C518,#2E9E5B,#2F6FED,#8E4EC6,#E5484D)" },
+];
 
-type ChipId =
-  | "circular"
-  | "iconico"
-  | "compacto"
-  | "vintage"
-  | "street"
-  | "premium"
-  | "colores_vivos"
-  | "alto_contraste"
-  | "minimal"
-  | "divertido"
-  | "feroz"
-  | "elegante"
-  | "composicion_frontal"
-  | "impacto_visual"
-  | "estilo_pecho"
-  | "streetwear"
-  | "tonos_oscuros";
-
-type ChipDef = {
-  id: ChipId;
-  label: string;
-  helper: string;
-};
-
-type ChipGroup = {
+// Cada estilo se traduce a las opciones que el servidor ya entiende (chips).
+const STYLE_OPTIONS: {
   id: string;
-  title: string;
-  subtitle: string;
-  chips: ChipDef[];
-};
-
-type ColorOptionId =
-  | "rojo"
-  | "azul"
-  | "rosa"
-  | "morado"
-  | "verde"
-  | "negro"
-  | "dorado"
-  | "plateado"
-  | "pastel"
-  | "multicolor";
-
-type ColorOption = {
-  id: ColorOptionId;
   label: string;
-};
-
-type EventType =
-  | ""
-  | "Cumpleaños"
-  | "Fiesta temática"
-  | "Baby shower"
-  | "Bautizo"
-  | "Primera comunión"
-  | "Otro";
-
-type RecipientType =
-  | ""
-  | "Niño"
-  | "Niña"
-  | "Sorpresa / neutro";
-
-type EventProfile = {
-  key:
-    | "birthday"
-    | "theme_party"
-    | "baby_shower"
-    | "baptism"
-    | "first_communion"
-    | "generic";
-  title: string;
-  note: string;
-  showNumber: boolean;
-  showTheme: boolean;
-  showRecipientType: boolean;
-  recipientLabel: string;
-  recipientOptions: RecipientType[];
-  themeLabel: string;
-  themePlaceholder: string;
-  phrasePlaceholder: string;
-  detailsPlaceholder: string;
-  summaryHint: string;
-};
-
-const MAX_ACTIVE_CHIPS = 3;
-const MAX_EVENT_COLORS = 2;
-
-const COLOR_OPTIONS: ColorOption[] = [
-  { id: "rojo", label: "Rojo" },
-  { id: "azul", label: "Azul" },
-  { id: "rosa", label: "Rosa" },
-  { id: "morado", label: "Morado" },
-  { id: "verde", label: "Verde" },
-  { id: "negro", label: "Negro" },
-  { id: "dorado", label: "Dorado" },
-  { id: "plateado", label: "Plateado" },
-  { id: "pastel", label: "Pastel" },
-  { id: "multicolor", label: "Multicolor" },
+  hint: string;
+  sticker: string[];
+  playera: string[];
+}[] = [
+  { id: "auto", label: "Automático", hint: "La IA elige", sticker: [], playera: [] },
+  { id: "divertido", label: "Divertido", hint: "Alegre y colorido", sticker: ["divertido", "colores_vivos"], playera: ["divertido", "impacto_visual"] },
+  { id: "elegante", label: "Elegante", hint: "Fino y limpio", sticker: ["elegante", "premium"], playera: ["elegante", "premium"] },
+  { id: "retro", label: "Retro", hint: "Estilo clásico", sticker: ["vintage"], playera: ["vintage"] },
+  { id: "minimal", label: "Minimalista", hint: "Pocos elementos", sticker: ["minimal", "iconico"], playera: ["minimal", "estilo_pecho"] },
+  { id: "urbano", label: "Urbano", hint: "Atrevido, callejero", sticker: ["street", "alto_contraste"], playera: ["streetwear", "alto_contraste"] },
+  { id: "rudo", label: "Rudo", hint: "Fuerte e intenso", sticker: ["feroz", "alto_contraste"], playera: ["feroz", "tonos_oscuros"] },
 ];
 
-const EVENT_OPTIONS: EventType[] = [
-  "",
-  "Cumpleaños",
-  "Fiesta temática",
-  "Baby shower",
-  "Bautizo",
-  "Primera comunión",
-  "Otro",
+const ADJUST_OPTIONS: { id: string; label: string }[] = [
+  { id: "simple", label: "Más simple" },
+  { id: "colorido", label: "Más colorido" },
+  { id: "colores", label: "Otros colores" },
+  { id: "sintexto", label: "Sin texto" },
+  { id: "textogrande", label: "Texto más grande" },
+  { id: "tierno", label: "Más tierno" },
+  { id: "elegante", label: "Más elegante" },
 ];
 
-const BUSINESS_PROJECT_OPTIONS: BusinessProjectType[] = [
-  "",
-  "Identidad de marca",
-  "Etiqueta de producto",
-  "Sticker promocional",
-];
-
-const BUSINESS_SECTOR_OPTIONS: BusinessSector[] = [
-  "",
-  "Cafetería",
-  "Taller / maquinados",
-  "Moda / ropa",
-  "Belleza / cosmética",
-  "Alimentos y bebidas",
-  "Servicios",
-  "Tecnología",
-  "Artesanal",
-  "Otro",
-];
-
-const STICKER_CHIP_GROUPS: ChipGroup[] = [
-  {
-    id: "shape",
-    title: "Forma del diseño",
-    subtitle: "Esto ayuda a definir cómo se acomoda y cómo se leerá tu sticker.",
-    chips: [
-      {
-        id: "circular",
-        label: "Circular",
-        helper: "Fuerza una composición redonda tipo badge.",
-      },
-      {
-        id: "iconico",
-        label: "Icónico",
-        helper: "Busca una silueta más memorable y reconocible.",
-      },
-      {
-        id: "compacto",
-        label: "Compacto",
-        helper: "Aprieta la composición para que se sienta más sticker.",
-      },
-      {
-        id: "alto_contraste",
-        label: "Alto contraste",
-        helper: "Mejora legibilidad y punch visual.",
-      },
-      {
-        id: "minimal",
-        label: "Minimal",
-        helper: "Reduce ruido y elementos innecesarios.",
-      },
-    ],
-  },
-  {
-    id: "style",
-    title: "Estilo y personalidad",
-    subtitle: "Esto define el look, la energía y el acabado visual.",
-    chips: [
-      {
-        id: "vintage",
-        label: "Vintage",
-        helper: "Le da una dirección retro más trabajada.",
-      },
-      {
-        id: "street",
-        label: "Street",
-        helper: "Empuja una energía más urbana y gráfica.",
-      },
-      {
-        id: "premium",
-        label: "Premium",
-        helper: "Sube el acabado visual y la sensación premium.",
-      },
-      {
-        id: "colores_vivos",
-        label: "Colores vivos",
-        helper: "Empuja una paleta más saturada y comercial.",
-      },
-      {
-        id: "divertido",
-        label: "Divertido",
-        helper: "Hace la propuesta más juguetona o carismática.",
-      },
-      {
-        id: "feroz",
-        label: "Feroz",
-        helper: "Le mete más agresividad y fuerza.",
-      },
-      {
-        id: "elegante",
-        label: "Elegante",
-        helper: "Refina formas, postura y lenguaje visual.",
-      },
-    ],
-  },
-];
-
-const PLAYERA_CHIP_GROUPS: ChipGroup[] = [
-  {
-    id: "layout",
-    title: "Acomodo en la playera",
-    subtitle:
-      "Esto ayuda a definir cómo lucirá mejor el diseño sobre la prenda.",
-    chips: [
-      {
-        id: "composicion_frontal",
-        label: "Composición frontal",
-        helper: "Piensa el arte como gráfico frontal usable en playera.",
-      },
-      {
-        id: "impacto_visual",
-        label: "Impacto visual",
-        helper: "Empuja una propuesta más fuerte y llamativa.",
-      },
-      {
-        id: "estilo_pecho",
-        label: "Estilo pecho",
-        helper: "Composición más compacta para colocación tipo pecho.",
-      },
-      {
-        id: "alto_contraste",
-        label: "Alto contraste",
-        helper: "Aumenta punch y lectura sobre prenda.",
-      },
-      {
-        id: "minimal",
-        label: "Minimal",
-        helper: "Reduce ruido y carga visual.",
-      },
-    ],
-  },
-  {
-    id: "style",
-    title: "Estilo y personalidad",
-    subtitle: "Esto define el look, el ambiente y la presencia del diseño.",
-    chips: [
-      {
-        id: "streetwear",
-        label: "Streetwear",
-        helper: "Dirección más moda urbana / graphic tee.",
-      },
-      {
-        id: "vintage",
-        label: "Vintage",
-        helper: "Retro trabajado con lógica de prenda.",
-      },
-      {
-        id: "premium",
-        label: "Premium",
-        helper: "Empuja una lectura más refinada y vendible.",
-      },
-      {
-        id: "tonos_oscuros",
-        label: "Tonos oscuros",
-        helper: "Paleta más profunda y con más peso visual.",
-      },
-      {
-        id: "divertido",
-        label: "Divertido",
-        helper: "Hace la dirección más amigable o juguetona.",
-      },
-      {
-        id: "feroz",
-        label: "Feroz",
-        helper: "Le mete más intensidad y presencia al arte.",
-      },
-      {
-        id: "elegante",
-        label: "Elegante",
-        helper: "Más refinado y sofisticado.",
-      },
-    ],
-  },
-];
-
-const MODE_COPY = {
+const COPY: Record<DesignMode, { title: string; sub: string; placeholder: string; noun: string }> = {
   sticker: {
-    freeTitle: "Dirige tu sticker como si estuvieras en un estudio",
-    freeSubhelp:
-      "Escribe tu idea y te mostraremos 3 propuestas con más intención, más estilo y mejor presencia visual para sticker.",
-    eventTitle: "Diseña un sticker para cumpleaños y eventos",
-    eventSubhelp:
-      "Cuando tu diseño lleva nombre, tema, tipo de evento o detalles importantes, este modo nos ayuda a respetarlos mucho mejor.",
-    businessTitle: "Diseña un sticker para tu negocio o marca",
-    businessSubhelp:
-      "Cuando tu idea es para marca, empaque o promoción, este modo nos ayuda a darle una dirección mucho más profesional y útil.",
-    freePlaceholder:
-      "Ejemplo: tigre feroz con corona, nombre Leo y un estilo premium muy icónico",
-    promptLabel: "Describe tu diseño",
-    promptNote:
-      "Cuéntanos el personaje, nombre, colores, frase o detalles que te gustaría ver en tu sticker.",
-    eventSectionTitle: "Cuéntanos los detalles importantes",
-    eventSectionNote:
-      "Primero elige el tipo de evento. Después el estudio te mostrará los campos más útiles para construir una propuesta mucho mejor.",
-    businessSectionTitle: "Cuéntanos qué necesita tu negocio",
-    businessSectionNote:
-      "Primero elige qué quieres crear. Después selecciona a qué se dedica tu negocio para que el estudio tome una dirección visual mucho más precisa.",
-    chipsTitle: "Dale dirección a tu diseño",
-    chipsSub:
-      "Elige hasta 3 opciones para marcar el estilo y la personalidad que quieres ver en tus propuestas.",
-    primaryCta: "Explorar propuestas",
-    primarySub: "3 propuestas listas para sticker",
-    businessPrimarySub: "3 propuestas con enfoque comercial",
-    loadingTitle: "Estamos creando tus 3 propuestas",
-    loadingSub:
-      "Interpretando tu idea y refinándola para que se vea más fuerte, más clara y mejor pensada como sticker.",
-    businessLoadingSub:
-      "Interpretando tu negocio, su sector y el tipo de pieza para construir propuestas más útiles, más claras y más vendibles.",
-    resultsKicker: "Propuestas del estudio",
-    resultsTitle: "Elige la propuesta que más te guste",
-    resultsSub:
-      "Revisa tus 3 opciones y selecciona la que mejor represente tu idea.",
-    directionPanelTitle: "Dirección elegida",
-    directionPanelSub:
-      "Tomaremos tu idea y la refinaremos con estas indicaciones visuales.",
-    priorityPanelTitle: "El estudio dará prioridad a esto",
-    priorityPanelSub:
-      "Estos datos tendrán más peso al momento de construir tus propuestas.",
-    selectionReady: "Lista para usarse en tu sticker.",
-    finalCta: "Usar este diseño en mi sticker",
-    previewSelect: "Seleccionar este diseño para sticker",
+    title: "Crea tu sticker con IA",
+    sub: "Escribe tu idea con tus palabras. Te mostramos 3 propuestas y eliges la que más te guste.",
+    placeholder: "Describe qué quieres ver: personaje, objeto o idea, y para qué es.",
+    noun: "sticker",
   },
   playera: {
-    freeTitle: "Dirige tu playera como si estuvieras en un estudio",
-    freeSubhelp:
-      "Escribe tu idea y te mostraremos 3 propuestas con más intención, más estilo y mejor presencia visual para playera.",
-    eventTitle: "Diseña una playera para cumpleaños y eventos",
-    eventSubhelp:
-      "Cuando tu diseño lleva nombre, tema, tipo de evento o detalles importantes, este modo nos ayuda a respetarlos mucho mejor.",
-    businessTitle: "Diseña una playera para tu negocio o marca",
-    businessSubhelp:
-      "Cuando tu idea es para marca, staff, merch o promoción, este modo nos ayuda a darle una dirección mucho más profesional y usable.",
-    freePlaceholder:
-      "Ejemplo: samurái vintage para playera con un estilo premium y mucha presencia",
-    promptLabel: "Describe tu diseño",
-    promptNote:
-      "Cuéntanos el personaje, nombre, colores, frase o detalles que te gustaría ver en tu playera.",
-    eventSectionTitle: "Cuéntanos los detalles importantes",
-    eventSectionNote:
-      "Primero elige el tipo de evento. Después el estudio te mostrará los campos más útiles para construir una propuesta mucho mejor.",
-    businessSectionTitle: "Cuéntanos qué necesita tu negocio",
-    businessSectionNote:
-      "Primero elige qué quieres crear. Después selecciona a qué se dedica tu negocio para que el estudio tome una dirección visual mucho más precisa.",
-    chipsTitle: "Dale dirección a tu diseño",
-    chipsSub:
-      "Elige hasta 3 opciones para marcar el estilo y la personalidad que quieres ver en tus propuestas.",
-    primaryCta: "Explorar propuestas",
-    primarySub: "3 propuestas listas para playera",
-    businessPrimarySub: "3 propuestas con enfoque comercial",
-    loadingTitle: "Estamos creando tus 3 propuestas",
-    loadingSub:
-      "Interpretando tu idea y refinándola para que se vea con más fuerza y mejor presencia sobre la prenda.",
-    businessLoadingSub:
-      "Interpretando tu negocio, su sector y el tipo de pieza para construir propuestas con mejor presencia sobre la prenda.",
-    resultsKicker: "Propuestas del estudio",
-    resultsTitle: "Elige la propuesta que más te guste",
-    resultsSub:
-      "Revisa tus 3 opciones y selecciona la que mejor represente tu idea.",
-    directionPanelTitle: "Dirección elegida",
-    directionPanelSub:
-      "Tomaremos tu idea y la refinaremos con estas indicaciones visuales.",
-    priorityPanelTitle: "El estudio dará prioridad a esto",
-    priorityPanelSub:
-      "Estos datos tendrán más peso al momento de construir tus propuestas.",
-    selectionReady: "Lista para usarse en tu playera.",
-    finalCta: "Usar este diseño en mi playera",
-    previewSelect: "Seleccionar este diseño para playera",
+    title: "Crea el diseño de tu playera con IA",
+    sub: "Escribe tu idea con tus palabras. Te mostramos 3 propuestas y eliges la que más te guste.",
+    placeholder: "Describe qué quieres en tu playera: personaje, frase o idea, y para qué es.",
+    noun: "playera",
   },
-} as const;
+};
 
-function getEventProfile(eventType: EventType): EventProfile {
-  switch (eventType) {
-    case "Cumpleaños":
-      return {
-        key: "birthday",
-        title: "Cumpleaños",
-        note:
-          "Aquí el nombre, la edad y el tema son muy importantes para que el diseño sí se sienta hecho para la celebración.",
-        showNumber: true,
-        showTheme: true,
-        showRecipientType: false,
-        recipientLabel: "",
-        recipientOptions: [],
-        themeLabel: "Tema o personaje favorito",
-        themePlaceholder: "Ejemplo: Batman",
-        phrasePlaceholder: "Ejemplo: Ian cumple 5",
-        detailsPlaceholder:
-          "Ejemplo: que se vea divertido, fuerte y con mucha presencia visual",
-        summaryHint:
-          "Para cumpleaños, el estudio dará prioridad al nombre, la edad, el tema y los colores.",
-      };
-
-    case "Fiesta temática":
-      return {
-        key: "theme_party",
-        title: "Fiesta temática",
-        note:
-          "Aquí el tema manda todavía más. La idea es que el diseño sí se sienta metido en ese universo visual y no como una fiesta genérica.",
-        showNumber: true,
-        showTheme: true,
-        showRecipientType: false,
-        recipientLabel: "",
-        recipientOptions: [],
-        themeLabel: "Tema o personaje favorito",
-        themePlaceholder:
-          "Ejemplo: Barbie, dinosaurios, sirenita, fútbol",
-        phrasePlaceholder: "Ejemplo: Sofía cumple 7",
-        detailsPlaceholder:
-          "Ejemplo: que se vea muy metido en la temática y con ambiente de fiesta",
-        summaryHint:
-          "Para fiesta temática, el estudio dará prioridad al tema, al nombre, a la edad y a los colores.",
-      };
-
-    case "Baby shower":
-      return {
-        key: "baby_shower",
-        title: "Baby shower",
-        note:
-          "Aquí importa mucho si será niño, niña o sorpresa. Eso cambia el tono, la ternura, la paleta y la dirección completa del diseño.",
-        showNumber: false,
-        showTheme: true,
-        showRecipientType: true,
-        recipientLabel: "¿Será niño, niña o sorpresa?",
-        recipientOptions: ["Niño", "Niña", "Sorpresa / neutro"],
-        themeLabel: "Tema o idea principal",
-        themePlaceholder:
-          "Ejemplo: ositos, nubecitas, lunas, elefantitos",
-        phrasePlaceholder: "Ejemplo: Baby shower de Mateo",
-        detailsPlaceholder:
-          "Ejemplo: que se vea tierno, delicado, bonito y más de bienvenida que de fiesta ruidosa",
-        summaryHint:
-          "Para baby shower, el estudio dará prioridad al nombre, al tipo de bebé, a los colores y al tono tierno del diseño.",
-      };
-
-    case "Bautizo":
-      return {
-        key: "baptism",
-        title: "Bautizo",
-        note:
-          "Aquí importa mucho si es niño o niña, porque eso influye en el tono, la paleta y el lenguaje visual del diseño.",
-        showNumber: false,
-        showTheme: true,
-        showRecipientType: true,
-        recipientLabel: "¿Es niño o niña?",
-        recipientOptions: ["Niño", "Niña"],
-        themeLabel: "Elemento o estilo deseado (opcional)",
-        themePlaceholder:
-          "Ejemplo: angelito, cruz, flores suaves, estilo clásico",
-        phrasePlaceholder: "Ejemplo: Bautizo de Litzy",
-        detailsPlaceholder:
-          "Ejemplo: que se vea elegante, delicado, limpio y especial para ceremonia",
-        summaryHint:
-          "Para bautizo, el estudio dará prioridad al nombre, al sexo del bautizado, a los colores y al tono elegante.",
-      };
-
-    case "Primera comunión":
-      return {
-        key: "first_communion",
-        title: "Primera comunión",
-        note:
-          "Aquí importa mucho si es niño o niña, porque el tono visual cambia bastante. También buscamos algo más formal y sobrio que un cumpleaños.",
-        showNumber: false,
-        showTheme: true,
-        showRecipientType: true,
-        recipientLabel: "¿Es niño o niña?",
-        recipientOptions: ["Niño", "Niña"],
-        themeLabel: "Elemento o estilo deseado (opcional)",
-        themePlaceholder:
-          "Ejemplo: estilo clásico, elegante, sobrio, simbólico",
-        phrasePlaceholder: "Ejemplo: Primera comunión de Sofía",
-        detailsPlaceholder:
-          "Ejemplo: que se vea formal, elegante, limpio y no tan infantil",
-        summaryHint:
-          "Para primera comunión, el estudio dará prioridad al nombre, al sexo, a los colores y al tono sobrio del evento.",
-      };
-
-    default:
-      return {
-        key: "generic",
-        title: "Evento personalizado",
-        note:
-          "Elige los datos más importantes para que el estudio entienda mejor tu idea y pueda construir una propuesta más útil.",
-        showNumber: true,
-        showTheme: true,
-        showRecipientType: false,
-        recipientLabel: "",
-        recipientOptions: [],
-        themeLabel: "Tema o idea principal",
-        themePlaceholder: "Ejemplo: diseño elegante con flores suaves",
-        phrasePlaceholder: "Ejemplo: Evento especial de Camila",
-        detailsPlaceholder:
-          "Ejemplo: que se vea premium, bonito y muy bien cuidado visualmente",
-        summaryHint:
-          "El estudio dará prioridad al nombre, al tema, a los colores y a los detalles más importantes.",
-      };
-  }
+// ¿La idea menciona un texto? Si viene entre comillas, lo sacamos para sugerirlo.
+const TEXT_HINT_RE = /(que diga|frase|nombre|letrero|leyenda|texto|\bdiga\b|["“”«»])/i;
+function extractQuoted(value: string) {
+  const m = value.match(/["“«]([^"”»]{1,60})["”»]/);
+  return m ? m[1].trim() : "";
 }
 
-
-function getBusinessProjectProfile(
-  projectType: BusinessProjectType
-): BusinessProjectProfile {
-  switch (projectType) {
-    case "Identidad de marca":
-      return {
-        key: "brand_identity",
-        title: "Identidad de marca",
-        note:
-          "Este modo es para construir una propuesta que represente al negocio con más claridad, presencia y personalidad visual.",
-        showProductName: false,
-        nameLabel: "Nombre del negocio o marca",
-        namePlaceholder: "Ejemplo: Maquinados YPSA",
-        productLabel: "",
-        productPlaceholder: "",
-        messageLabel: "Texto secundario o frase opcional",
-        messagePlaceholder: "Ejemplo: precisión industrial / since 2024",
-        symbolLabel: "Símbolo o elemento principal",
-        symbolPlaceholder: "Ejemplo: engrane, taza, aguja, monograma",
-        detailsPlaceholder:
-          "Ejemplo: que se vea profesional, limpio, fuerte y muy usable como marca",
-        summaryHint:
-          "Aquí el estudio priorizará identidad clara, legibilidad y presencia de marca.",
-      };
-
-    case "Etiqueta de producto":
-      return {
-        key: "product_label",
-        title: "Etiqueta de producto",
-        note:
-          "Este modo está pensado para presentar mejor un producto: nombre, marca, mensaje y estilo visual comercial.",
-        showProductName: true,
-        nameLabel: "Nombre de la marca",
-        namePlaceholder: "Ejemplo: Café Nube",
-        productLabel: "Nombre del producto",
-        productPlaceholder: "Ejemplo: Blend de la casa",
-        messageLabel: "Texto extra o beneficio",
-        messagePlaceholder: "Ejemplo: tostado medio / edición especial",
-        symbolLabel: "Elemento visual o símbolo",
-        symbolPlaceholder: "Ejemplo: grano, hoja, botella, flor",
-        detailsPlaceholder:
-          "Ejemplo: que se vea vendible, premium, limpio y apropiado para empaque",
-        summaryHint:
-          "Aquí el estudio priorizará presentación comercial, claridad y look de producto.",
-      };
-
-    case "Sticker promocional":
-      return {
-        key: "promo_sticker",
-        title: "Sticker promocional",
-        note:
-          "Este modo sirve para branding, frases comerciales, regalos de marca y mensajes que ayuden a destacar el negocio.",
-        showProductName: false,
-        nameLabel: "Nombre del negocio o marca",
-        namePlaceholder: "Ejemplo: AutoPrint",
-        productLabel: "",
-        productPlaceholder: "",
-        messageLabel: "Frase o mensaje principal",
-        messagePlaceholder: "Ejemplo: Gracias por tu compra / Edición limitada",
-        symbolLabel: "Elemento visual o símbolo",
-        symbolPlaceholder: "Ejemplo: rayo, estrella, sello, icono de marca",
-        detailsPlaceholder:
-          "Ejemplo: que se vea llamativo, comercial, premium y muy pegable como sticker",
-        summaryHint:
-          "Aquí el estudio priorizará impacto visual, legibilidad y intención comercial.",
-      };
-
-    default:
-      return {
-        key: "brand_identity",
-        title: "Proyecto de negocio",
-        note:
-          "Primero elige qué quieres crear. Eso nos permite construir propuestas mucho más útiles para marca, empaque o promoción.",
-        showProductName: false,
-        nameLabel: "Nombre del negocio o marca",
-        namePlaceholder: "Ejemplo: AutoPrint",
-        productLabel: "",
-        productPlaceholder: "",
-        messageLabel: "Texto secundario",
-        messagePlaceholder: "Ejemplo: impresión premium",
-        symbolLabel: "Símbolo o elemento",
-        symbolPlaceholder: "Ejemplo: rayo, engrane, taza",
-        detailsPlaceholder:
-          "Cuéntanos el estilo, el tono o el look que buscas.",
-        summaryHint:
-          "El estudio usará el tipo de pieza y el sector del negocio para tomar una mejor dirección visual.",
-      };
-  }
+function splitLabel(raw: string | undefined, index: number) {
+  const text = String(raw || "").trim();
+  const parts = text.split(" · ");
+  if (parts.length >= 2) return { style: parts[0], concept: parts.slice(1).join(" · ") };
+  return { style: text || `Propuesta ${index + 1}`, concept: "" };
 }
 
-function getBusinessSectorProfile(
-  sector: BusinessSector
-): BusinessSectorProfile {
-  switch (sector) {
-    case "Cafetería":
-      return {
-        title: "Cafetería",
-        note:
-          "Buscaremos una dirección más cálida, memorable y agradable.",
-        toneHint: "warm, welcoming, appetizing, and memorable",
-        visualTraits: [
-          "friendly shapes",
-          "balanced composition",
-          "artisanal or premium-casual mood",
-          "strong visual recall",
-        ],
-        avoid: [
-          "hard industrial look",
-          "excessive rigidity",
-          "unnecessary corporate coldness",
-        ],
-      };
-
-    case "Taller / maquinados":
-      return {
-        title: "Taller / maquinados",
-        note:
-          "Buscaremos una dirección más técnica, sólida y profesional.",
-        toneHint: "technical, strong, precise, and professional",
-        visualTraits: [
-          "clean geometry",
-          "robust structure",
-          "useful symmetry",
-          "industrial confidence",
-        ],
-        avoid: [
-          "soft decorative touches",
-          "childish look",
-          "fragile or delicate composition",
-        ],
-      };
-
-    case "Moda / ropa":
-      return {
-        title: "Moda / ropa",
-        note:
-          "Buscaremos una dirección con más estilo, actitud y recordación visual.",
-        toneHint: "stylish, modern, confident, and memorable",
-        visualTraits: [
-          "composition with attitude",
-          "more editorial energy",
-          "brand personality",
-        ],
-        avoid: [
-          "overly technical look",
-          "styleless composition",
-          "generic signage energy",
-        ],
-      };
-
-    case "Belleza / cosmética":
-      return {
-        title: "Belleza / cosmética",
-        note:
-          "Buscaremos una dirección más limpia, refinada y sofisticada.",
-        toneHint: "elegant, refined, clean, and sophisticated",
-        visualTraits: [
-          "ample visual breathing room",
-          "premium finish",
-          "refined composition",
-          "well-cared visual tone",
-        ],
-        avoid: [
-          "visual heaviness",
-          "unnecessary aggression",
-          "hard industrial language",
-        ],
-      };
-
-    case "Alimentos y bebidas":
-      return {
-        title: "Alimentos y bebidas",
-        note:
-          "Buscaremos una dirección más vendible, clara y apetecible.",
-        toneHint: "commercial, appetizing, clear, and attractive",
-        visualTraits: [
-          "good readability",
-          "product presence",
-          "commercial energy",
-        ],
-        avoid: [
-          "cold composition",
-          "confusing messaging",
-          "excessive rigidity",
-        ],
-      };
-
-    case "Servicios":
-      return {
-        title: "Servicios",
-        note:
-          "Buscaremos una dirección más confiable, limpia y profesional.",
-        toneHint: "clear, trustworthy, professional, and structured",
-        visualTraits: [
-          "visual order",
-          "readability",
-          "restrained branding",
-        ],
-        avoid: [
-          "visual chaos",
-          "unnecessary ornamentation",
-          "unclear messages",
-        ],
-      };
-
-    case "Tecnología":
-      return {
-        title: "Tecnología",
-        note:
-          "Buscaremos una dirección más moderna, precisa y contemporánea.",
-        toneHint: "modern, precise, clean, and contemporary",
-        visualTraits: [
-          "controlled forms",
-          "tech-forward feel",
-          "visual clarity",
-        ],
-        avoid: [
-          "unnecessary retro styling",
-          "soft handmade look",
-          "excessive ornamentation",
-        ],
-      };
-
-    case "Artesanal":
-      return {
-        title: "Artesanal",
-        note:
-          "Buscaremos una dirección más humana, cercana y con carácter hecho a mano.",
-        toneHint: "human, warm, authentic, and approachable",
-        visualTraits: [
-          "organic feel",
-          "friendly visual tone",
-          "maker personality",
-        ],
-        avoid: [
-          "cold corporate styling",
-          "extreme rigidity",
-          "overly technical appearance",
-        ],
-      };
-
-    default:
-      return {
-        title: "Negocio personalizado",
-        note:
-          "Tomaremos una dirección profesional y adaptable según tus detalles.",
-        toneHint: "professional, clear, and well-directed",
-        visualTraits: [
-          "good readability",
-          "clean composition",
-          "commercial presence",
-        ],
-        avoid: [
-          "unnecessary visual noise",
-          "generic composition",
-          "lack of visual intent",
-        ],
-      };
-  }
+function Icon({ name }: { name: "text" | "palette" | "brush" | "spark" | "check" | "wand" | "edit" | "redo" | "x" }) {
+  const paths: Record<string, string> = {
+    text: "M5 5h14v3h-2V7h-4v10h2v2H9v-2h2V7H7v1H5z",
+    palette:
+      "M12 3a9 9 0 0 0 0 18c1.1 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.8-1.7 1.7-1.7H16a5 5 0 0 0 5-5C21 6.4 17 3 12 3zm-5.5 9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3-4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3 4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z",
+    brush:
+      "M20.7 4.3a1 1 0 0 0-1.4 0l-8.6 8.6 1.4 1.4 8.6-8.6a1 1 0 0 0 0-1.4zM9.3 14.3c-1.9 0-3.3 1.4-3.3 3.2 0 .9-.6 1.5-2 1.5 1 1.3 2.6 2 4.2 2 2.4 0 4.1-1.7 4.1-4 0-1.5-1.3-2.7-3-2.7z",
+    spark:
+      "M12 2l1.9 5.6L19.5 9.5l-5.6 1.9L12 17l-1.9-5.6L4.5 9.5l5.6-1.9zM19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z",
+    check: "M9.5 16.6 5.4 12.5 4 13.9l5.5 5.5L20 8.9l-1.4-1.4z",
+    wand:
+      "M7.5 5.6 10 7 8.6 4.5 10 2 7.5 3.4 5 2l1.4 2.5L5 7zm12 9.8L17 14l1.4 2.5L17 19l2.5-1.4L22 19l-1.4-2.5L22 14zM22 2l-2.5 1.4L17 2l1.4 2.5L17 7l2.5-1.4L22 7l-1.4-2.5zm-7.6 5.3a1 1 0 0 0-1.4 0L1.3 19a1 1 0 0 0 0 1.4l2.3 2.3a1 1 0 0 0 1.4 0L16.7 11a1 1 0 0 0 0-1.4zm-1.1 5.5-2.1-2.1 2.4-2.4 2.1 2.1z",
+    edit: "M3 17.2V21h3.8l11-11-3.8-3.8zM20.7 7a1 1 0 0 0 0-1.4l-2.3-2.3a1 1 0 0 0-1.4 0l-1.8 1.8 3.8 3.8z",
+    redo: "M12 5V1L7 6l5 5V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z",
+    x: "M18.3 5.7 12 12l6.3 6.3-1.4 1.4L10.6 13.4 4.3 19.7 2.9 18.3 9.2 12 2.9 5.7 4.3 4.3l6.3 6.3 6.3-6.3z",
+  };
+  return (
+    <svg className="ap-ic" viewBox="0 0 24 24" aria-hidden="true">
+      <path d={paths[name]} />
+    </svg>
+  );
 }
 
-function HomePageInner() {
+function StudioInner() {
   const searchParams = useSearchParams();
-  const scrollRestoreRef = useRef(0);
+  const isEmbedded = searchParams.get("embed") === "1";
+  const forcedMode = searchParams.get("mode");
+  const promptRef = useRef<HTMLTextAreaElement | null>(null);
+  const resultsRef = useRef<HTMLDivElement | null>(null);
 
-  const [mode, setMode] = useState<DesignMode>("sticker");
-  const [studioTab, setStudioTab] = useState<StudioTab>("free");
-
+  const [mode, setMode] = useState<DesignMode>(() =>
+    forcedMode === "playera" || forcedMode === "shirt" ? "playera" : "sticker"
+  );
   const [prompt, setPrompt] = useState("");
+  const [exactText, setExactText] = useState("");
+  const [colors, setColors] = useState<string[]>([]);
+  const [styleId, setStyleId] = useState("auto");
+  const [panel, setPanel] = useState<DetailPanel>("");
+  const [hintDismissed, setHintDismissed] = useState(false);
+  const [composerOpen, setComposerOpen] = useState(true);
 
-  const [eventType, setEventType] = useState<EventType>("");
-  const [eventName, setEventName] = useState("");
-  const [eventNumber, setEventNumber] = useState("");
-  const [eventTheme, setEventTheme] = useState("");
-  const [eventPhrase, setEventPhrase] = useState("");
-  const [eventDetails, setEventDetails] = useState("");
-  const [eventRecipientType, setEventRecipientType] =
-    useState<RecipientType>("");
-  const [eventColors, setEventColors] = useState<ColorOptionId[]>([]);
-  const [eventCustomColors, setEventCustomColors] = useState("");
-  const [colorMessage, setColorMessage] = useState("");
-
-  const [businessProjectType, setBusinessProjectType] =
-    useState<BusinessProjectType>("");
-  const [businessSector, setBusinessSector] = useState<BusinessSector>("");
-  const [businessName, setBusinessName] = useState("");
-  const [businessProductName, setBusinessProductName] = useState("");
-  const [businessMessage, setBusinessMessage] = useState("");
-  const [businessSymbol, setBusinessSymbol] = useState("");
-  const [businessDetails, setBusinessDetails] = useState("");
-  const [businessColors, setBusinessColors] = useState<ColorOptionId[]>([]);
-  const [businessCustomColors, setBusinessCustomColors] = useState("");
-  const [businessColorMessage, setBusinessColorMessage] = useState("");
-
-  const [activeChips, setActiveChips] = useState<ChipId[]>([]);
-  const [chipMessage, setChipMessage] = useState("");
   const [images, setImages] = useState<string[]>([]);
   const [labels, setLabels] = useState<string[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
-  // "thinking" = la IA arma las ideas · "drawing" = FLUX dibuja (las tarjetas se llenan una por una)
   const [genPhase, setGenPhase] = useState<"idle" | "thinking" | "drawing">("idle");
-  // «Ajustar esta»
+  const [error, setError] = useState("");
+  const [lastPrompt, setLastPrompt] = useState("");
+  const [genOffset, setGenOffset] = useState(0);
+
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [adjustPresets, setAdjustPresets] = useState<string[]>([]);
   const [adjustNote, setAdjustNote] = useState("");
   const [adjusting, setAdjusting] = useState(false);
   const [adjustError, setAdjustError] = useState("");
-  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
-  const isEmbedded = searchParams.get("embed") === "1";
-  const copy = MODE_COPY[mode];
-  const chipGroups =
-    mode === "sticker" ? STICKER_CHIP_GROUPS : PLAYERA_CHIP_GROUPS;
-  const eventProfile = getEventProfile(eventType);
-  const businessProjectProfile = getBusinessProjectProfile(businessProjectType);
-  const businessSectorProfile = getBusinessSectorProfile(businessSector);
+  const copy = COPY[mode];
+  const apiBase = isEmbedded ? "https://autoprint-ai-designer.vercel.app/api/generate" : "/api/generate";
 
-  const allAvailableChips = useMemo(
-    () => chipGroups.flatMap((group) => group.chips),
-    [chipGroups]
-  );
+  useEffect(() => {
+    if (forcedMode === "sticker") setMode("sticker");
+    else if (forcedMode === "playera" || forcedMode === "shirt") setMode("playera");
+  }, [forcedMode]);
 
-  const activeChipDefs = useMemo(
-    () => allAvailableChips.filter((chip) => activeChips.includes(chip.id)),
-    [allAvailableChips, activeChips]
-  );
-
-  const selectedColorDefs = useMemo(
-    () => COLOR_OPTIONS.filter((color) => eventColors.includes(color.id)),
-    [eventColors]
-  );
-
-  const selectedBusinessColorDefs = useMemo(
-    () => COLOR_OPTIONS.filter((color) => businessColors.includes(color.id)),
-    [businessColors]
-  );
-
-  const selectedImage = selectedIndex !== null ? images[selectedIndex] : null;
-  const selectedLabel = selectedIndex !== null ? labels[selectedIndex] : null;
-
-  const isEventReady =
-    eventType.trim().length > 0 &&
-    (eventName.trim().length > 0 ||
-      eventNumber.trim().length > 0 ||
-      eventTheme.trim().length > 0 ||
-      eventPhrase.trim().length > 0 ||
-      eventDetails.trim().length > 0 ||
-      eventRecipientType.trim().length > 0 ||
-      eventColors.length > 0 ||
-      eventCustomColors.trim().length > 0);
-
-  const composerTitle =
-    studioTab === "free"
-      ? copy.freeTitle
-      : studioTab === "event"
-      ? copy.eventTitle
-      : copy.businessTitle;
-
-  const composerSubhelp =
-    studioTab === "free"
-      ? copy.freeSubhelp
-      : studioTab === "event"
-      ? copy.eventSubhelp
-      : copy.businessSubhelp;
-
-  const primarySub =
-    studioTab === "business" ? copy.businessPrimarySub : copy.primarySub;
-
-  const loadingSub =
-    studioTab === "business" ? copy.businessLoadingSub : copy.loadingSub;
-
-  const isBusinessReady =
-    businessProjectType.trim().length > 0 &&
-    businessSector.trim().length > 0 &&
-    (businessName.trim().length > 0 ||
-      businessProductName.trim().length > 0 ||
-      businessMessage.trim().length > 0 ||
-      businessSymbol.trim().length > 0 ||
-      businessDetails.trim().length > 0 ||
-      businessColors.length > 0 ||
-      businessCustomColors.trim().length > 0);
-
-  const canGenerate =
-    studioTab === "free"
-      ? prompt.trim().length > 0 && !loading
-      : studioTab === "event"
-      ? isEventReady && !loading
-      : isBusinessReady && !loading;
-
+  // ---------- Altura del iframe (puente con Shopify) ----------
   function postEmbedHeight() {
-    if (typeof window === "undefined") return;
-    if (window.parent === window) return;
-
+    if (typeof window === "undefined" || window.parent === window) return;
     const wrap = document.querySelector(".page-wrap");
     if (!wrap) return;
-
     const height = wrap.scrollHeight + 24;
     const win = window as typeof window & { __lastSentHeight?: number };
-
-    if (
-      typeof win.__lastSentHeight === "number" &&
-      Math.abs(win.__lastSentHeight - height) < 8
-    ) {
-      return;
-    }
-
+    if (typeof win.__lastSentHeight === "number" && Math.abs(win.__lastSentHeight - height) < 8) return;
     win.__lastSentHeight = height;
-
-    window.parent.postMessage(
-      {
-        type: "AUTOPRINT_AI_RESIZE",
-        height,
-      },
-      "*"
-    );
+    window.parent.postMessage({ type: "AUTOPRINT_AI_RESIZE", height }, "*");
   }
-
-  useEffect(() => {
-    const forcedMode = searchParams.get("mode");
-
-    if (forcedMode === "sticker") {
-      setMode("sticker");
-    } else if (forcedMode === "playera" || forcedMode === "shirt") {
-      setMode("playera");
-    }
-  }, [searchParams]);
-
-  useEffect(() => {
-    setImages([]);
-    setLabels([]);
-    setSelectedIndex(null);
-    setPreviewIndex(null);
-    setActiveChips([]);
-    setChipMessage("");
-    setColorMessage("");
-    setBusinessColorMessage("");
-    setError("");
-  }, [mode, studioTab]);
-
-  useEffect(() => {
-    if (studioTab !== "event") return;
-
-    if (!eventProfile.showNumber) {
-      setEventNumber("");
-    }
-
-    if (!eventProfile.showRecipientType) {
-      setEventRecipientType("");
-    } else if (
-      eventRecipientType &&
-      !eventProfile.recipientOptions.includes(eventRecipientType)
-    ) {
-      setEventRecipientType("");
-    }
-  }, [studioTab, eventProfile, eventRecipientType]);
-
-  useEffect(() => {
-    if (!businessProjectProfile.showProductName) {
-      setBusinessProductName("");
-    }
-  }, [businessProjectProfile.showProductName]);
 
   useEffect(() => {
     if (!isEmbedded) return;
-
     let rafId = 0;
     const run = () => {
       cancelAnimationFrame(rafId);
-      rafId = window.requestAnimationFrame(() => {
-        postEmbedHeight();
-      });
+      rafId = window.requestAnimationFrame(postEmbedHeight);
     };
-
     run();
-
-    const resizeObserver = new ResizeObserver(() => {
-      run();
-    });
-
-    resizeObserver.observe(document.body);
-
+    const ro = new ResizeObserver(run);
+    ro.observe(document.body);
+    const wrap = document.querySelector(".page-wrap");
+    if (wrap) ro.observe(wrap);
     window.addEventListener("load", run);
     window.addEventListener("resize", run);
-
     return () => {
       cancelAnimationFrame(rafId);
-      resizeObserver.disconnect();
+      ro.disconnect();
       window.removeEventListener("load", run);
       window.removeEventListener("resize", run);
     };
-  }, [
-    isEmbedded,
-    images.length,
-    selectedIndex,
-    previewIndex,
-    loading,
-    error,
-    activeChips.length,
-    prompt.length,
-    chipMessage,
-    studioTab,
-    eventType,
-    eventName,
-    eventNumber,
-    eventTheme,
-    eventPhrase,
-    eventDetails,
-    eventRecipientType,
-    eventColors.length,
-    eventCustomColors,
-    colorMessage,
-    businessProjectType,
-    businessSector,
-    businessName,
-    businessProductName,
-    businessMessage,
-    businessSymbol,
-    businessDetails,
-    businessColors.length,
-    businessCustomColors,
-    businessColorMessage,
-  ]);
+  }, [isEmbedded, images.length, selectedIndex, loading, error, panel, composerOpen, adjustOpen]);
 
-  useEffect(() => {
-    if (previewIndex === null || typeof document === "undefined") return;
+  // ---------- Derivados ----------
+  const readyCount = images.filter((img) => img && img !== FAILED).length;
+  const hasResults = images.length > 0;
+  const selectedImage = selectedIndex !== null ? images[selectedIndex] : "";
+  const selectedReady = !!selectedImage && selectedImage !== FAILED;
+  const selectedLabel = selectedIndex !== null ? splitLabel(labels[selectedIndex], selectedIndex) : null;
+  const styleDef = STYLE_OPTIONS.find((s) => s.id === styleId) || STYLE_OPTIONS[0];
+  const colorDefs = COLOR_OPTIONS.filter((c) => colors.includes(c.id));
+  const colorText = colorDefs.map((c, i) => (i ? c.label.toLowerCase() : c.label)).join(" y ");
+  const canGenerate = prompt.trim().length >= 3 && !loading && !adjusting;
 
-    const scrollEl = document.scrollingElement || document.documentElement;
-    scrollRestoreRef.current = scrollEl.scrollTop || window.scrollY || 0;
+  const showTextHint =
+    !hintDismissed && !exactText.trim() && panel !== "texto" && prompt.trim().length >= 8 && TEXT_HINT_RE.test(prompt);
 
-    const previousBodyOverflow = document.body.style.overflow;
-    const previousBodyTouchAction = document.body.style.touchAction;
-    const previousHtmlOverflow = document.documentElement.style.overflow;
+  const fullPrompt = useMemo(() => {
+    let p = prompt.trim().replace(/[.\s]+$/, "");
+    if (exactText.trim()) {
+      p += `. Texto exacto que debe aparecer en el diseño, respetando cada letra y acento: "${exactText.trim()}". No agregues otras palabras`;
+    }
+    if (colorDefs.length) {
+      p += `. Colores principales: ${colorDefs.map((c) => c.label.toLowerCase()).join(" y ")}`;
+    }
+    return p ? `${p}.` : "";
+  }, [prompt, exactText, colorDefs]);
 
-    scrollEl.scrollTop = 0;
-    window.scrollTo(0, 0);
+  const stageText = genPhase === "thinking" ? "Entendiendo tu idea…" : "Dibujando tus propuestas…";
+  const progressText =
+    genPhase === "thinking"
+      ? "Paso 1 de 2 · Preparamos 3 ideas distintas"
+      : `Paso 2 de 2 · Dibujando · ${Math.max(readyCount - genOffset, 0)} de ${images.length - genOffset || 3} listas`;
+  const progressPct =
+    genPhase === "thinking" ? 12 : 12 + (Math.max(readyCount - genOffset, 0) / Math.max(images.length - genOffset, 3)) * 88;
+  // Mientras la IA piensa, ya mostramos los 3 lugares nuevos (las propuestas anteriores se conservan).
+  const thumbSlots = loading && genPhase === "thinking" ? [...images, "", "", ""] : images;
+  const liveText = loading ? progressText : adjusting ? "Creando tu versión ajustada" : saved ? "Diseño agregado a tu producto" : "";
 
-    document.body.style.overflow = "hidden";
-    document.body.style.touchAction = "none";
-    document.documentElement.style.overflow = "hidden";
-
-    return () => {
-      document.body.style.overflow = previousBodyOverflow;
-      document.body.style.touchAction = previousBodyTouchAction;
-      document.documentElement.style.overflow = previousHtmlOverflow;
-
-      requestAnimationFrame(() => {
-        scrollEl.scrollTop = scrollRestoreRef.current;
-        window.scrollTo(0, scrollRestoreRef.current);
-      });
-    };
-  }, [previewIndex]);
-
-  function toggleChip(chipId: ChipId) {
+  // ---------- Acciones del formulario ----------
+  function applyStarter(opener: string) {
+    setPrompt(opener);
     setError("");
-
-    setActiveChips((current) => {
-      if (current.includes(chipId)) {
-        setChipMessage("");
-        return current.filter((item) => item !== chipId);
-      }
-
-      if (current.length >= MAX_ACTIVE_CHIPS) {
-        setChipMessage("Puedes elegir máximo 3 opciones.");
-        return current;
-      }
-
-      setChipMessage("");
-      return [...current, chipId];
+    requestAnimationFrame(() => {
+      const el = promptRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(opener.length, opener.length);
     });
   }
 
-  function toggleColor(colorId: ColorOptionId) {
-    setError("");
+  function openComposer() {
+    setComposerOpen(true);
+    requestAnimationFrame(() => promptRef.current?.focus({ preventScroll: isEmbedded }));
+  }
 
-    setEventColors((current) => {
-      if (current.includes(colorId)) {
-        setColorMessage("");
-        return current.filter((item) => item !== colorId);
-      }
+  function togglePanel(next: DetailPanel) {
+    setPanel((cur) => (cur === next ? "" : next));
+  }
 
-      if (current.length >= MAX_EVENT_COLORS) {
-        setColorMessage("Puedes elegir máximo 2 colores.");
-        return current;
-      }
+  function acceptTextHint() {
+    const quoted = extractQuoted(prompt);
+    if (quoted && !exactText) setExactText(quoted.slice(0, MAX_TEXT));
+    setPanel("texto");
+  }
 
-      setColorMessage("");
-      return [...current, colorId];
+  function toggleColor(id: string) {
+    setColors((cur) => {
+      if (cur.includes(id)) return cur.filter((c) => c !== id);
+      if (cur.length >= MAX_COLORS) return [cur[1], id];
+      return [...cur, id];
     });
   }
 
-  function toggleBusinessColor(colorId: ColorOptionId) {
-    setError("");
-
-    setBusinessColors((current) => {
-      if (current.includes(colorId)) {
-        setBusinessColorMessage("");
-        return current.filter((item) => item !== colorId);
-      }
-
-      if (current.length >= MAX_EVENT_COLORS) {
-        setBusinessColorMessage("Puedes elegir máximo 2 colores.");
-        return current;
-      }
-
-      setBusinessColorMessage("");
-      return [...current, colorId];
-    });
-  }
-
-  function isReadyImage(value: string | undefined) {
-    return !!value && value !== "__failed__";
-  }
-
-  function splitLabel(raw: string | undefined, index: number) {
-    const text = String(raw || "").trim();
-    const parts = text.split(" · ");
-    if (parts.length >= 2) {
-      return { style: parts[0], concept: parts.slice(1).join(" · ") };
-    }
-    return { style: text || `Propuesta ${index + 1}`, concept: "" };
-  }
-
-  function nextReadyIndex(from: number, step: number) {
-    const total = images.length;
-    for (let i = 1; i <= total; i++) {
-      const candidate = (from + step * i + total * total) % total;
-      if (isReadyImage(images[candidate])) return candidate;
-    }
-    return from;
-  }
-
-  function openPreview(index: number) {
-    if (!isReadyImage(images[index])) return;
-    if (typeof window !== "undefined") {
-      const scrollEl = document.scrollingElement || document.documentElement;
-      scrollRestoreRef.current = scrollEl.scrollTop || window.scrollY || 0;
-    }
-    setPreviewIndex(index);
-  }
-
-  function buildFreePrompt() {
-    return prompt.trim();
-  }
-
-  function buildEventPrompt() {
-    const colorLabels = selectedColorDefs.map((item) => item.label);
-    const allColorNotes = [...colorLabels];
-    if (eventCustomColors.trim()) allColorNotes.push(eventCustomColors.trim());
-
-    const pieces = [
-      `Create a custom ${mode === "sticker" ? "sticker" : "shirt"} design.`,
-      eventType.trim() ? `Event type: ${eventType.trim()}.` : "",
-      eventName.trim()
-        ? `Required name to respect: ${eventName.trim()}.`
-        : "",
-      eventProfile.showNumber && eventNumber.trim()
-        ? `Important age or number that should appear or influence the design: ${eventNumber.trim()}.`
-        : "",
-      eventProfile.showRecipientType && eventRecipientType.trim()
-        ? `Important event detail: ${eventRecipientType.trim()}.`
-        : "",
-      eventTheme.trim()
-        ? `Main theme, character, or concept: ${eventTheme.trim()}.`
-        : "",
-      allColorNotes.length
-        ? `Preferred colors to include: ${allColorNotes.join(", ")}.`
-        : "",
-      eventPhrase.trim()
-        ? `Optional phrase that can be integrated if it fits naturally: ${eventPhrase.trim()}.`
-        : "",
-      eventDetails.trim()
-        ? `Extra customer details: ${eventDetails.trim()}.`
-        : "",
-      eventProfile.key === "birthday"
-        ? "Prioritize name, age, theme, and colors. The design should clearly feel like a birthday piece."
-        : "",
-      eventProfile.key === "theme_party"
-        ? "Prioritize the theme first, then name, age, and colors. The design should feel deeply rooted in the chosen theme rather than generic party art."
-        : "",
-      eventProfile.key === "baby_shower"
-        ? "Prioritize name, whether it is boy/girl/surprise, colors, and a tender tone. Avoid making it feel like a generic birthday design."
-        : "",
-      eventProfile.key === "baptism"
-        ? "Prioritize name, the child's gender, colors, and an elegant ceremonial tone. Avoid loud children's-party energy."
-        : "",
-      eventProfile.key === "first_communion"
-        ? "Prioritize name, gender, colors, and a sober elegant tone. Avoid anything too childish or overly festive."
-        : "",
-      mode === "sticker"
-        ? "The proposal must feel intentionally built for a sticker, with clear visual presence and strong readability."
-        : "The proposal must feel intentionally built for apparel, with strong presence on the garment.",
-    ];
-
-    return pieces.filter(Boolean).join(" ");
-  }
-
-  function buildBusinessPrompt() {
-    const colorLabels = selectedBusinessColorDefs.map((item) => item.label);
-    const allColorNotes = [...colorLabels];
-    if (businessCustomColors.trim()) {
-      allColorNotes.push(businessCustomColors.trim());
-    }
-
-    const pieces = [
-      `Create a custom ${mode === "sticker" ? "sticker" : "shirt"} design for business use.`,
-      businessProjectType.trim()
-        ? `Piece type: ${businessProjectType.trim()}.`
-        : "",
-      businessSector.trim() ? `Business sector: ${businessSector.trim()}.` : "",
-      businessName.trim()
-        ? `${businessProjectProfile.nameLabel}: ${businessName.trim()}.`
-        : "",
-      businessProjectProfile.showProductName && businessProductName.trim()
-        ? `${businessProjectProfile.productLabel}: ${businessProductName.trim()}.`
-        : "",
-      businessMessage.trim()
-        ? `${businessProjectProfile.messageLabel}: ${businessMessage.trim()}.`
-        : "",
-      businessSymbol.trim()
-        ? `${businessProjectProfile.symbolLabel}: ${businessSymbol.trim()}.`
-        : "",
-      allColorNotes.length
-        ? `Preferred colors to include: ${allColorNotes.join(", ")}.`
-        : "",
-      businessSector.trim()
-        ? `The overall direction should feel ${businessSectorProfile.toneHint}.`
-        : "",
-      businessSectorProfile.visualTraits.length
-        ? `Suggested visual traits: ${businessSectorProfile.visualTraits.join(", ")}.`
-        : "",
-      businessSectorProfile.avoid.length
-        ? `Avoid: ${businessSectorProfile.avoid.join(", ")}.`
-        : "",
-      businessDetails.trim()
-        ? `Extra customer details: ${businessDetails.trim()}.`
-        : "",
-      businessProjectProfile.key === "brand_identity"
-        ? "Prioritize clear identity, readability, brand presence, and a professional feel."
-        : "",
-      businessProjectProfile.key === "product_label"
-        ? "Prioritize product presentation, commercial clarity, packaging appeal, and visual harmony."
-        : "",
-      businessProjectProfile.key === "promo_sticker"
-        ? "Prioritize visual impact, promotional intent, branding, and readability."
-        : "",
-      mode === "sticker"
-        ? "The proposal must feel intentionally built for a sticker, with clear visual presence and strong readability."
-        : "The proposal must feel intentionally built for apparel, with strong presence on the garment.",
-    ];
-
-    return pieces.filter(Boolean).join(" ");
-  }
-
-  const generationPrompt =
-    studioTab === "free"
-      ? buildFreePrompt()
-      : studioTab === "event"
-      ? buildEventPrompt()
-      : buildBusinessPrompt();
-
-  const priorityItems = useMemo(() => {
-    const items: { label: string; value: string }[] = [];
-
-    if (eventName.trim()) {
-      items.push({ label: "Nombre", value: eventName.trim() });
-    }
-
-    if (eventProfile.showNumber && eventNumber.trim()) {
-      items.push({ label: "Edad/Número", value: eventNumber.trim() });
-    }
-
-    if (eventType.trim()) {
-      items.push({ label: "Evento", value: eventType.trim() });
-    }
-
-    if (eventProfile.showRecipientType && eventRecipientType.trim()) {
-      items.push({ label: "Dato clave", value: eventRecipientType.trim() });
-    }
-
-    if (eventTheme.trim()) {
-      items.push({
-        label:
-          eventProfile.key === "baptism" ||
-          eventProfile.key === "first_communion"
-            ? "Estilo/elemento"
-            : "Tema",
-        value: eventTheme.trim(),
-      });
-    }
-
-    const colorLabels = selectedColorDefs.map((item) => item.label);
-    if (eventCustomColors.trim()) colorLabels.push(eventCustomColors.trim());
-    if (colorLabels.length) {
-      items.push({ label: "Colores", value: colorLabels.join(", ") });
-    }
-
-    if (eventPhrase.trim()) {
-      items.push({ label: "Frase", value: eventPhrase.trim() });
-    }
-
-    return items;
-  }, [
-    eventName,
-    eventNumber,
-    eventType,
-    eventTheme,
-    eventRecipientType,
-    selectedColorDefs,
-    eventCustomColors,
-    eventPhrase,
-    eventProfile,
-  ]);
-
-  const businessPriorityItems = useMemo(() => {
-    const items: { label: string; value: string }[] = [];
-
-    if (businessProjectType.trim()) {
-      items.push({ label: "Pieza", value: businessProjectType.trim() });
-    }
-
-    if (businessSector.trim()) {
-      items.push({ label: "Sector", value: businessSector.trim() });
-    }
-
-    if (businessName.trim()) {
-      items.push({ label: "Marca/negocio", value: businessName.trim() });
-    }
-
-    if (businessProjectProfile.showProductName && businessProductName.trim()) {
-      items.push({ label: "Producto", value: businessProductName.trim() });
-    }
-
-    if (businessMessage.trim()) {
-      items.push({ label: "Mensaje", value: businessMessage.trim() });
-    }
-
-    if (businessSymbol.trim()) {
-      items.push({ label: "Símbolo", value: businessSymbol.trim() });
-    }
-
-    const colorLabels = selectedBusinessColorDefs.map((item) => item.label);
-    if (businessCustomColors.trim()) {
-      colorLabels.push(businessCustomColors.trim());
-    }
-
-    if (colorLabels.length) {
-      items.push({ label: "Colores", value: colorLabels.join(", ") });
-    }
-
-    return items;
-  }, [
-    businessProjectType,
-    businessSector,
-    businessName,
-    businessProductName,
-    businessMessage,
-    businessSymbol,
-    businessCustomColors,
-    selectedBusinessColorDefs,
-    businessProjectProfile.showProductName,
-  ]);
-
+  // ---------- Generar (stream: start / image / failed / error / done) ----------
   async function handleGenerate() {
-    const cleanPrompt = generationPrompt.trim();
-
-    if (studioTab === "free" && !cleanPrompt) {
-      setError("Escribe una idea para tu diseño.");
+    if (!canGenerate) {
+      if (prompt.trim().length < 3) setError("Escribe tu idea para empezar.");
       return;
     }
-
-    if (studioTab === "event" && !isEventReady) {
-      setError("Agrega al menos algunos datos importantes para tu diseño.");
-      return;
-    }
-
-    if (studioTab === "event" && !eventType.trim()) {
-      setError("Selecciona el tipo de evento.");
-      return;
-    }
-
-    if (studioTab === "business" && !businessProjectType.trim()) {
-      setError("Selecciona qué quieres crear para tu negocio.");
-      return;
-    }
-
-    if (studioTab === "business" && !businessSector.trim()) {
-      setError("Selecciona a qué se dedica tu negocio.");
-      return;
-    }
-
-    if (studioTab === "business" && !isBusinessReady) {
-      setError("Agrega al menos algunos datos importantes para tu diseño.");
-      return;
-    }
-
+    const sentPrompt = fullPrompt;
+    // Las propuestas que ya salieron se conservan; las nuevas se agregan después.
+    const keptImages: string[] = [];
+    const keptLabels: string[] = [];
+    images.forEach((img, i) => {
+      if (img && img !== FAILED) {
+        keptImages.push(img);
+        keptLabels.push(labels[i] || "");
+      }
+    });
+    const offset = keptImages.length;
+    let gotAny = false;
     try {
       setLoading(true);
       setGenPhase("thinking");
       setError("");
-      setImages([]);
-      setLabels([]);
+      setSaved(false);
+      setImages(keptImages);
+      setLabels(keptLabels);
+      setGenOffset(offset);
       setSelectedIndex(null);
-      setPreviewIndex(null);
-
-      const apiBase = isEmbedded
-        ? "https://autoprint-ai-designer.vercel.app/api/generate"
-        : "/api/generate";
+      setAdjustOpen(false);
+      setComposerOpen(false);
+      setLastPrompt(sentPrompt);
+      requestAnimationFrame(() => {
+        const el = resultsRef.current;
+        if (!el) return;
+        el.focus({ preventScroll: true });
+        // Dentro de la tienda (iframe) no movemos la página; la tienda controla su scroll.
+        if (!isEmbedded) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
 
       const res = await fetch(apiBase, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          prompt: cleanPrompt,
+          prompt: sentPrompt,
           mode,
-          chips: activeChips,
-          studioTab,
-          eventData:
-            studioTab === "event"
-              ? {
-                  name: eventName.trim(),
-                  number: eventNumber.trim(),
-                  eventType: eventType.trim(),
-                  theme: eventTheme.trim(),
-                  phrase: eventPhrase.trim(),
-                  details: eventDetails.trim(),
-                  recipientType: eventRecipientType.trim(),
-                  colors: selectedColorDefs.map((item) => item.label),
-                  customColors: eventCustomColors.trim(),
-                }
-              : null,
-          businessData:
-            studioTab === "business"
-              ? {
-                  projectType: businessProjectType.trim(),
-                  sector: businessSector.trim(),
-                  name: businessName.trim(),
-                  productName: businessProductName.trim(),
-                  message: businessMessage.trim(),
-                  symbol: businessSymbol.trim(),
-                  details: businessDetails.trim(),
-                  colors: selectedBusinessColorDefs.map((item) => item.label),
-                  customColors: businessCustomColors.trim(),
-                }
-              : null,
+          chips: mode === "sticker" ? styleDef.sticker : styleDef.playera,
+          studioTab: "free",
+          eventData: null,
+          businessData: null,
         }),
       });
 
       if (!res.ok) {
-        let message = "No se pudieron generar las imágenes.";
+        let message = "No se pudieron crear las propuestas. Intenta de nuevo.";
         if (res.status === 429) {
-          message =
-            "Ya generaste varias propuestas seguidas. Espera unos minutos y vuelve a intentarlo.";
+          message = "Ya creaste varias propuestas seguidas. Espera unos minutos y vuelve a intentarlo.";
         } else {
           try {
             const data = await res.json();
@@ -1525,17 +344,12 @@ function HomePageInner() {
         }
         throw new Error(message);
       }
+      if (!res.body) throw new Error("No se recibieron imágenes.");
 
-      if (!res.body) {
-        throw new Error("No se recibieron imágenes.");
-      }
-
-      // Las imágenes llegan una por una: "" = en proceso · "__failed__" = no salió
-      const slots: string[] = [];
-      const slotLabels: string[] = [];
+      const slots: string[] = [...keptImages];
+      const slotLabels: string[] = [...keptLabels];
       let okCount = 0;
       let streamError = "";
-
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
@@ -1548,24 +362,26 @@ function HomePageInner() {
         } catch {
           return;
         }
-
         if (msg.type === "start") {
           const total = Number(msg.total) || 3;
           for (let i = 0; i < total; i++) {
-            slots[i] = "";
-            slotLabels[i] = Array.isArray(msg.labels) ? String(msg.labels[i] || "") : "";
+            slots[offset + i] = "";
+            slotLabels[offset + i] = Array.isArray(msg.labels) ? String(msg.labels[i] || "") : "";
           }
           setGenPhase("drawing");
           setImages([...slots]);
           setLabels([...slotLabels]);
         } else if (msg.type === "image") {
-          slots[msg.index] = String(msg.image || "");
-          if (msg.label) slotLabels[msg.index] = String(msg.label);
+          const idx = offset + Number(msg.index);
+          slots[idx] = String(msg.image || "");
+          if (msg.label) slotLabels[idx] = String(msg.label);
           okCount += 1;
+          gotAny = true;
           setImages([...slots]);
           setLabels([...slotLabels]);
+          setSelectedIndex((cur) => (cur === null ? idx : cur));
         } else if (msg.type === "failed") {
-          slots[msg.index] = "__failed__";
+          slots[offset + Number(msg.index)] = FAILED;
           setImages([...slots]);
         } else if (msg.type === "error") {
           streamError = String(msg.error || "");
@@ -1576,86 +392,64 @@ function HomePageInner() {
         const { value, done } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
-        let newlineIndex = buffer.indexOf("\n");
-        while (newlineIndex >= 0) {
-          handleLine(buffer.slice(0, newlineIndex));
-          buffer = buffer.slice(newlineIndex + 1);
-          newlineIndex = buffer.indexOf("\n");
+        let nl = buffer.indexOf("\n");
+        while (nl >= 0) {
+          handleLine(buffer.slice(0, nl));
+          buffer = buffer.slice(nl + 1);
+          nl = buffer.indexOf("\n");
         }
       }
       handleLine(buffer);
 
       if (!okCount) {
-        setImages([]);
-        setLabels([]);
-        throw new Error(streamError || "No se recibieron imágenes.");
+        setImages(keptImages);
+        setLabels(keptLabels);
+        throw new Error(streamError || "No se pudieron crear las propuestas. Intenta con otra idea.");
       }
-
-      setTimeout(() => {
-        postEmbedHeight();
-      }, 80);
+      setTimeout(postEmbedHeight, 80);
     } catch (err: any) {
       setError(err?.message || "Ocurrió un error.");
+      if (!offset && !gotAny) setComposerOpen(true);
     } finally {
       setLoading(false);
       setGenPhase("idle");
     }
   }
 
-  const ADJUST_OPTIONS: { id: string; label: string }[] = [
-    { id: "simple", label: "Más simple" },
-    { id: "colorido", label: "Más colorido" },
-    { id: "colores", label: "Otros colores" },
-    { id: "sintexto", label: "Sin texto" },
-    { id: "textogrande", label: "Texto más grande" },
-    { id: "tierno", label: "Más tierno" },
-    { id: "elegante", label: "Más elegante" },
-  ];
-
+  // ---------- Ajustar ----------
   function toggleAdjustPreset(id: string) {
     setAdjustError("");
-    setAdjustPresets((current) => {
-      if (current.includes(id)) return current.filter((item) => item !== id);
-      if (current.length >= 3) return current;
-      return [...current, id];
+    setAdjustPresets((cur) => {
+      if (cur.includes(id)) return cur.filter((x) => x !== id);
+      if (cur.length >= 3) return cur;
+      return [...cur, id];
     });
   }
 
   async function handleAdjust() {
-    if (selectedIndex === null || adjusting) return;
-    const baseImage = images[selectedIndex];
-    if (!baseImage || baseImage === "__failed__") return;
-
+    if (selectedIndex === null || adjusting || !selectedReady) return;
     if (!adjustPresets.length && !adjustNote.trim()) {
       setAdjustError("Elige qué quieres cambiar o escríbelo.");
       return;
     }
-
     try {
       setAdjusting(true);
       setAdjustError("");
-
-      const apiBase = isEmbedded
-        ? "https://autoprint-ai-designer.vercel.app/api/generate"
-        : "/api/generate";
-
       const res = await fetch(apiBase, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "adjust",
-          image: baseImage,
+          image: selectedImage,
           presets: adjustPresets,
           note: adjustNote.trim(),
           mode,
         }),
       });
-
       if (!res.ok) {
         let message = "No pudimos crear el ajuste.";
         if (res.status === 429) {
-          message =
-            "Ya hiciste varios cambios seguidos. Espera unos minutos y vuelve a intentarlo.";
+          message = "Ya hiciste varios cambios seguidos. Espera unos minutos y vuelve a intentarlo.";
         } else {
           try {
             const data = await res.json();
@@ -1664,21 +458,20 @@ function HomePageInner() {
         }
         throw new Error(message);
       }
-
-      const data = await res.json();
-      if (!data?.image) throw new Error("No pudimos crear el ajuste.");
-
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch {}
+      if (!data?.image) throw new Error("No pudimos crear el ajuste. Intenta de nuevo.");
       const newIndex = images.length;
-      setImages((current) => [...current, String(data.image)]);
-      setLabels((current) => [...current, String(data.label || "Ajuste")]);
+      setImages((cur) => [...cur, String(data.image)]);
+      setLabels((cur) => [...cur, String(data.label || "Ajuste")]);
       setSelectedIndex(newIndex);
       setAdjustOpen(false);
       setAdjustPresets([]);
       setAdjustNote("");
-
-      setTimeout(() => {
-        postEmbedHeight();
-      }, 80);
+      setSaved(false);
+      setTimeout(postEmbedHeight, 80);
     } catch (err: any) {
       setAdjustError(err?.message || "No pudimos crear el ajuste.");
     } finally {
@@ -1686,3030 +479,1387 @@ function HomePageInner() {
     }
   }
 
-  async function handleContinueWithDesign() {
-    if (selectedIndex === null) return;
-
+  // ---------- Usar este diseño (se guarda y se manda al producto) ----------
+  async function handleUseDesign() {
+    if (selectedIndex === null || !selectedReady || saving || saved) return;
+    const label = String(labels[selectedIndex] || `Propuesta ${selectedIndex + 1}`);
     try {
-      const image = images[selectedIndex];
-      const label = selectedLabel || `Concepto ${selectedIndex + 1}`;
-
+      setSaving(true);
+      setError("");
       const saveRes = await fetch("/api/save-selected-design", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          image,
-          label,
-          prompt: generationPrompt.trim(),
-          mode,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: selectedImage, label, prompt: lastPrompt, mode }),
       });
-
-      const saved = await saveRes.json();
-
-      if (!saveRes.ok) {
-        throw new Error(saved?.error || "No se pudo guardar el diseño.");
+      let savedData: any = null;
+      try {
+        savedData = await saveRes.json();
+      } catch {}
+      if (!saveRes.ok || !savedData?.imageUrl) {
+        throw new Error(savedData?.error || "No se pudo guardar el diseño. Intenta de nuevo.");
       }
-
       const payload = {
         type: "AUTOPRINT_AI_DESIGN_SELECTED",
-        imageUrl: saved.imageUrl,
-        designRef: saved.designRef,
+        imageUrl: savedData.imageUrl,
+        designRef: savedData.designRef,
         label,
-        prompt: generationPrompt.trim(),
+        prompt: lastPrompt,
         mode,
       };
-
       if (isEmbedded && window.parent && window.parent !== window) {
         window.parent.postMessage(payload, "*");
       }
+      setSaved(true);
     } catch (err: any) {
       setError(err?.message || "Ocurrió un error al guardar el diseño.");
+    } finally {
+      setSaving(false);
     }
   }
 
+  // ---------- Vista ----------
+  const summaryChips = [
+    exactText.trim() ? `Texto: “${exactText.trim()}”` : "",
+    colorText,
+    styleId !== "auto" ? styleDef.label : "",
+  ].filter(Boolean);
+
   return (
-    <>
-      <main className={`page-shell ${isEmbedded ? "is-embedded" : ""}`}>
-        <div className="page-wrap">
-          <section className="composer-card">
-            <div className="studio-topbar">
-              <div className="studio-brand-stack">
-                <div
-                  className="studio-brandmark"
-                  aria-label="AutoPrint AI Studio"
+    <main className={`ap-shell ${dmSans.className} ${isEmbedded ? "is-embedded" : ""}`}>
+      <div className="page-wrap ap-studio">
+        <header className="ap-head">
+          <p className="ap-eyebrow">AutoPrint · Estudio IA</p>
+          <h1 className="ap-title">{copy.title}</h1>
+          <p className="ap-sub">{copy.sub}</p>
+          {!isEmbedded && !forcedMode && (
+            <div className="ap-mode" role="radiogroup" aria-label="Producto">
+              {(["sticker", "playera"] as DesignMode[]).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  role="radio"
+                  aria-checked={mode === m}
+                  className={`ap-mode__btn ${mode === m ? "is-on" : ""}`}
+                  disabled={loading || adjusting || saving}
+                  onClick={() => {
+                    setMode(m);
+                    setImages([]);
+                    setLabels([]);
+                    setSelectedIndex(null);
+                    setComposerOpen(true);
+                  }}
                 >
-                  <span className="studio-brandmark__core">AUTOPRINT</span>
-                  <span className="studio-brandmark__accent">AI STUDIO</span>
-                </div>
-                <div className="studio-brand-curve" aria-hidden="true" />
-              </div>
+                  {m === "sticker" ? "Sticker" : "Playera"}
+                </button>
+              ))}
             </div>
+          )}
+        </header>
 
-            <div className="composer-head">
-              <div>
-                <h1 className="composer-title">{composerTitle}</h1>
-                <p className="composer-subhelp">{composerSubhelp}</p>
-              </div>
-            </div>
+        {/* ---------- Paso 1: la idea ---------- */}
+        {composerOpen ? (
+          <section className="ap-compose" aria-label="Tu idea">
+            <label htmlFor="ap-prompt" className="ap-label">
+              ¿Qué quieres en tu {copy.noun}?
+            </label>
 
-            <div
-              className="studio-tabs"
-              role="tablist"
-              aria-label="Tipo de creación"
-            >
-              <button
-                type="button"
-                className={`studio-tab ${
-                  studioTab === "free" ? "is-active" : ""
-                }`}
-                onClick={() => setStudioTab("free")}
-              >
-                <span className="studio-tab__title">Idea libre</span>
-                <span className="studio-tab__sub">
-                  Para ideas rápidas como personajes, conceptos o estilos.
-                </span>
-              </button>
-
-              <button
-                type="button"
-                className={`studio-tab ${
-                  studioTab === "event" ? "is-active" : ""
-                }`}
-                onClick={() => setStudioTab("event")}
-              >
-                <span className="studio-tab__title">
-                  Cumpleaños y eventos
-                </span>
-                <span className="studio-tab__sub">
-                  Para diseños con nombre, tipo de evento, tema, colores y
-                  detalles importantes.
-                </span>
-              </button>
-
-              <button
-                type="button"
-                className={`studio-tab ${
-                  studioTab === "business" ? "is-active" : ""
-                }`}
-                onClick={() => setStudioTab("business")}
-              >
-                <span className="studio-tab__title">Negocios y marcas</span>
-                <span className="studio-tab__sub">
-                  Para identidad de marca, etiquetas de producto y stickers
-                  promocionales.
-                </span>
-              </button>
-            </div>
-
-            <div className="brief-shell">
-              {studioTab === "free" ? (
-                <>
-                  <div className="brief-head">
-                    <div className="brief-label">{copy.promptLabel}</div>
-                    <div className="brief-note">{copy.promptNote}</div>
-                  </div>
-
-                  <textarea
-                    id="prompt"
-                    value={prompt}
-                    onChange={(e) => {
-                      setPrompt(e.target.value);
-                      if (error) setError("");
-                    }}
-                    placeholder={copy.freePlaceholder}
-                    rows={4}
-                    className="prompt-textarea"
-                  />
-                  <div className="idea-examples">
-                    <span className="idea-examples__label">¿Sin ideas? Prueba con:</span>
-                    {(mode === "playera"
-                      ? [
-                          "Cumpleaños de Sofía, 6 años, con unicornios",
-                          "Equipo de fútbol Los Halcones con un halcón",
-                          "La frase «Primero el café» con una taza vintage",
-                        ]
-                      : [
-                          "Mi perro Max con lentes de sol y gorra",
-                          "Logo de Café Luna con una taza y una luna",
-                          "Gatito astronauta flotando con una estrella",
-                        ]
-                    ).map((example) => (
-                      <button
-                        key={example}
-                        type="button"
-                        className="idea-example"
-                        onClick={() => {
-                          setPrompt(example);
-                          if (error) setError("");
-                        }}
-                      >
-                        {example}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              ) : studioTab === "event" ? (
-                <>
-                  <div className="brief-head">
-                    <div className="brief-label">
-                      {copy.eventSectionTitle}
-                    </div>
-                    <div className="brief-note">
-                      {copy.eventSectionNote}
-                    </div>
-                  </div>
-
-                  <div className="field-block field-block--full">
-                    <label className="field-label" htmlFor="event-type">
-                      Tipo de evento
-                    </label>
-                    <select
-                      id="event-type"
-                      className="select-input"
-                      value={eventType}
-                      onChange={(e) =>
-                        setEventType(e.target.value as EventType)
-                      }
-                    >
-                      {EVENT_OPTIONS.map((option) => (
-                        <option key={option || "empty"} value={option}>
-                          {option || "Selecciona una opción"}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {eventType ? (
-                    <>
-                      <div className="event-profile-banner">
-                        <div className="event-profile-banner__title">
-                          {eventProfile.title}
-                        </div>
-                        <div className="event-profile-banner__note">
-                          {eventProfile.note}
-                        </div>
-                        <div className="event-profile-banner__hint">
-                          {eventProfile.summaryHint}
-                        </div>
-                      </div>
-
-                      <div className="event-grid">
-                        <div className="field-block">
-                          <label
-                            className="field-label"
-                            htmlFor="event-name"
-                          >
-                            Nombre
-                          </label>
-                          <input
-                            id="event-name"
-                            className="text-input"
-                            type="text"
-                            value={eventName}
-                            onChange={(e) => setEventName(e.target.value)}
-                            placeholder="Ejemplo: Ian"
-                          />
-                        </div>
-
-                        {eventProfile.showNumber ? (
-                          <div className="field-block">
-                            <label
-                              className="field-label"
-                              htmlFor="event-number"
-                            >
-                              Edad o número importante
-                            </label>
-                            <input
-                              id="event-number"
-                              className="text-input"
-                              type="text"
-                              value={eventNumber}
-                              onChange={(e) =>
-                                setEventNumber(e.target.value)
-                              }
-                              placeholder="Ejemplo: 5"
-                            />
-                          </div>
-                        ) : eventProfile.showRecipientType ? (
-                          <div className="field-block">
-                            <label
-                              className="field-label"
-                              htmlFor="event-recipient"
-                            >
-                              {eventProfile.recipientLabel}
-                            </label>
-                            <select
-                              id="event-recipient"
-                              className="select-input"
-                              value={eventRecipientType}
-                              onChange={(e) =>
-                                setEventRecipientType(
-                                  e.target.value as RecipientType
-                                )
-                              }
-                            >
-                              <option value="">
-                                Selecciona una opción
-                              </option>
-                              {eventProfile.recipientOptions.map((option) => (
-                                <option key={option} value={option}>
-                                  {option}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        ) : null}
-
-                        {eventProfile.showTheme ? (
-                          <div className="field-block">
-                            <label
-                              className="field-label"
-                              htmlFor="event-theme"
-                            >
-                              {eventProfile.themeLabel}
-                            </label>
-                            <input
-                              id="event-theme"
-                              className="text-input"
-                              type="text"
-                              value={eventTheme}
-                              onChange={(e) => setEventTheme(e.target.value)}
-                              placeholder={eventProfile.themePlaceholder}
-                            />
-                          </div>
-                        ) : null}
-
-                        {!eventProfile.showNumber &&
-                        !eventProfile.showRecipientType ? (
-                          <div className="field-block">
-                            <label
-                              className="field-label"
-                              htmlFor="event-name-ghost"
-                            >
-                              Nota del evento
-                            </label>
-                            <input
-                              id="event-name-ghost"
-                              className="text-input"
-                              type="text"
-                              value=""
-                              onChange={() => {}}
-                              placeholder="Este espacio no se usa en este evento"
-                              disabled
-                            />
-                          </div>
-                        ) : null}
-                      </div>
-
-                      <div className="field-block field-block--full">
-                        <label className="field-label">
-                          Colores que te gustaría ver
-                        </label>
-                        <div className="field-helper">
-                          Elige hasta 2. Esto ayuda mucho a dirigir mejor el
-                          resultado.
-                        </div>
-
-                        <div className="color-pills">
-                          {COLOR_OPTIONS.map((color) => {
-                            const isActive = eventColors.includes(color.id);
-
-                            return (
-                              <button
-                                key={color.id}
-                                type="button"
-                                className={`color-pill ${
-                                  isActive ? "is-active" : ""
-                                }`}
-                                onClick={() => toggleColor(color.id)}
-                              >
-                                {color.label}
-                              </button>
-                            );
-                          })}
-                        </div>
-
-                        <div className="chips-status-row chips-status-row--compact">
-                          <div className="chips-status">
-                            {eventColors.length}/{MAX_EVENT_COLORS} colores
-                            elegidos
-                          </div>
-                          {colorMessage ? (
-                            <div className="chip-message">
-                              {colorMessage}
-                            </div>
-                          ) : null}
-                        </div>
-
-                        <input
-                          className="text-input text-input--top-space"
-                          type="text"
-                          value={eventCustomColors}
-                          onChange={(e) =>
-                            setEventCustomColors(e.target.value)
-                          }
-                          placeholder="Otro color o combinación especial (opcional)"
-                        />
-                      </div>
-
-                      <div className="event-grid event-grid--lower">
-                        <div className="field-block">
-                          <label
-                            className="field-label"
-                            htmlFor="event-phrase"
-                          >
-                            Frase opcional
-                          </label>
-                          <input
-                            id="event-phrase"
-                            className="text-input"
-                            type="text"
-                            value={eventPhrase}
-                            onChange={(e) =>
-                              setEventPhrase(e.target.value)
-                            }
-                            placeholder={eventProfile.phrasePlaceholder}
-                          />
-                        </div>
-
-                        <div className="field-block field-block--stretch">
-                          <label
-                            className="field-label"
-                            htmlFor="event-details"
-                          >
-                            Detalles extra
-                          </label>
-                          <textarea
-                            id="event-details"
-                            className="small-textarea"
-                            value={eventDetails}
-                            onChange={(e) =>
-                              setEventDetails(e.target.value)
-                            }
-                            placeholder={eventProfile.detailsPlaceholder}
-                            rows={4}
-                          />
-                        </div>
-                      </div>
-
-                      {priorityItems.length > 0 ? (
-                        <div className="priority-panel">
-                          <div className="priority-panel__head">
-                            <div className="priority-panel__title">
-                              {copy.priorityPanelTitle}
-                            </div>
-                            <div className="priority-panel__sub">
-                              {copy.priorityPanelSub}
-                            </div>
-                          </div>
-
-                          <div className="priority-panel__grid">
-                            {priorityItems.map((item) => (
-                              <div
-                                key={`${item.label}-${item.value}`}
-                                className="priority-item"
-                              >
-                                <span className="priority-item__label">
-                                  {item.label}
-                                </span>
-                                <span className="priority-item__value">
-                                  {item.value}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ) : null}
-                    </>
-                  ) : null}
-                </>
-              ) : (
-                <>
-                  <div className="brief-head">
-                    <div className="brief-label">
-                      {copy.businessSectionTitle}
-                    </div>
-                    <div className="brief-note">
-                      {copy.businessSectionNote}
-                    </div>
-                  </div>
-
-                  <div className="field-block field-block--full">
-                    <label
-                      className="field-label"
-                      htmlFor="business-project-type"
-                    >
-                      ¿Qué quieres crear?
-                    </label>
-                    <select
-                      id="business-project-type"
-                      className="select-input"
-                      value={businessProjectType}
-                      onChange={(e) =>
-                        setBusinessProjectType(
-                          e.target.value as BusinessProjectType
-                        )
-                      }
-                    >
-                      {BUSINESS_PROJECT_OPTIONS.map((option) => (
-                        <option key={option || "empty"} value={option}>
-                          {option || "Selecciona una opción"}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {businessProjectType ? (
-                    <>
-                      <div className="event-profile-banner">
-                        <div className="event-profile-banner__title">
-                          {businessProjectProfile.title}
-                        </div>
-                        <div className="event-profile-banner__note">
-                          {businessProjectProfile.note}
-                        </div>
-                        <div className="event-profile-banner__hint">
-                          {businessProjectProfile.summaryHint}
-                        </div>
-                      </div>
-
-                      <div className="event-grid">
-                        <div className="field-block">
-                          <label
-                            className="field-label"
-                            htmlFor="business-sector"
-                          >
-                            ¿A qué se dedica tu negocio?
-                          </label>
-                          <select
-                            id="business-sector"
-                            className="select-input"
-                            value={businessSector}
-                            onChange={(e) =>
-                              setBusinessSector(
-                                e.target.value as BusinessSector
-                              )
-                            }
-                          >
-                            {BUSINESS_SECTOR_OPTIONS.map((option) => (
-                              <option key={option || "empty"} value={option}>
-                                {option || "Selecciona una opción"}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div className="field-block">
-                          <label
-                            className="field-label"
-                            htmlFor="business-name"
-                          >
-                            {businessProjectProfile.nameLabel}
-                          </label>
-                          <input
-                            id="business-name"
-                            className="text-input"
-                            type="text"
-                            value={businessName}
-                            onChange={(e) => setBusinessName(e.target.value)}
-                            placeholder={businessProjectProfile.namePlaceholder}
-                          />
-                        </div>
-
-                        {businessProjectProfile.showProductName ? (
-                          <div className="field-block">
-                            <label
-                              className="field-label"
-                              htmlFor="business-product-name"
-                            >
-                              {businessProjectProfile.productLabel}
-                            </label>
-                            <input
-                              id="business-product-name"
-                              className="text-input"
-                              type="text"
-                              value={businessProductName}
-                              onChange={(e) =>
-                                setBusinessProductName(e.target.value)
-                              }
-                              placeholder={businessProjectProfile.productPlaceholder}
-                            />
-                          </div>
-                        ) : (
-                          <div className="field-block">
-                            <label
-                              className="field-label"
-                              htmlFor="business-message"
-                            >
-                              {businessProjectProfile.messageLabel}
-                            </label>
-                            <input
-                              id="business-message"
-                              className="text-input"
-                              type="text"
-                              value={businessMessage}
-                              onChange={(e) =>
-                                setBusinessMessage(e.target.value)
-                              }
-                              placeholder={businessProjectProfile.messagePlaceholder}
-                            />
-                          </div>
-                        )}
-
-                        {businessProjectProfile.showProductName ? (
-                          <div className="field-block">
-                            <label
-                              className="field-label"
-                              htmlFor="business-message-2"
-                            >
-                              {businessProjectProfile.messageLabel}
-                            </label>
-                            <input
-                              id="business-message-2"
-                              className="text-input"
-                              type="text"
-                              value={businessMessage}
-                              onChange={(e) =>
-                                setBusinessMessage(e.target.value)
-                              }
-                              placeholder={businessProjectProfile.messagePlaceholder}
-                            />
-                          </div>
-                        ) : null}
-                      </div>
-
-                      {businessSector ? (
-                        <div className="event-profile-banner" style={{ marginTop: 14 }}>
-                          <div className="event-profile-banner__title">
-                            Dirección para {businessSectorProfile.title}
-                          </div>
-                          <div className="event-profile-banner__note">
-                            {businessSectorProfile.note}
-                          </div>
-                          <div className="event-profile-banner__hint">
-                            Buscaremos una propuesta {businessSectorProfile.toneHint}.
-                          </div>
-                        </div>
-                      ) : null}
-
-                      <div className="field-block field-block--full">
-                        <label className="field-label">
-                          Colores que te gustaría ver
-                        </label>
-                        <div className="field-helper">
-                          Elige hasta 2. Esto ayuda mucho a dirigir mejor el
-                          resultado.
-                        </div>
-
-                        <div className="color-pills">
-                          {COLOR_OPTIONS.map((color) => {
-                            const isActive = businessColors.includes(color.id);
-
-                            return (
-                              <button
-                                key={color.id}
-                                type="button"
-                                className={`color-pill ${
-                                  isActive ? "is-active" : ""
-                                }`}
-                                onClick={() => toggleBusinessColor(color.id)}
-                              >
-                                {color.label}
-                              </button>
-                            );
-                          })}
-                        </div>
-
-                        <div className="chips-status-row chips-status-row--compact">
-                          <div className="chips-status">
-                            {businessColors.length}/{MAX_EVENT_COLORS} colores elegidos
-                          </div>
-                          {businessColorMessage ? (
-                            <div className="chip-message">{businessColorMessage}</div>
-                          ) : null}
-                        </div>
-
-                        <input
-                          className="text-input text-input--top-space"
-                          type="text"
-                          value={businessCustomColors}
-                          onChange={(e) =>
-                            setBusinessCustomColors(e.target.value)
-                          }
-                          placeholder="Otro color o combinación especial (opcional)"
-                        />
-                      </div>
-
-                      <div className="event-grid event-grid--lower">
-                        <div className="field-block">
-                          <label
-                            className="field-label"
-                            htmlFor="business-symbol"
-                          >
-                            {businessProjectProfile.symbolLabel}
-                          </label>
-                          <input
-                            id="business-symbol"
-                            className="text-input"
-                            type="text"
-                            value={businessSymbol}
-                            onChange={(e) => setBusinessSymbol(e.target.value)}
-                            placeholder={businessProjectProfile.symbolPlaceholder}
-                          />
-                        </div>
-
-                        <div className="field-block field-block--stretch">
-                          <label
-                            className="field-label"
-                            htmlFor="business-details"
-                          >
-                            Detalles extra
-                          </label>
-                          <textarea
-                            id="business-details"
-                            className="small-textarea"
-                            value={businessDetails}
-                            onChange={(e) =>
-                              setBusinessDetails(e.target.value)
-                            }
-                            placeholder={businessProjectProfile.detailsPlaceholder}
-                            rows={4}
-                          />
-                        </div>
-                      </div>
-
-                      {businessPriorityItems.length > 0 ? (
-                        <div className="priority-panel">
-                          <div className="priority-panel__head">
-                            <div className="priority-panel__title">
-                              {copy.priorityPanelTitle}
-                            </div>
-                            <div className="priority-panel__sub">
-                              {copy.priorityPanelSub}
-                            </div>
-                          </div>
-
-                          <div className="priority-panel__grid">
-                            {businessPriorityItems.map((item) => (
-                              <div
-                                key={`${item.label}-${item.value}`}
-                                className="priority-item"
-                              >
-                                <span className="priority-item__label">
-                                  {item.label}
-                                </span>
-                                <span className="priority-item__value">
-                                  {item.value}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ) : null}
-                    </>
-                  ) : null}
-                </>
-              )}
-
-              <div className="chips-zone">
-                <div className="chips-head">
-                  <div className="chips-title">{copy.chipsTitle}</div>
-                  <div className="chips-sub">{copy.chipsSub}</div>
-                </div>
-
-                <div className="chips-status-row">
-                  <div className="chips-status">
-                    {activeChips.length}/{MAX_ACTIVE_CHIPS} opciones
-                    elegidas
-                  </div>
-                  {chipMessage ? (
-                    <div className="chip-message">{chipMessage}</div>
-                  ) : null}
-                </div>
-
-                <div className="chip-groups-grid">
-                  {chipGroups.map((group) => (
-                    <div key={group.id} className="chip-group-card">
-                      <div className="chip-group-card__title">
-                        {group.title}
-                      </div>
-                      <div className="chip-group-card__subtitle">
-                        {group.subtitle}
-                      </div>
-
-                      <div className="chip-group-card__chips">
-                        {group.chips.map((chip) => {
-                          const isActive = activeChips.includes(chip.id);
-
-                          return (
-                            <button
-                              key={chip.id}
-                              type="button"
-                              title={chip.helper}
-                              className={`chip-btn ${
-                                isActive ? "is-active" : ""
-                              }`}
-                              onClick={() => toggleChip(chip.id)}
-                            >
-                              <span className="chip-btn__text">
-                                {chip.label}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {activeChipDefs.length > 0 ? (
-                  <div className="direction-panel">
-                    <div className="direction-panel__head">
-                      <div className="direction-panel__kicker">
-                        {copy.directionPanelTitle}
-                      </div>
-                      <p className="direction-panel__sub">
-                        {copy.directionPanelSub}
-                      </p>
-                    </div>
-
-                    <div className="direction-panel__pills">
-                      {activeChipDefs.map((chip) => (
-                        <span key={chip.id} className="direction-pill">
-                          {chip.label}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="composer-foot">
+            <div className="ap-box">
+              <textarea
+                id="ap-prompt"
+                ref={promptRef}
+                className="ap-box__input"
+                rows={3}
+                maxLength={500}
+                value={prompt}
+                placeholder={copy.placeholder}
+                onChange={(e) => {
+                  setPrompt(e.target.value);
+                  if (error) setError("");
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleGenerate();
+                }}
+              />
+              <div className="ap-box__tools" role="group" aria-label="Detalles opcionales">
                 <button
                   type="button"
-                  onClick={handleGenerate}
-                  disabled={!canGenerate}
-                  className={`ai-generate-btn ${
-                    loading ? "is-loading" : ""
-                  }`}
+                  className={`ap-tool ${panel === "texto" ? "is-open" : ""} ${exactText.trim() ? "is-set" : ""}`}
+                  aria-expanded={panel === "texto"}
+                  onClick={() => togglePanel("texto")}
                 >
-                  <span className="ai-generate-btn__glow" />
-                  <span className="ai-generate-btn__border" />
-                  <span className="ai-generate-btn__bg" />
-                  <span className="ai-generate-btn__shine" />
-
-                  <span className="ai-generate-btn__content">
-                    <span className="ai-stars" aria-hidden="true">
-                      <span className="ai-star ai-star--big">✦</span>
-                      <span className="ai-star ai-star--mid">✦</span>
-                      <span className="ai-star ai-star--small">✦</span>
+                  <Icon name="text" />
+                  {exactText.trim() ? `“${exactText.trim().slice(0, 14)}${exactText.trim().length > 14 ? "…" : ""}”` : "Texto exacto"}
+                </button>
+                <button
+                  type="button"
+                  className={`ap-tool ${panel === "colores" ? "is-open" : ""} ${colors.length ? "is-set" : ""}`}
+                  aria-expanded={panel === "colores"}
+                  onClick={() => togglePanel("colores")}
+                >
+                  {colorDefs.length ? (
+                    <span className="ap-tool__dots" aria-hidden="true">
+                      {colorDefs.map((c) => (
+                        <i key={c.id} style={{ background: c.swatch }} />
+                      ))}
                     </span>
-
-                    <span className="ai-generate-btn__copy">
-                      <span className="ai-generate-btn__label">
-                        {loading ? "Generando..." : copy.primaryCta}
-                      </span>
-                      <span className="ai-generate-btn__sub">
-                        {loading
-                          ? "3 propuestas en proceso"
-                          : primarySub}
-                      </span>
-                    </span>
-                  </span>
+                  ) : (
+                    <Icon name="palette" />
+                  )}
+                  {colorDefs.length ? colorText : "Colores"}
+                </button>
+                <button
+                  type="button"
+                  className={`ap-tool ${panel === "estilo" ? "is-open" : ""} ${styleId !== "auto" ? "is-set" : ""}`}
+                  aria-expanded={panel === "estilo"}
+                  onClick={() => togglePanel("estilo")}
+                >
+                  <Icon name="brush" />
+                  {styleId !== "auto" ? styleDef.label : "Estilo"}
                 </button>
               </div>
             </div>
 
-            {loading ? (
-              <div className="loading-panel">
-                <div className="loading-top">
-                  <div className="loading-orbit">
-                    <span className="loading-dot loading-dot--1" />
-                    <span className="loading-dot loading-dot--2" />
-                    <span className="loading-dot loading-dot--3" />
-                  </div>
-
-                  <div className="loading-copy">
-                    <div className="loading-title">{copy.loadingTitle}</div>
-                    <div className="loading-subtitle">{loadingSub}</div>
-                  </div>
-                </div>
-
-                <div className="loading-steps">
-                  <div className={`loading-step ${genPhase === "drawing" ? "is-done" : "is-active"}`}>
-                    <span className="loading-step__bullet" />
-                    {genPhase === "drawing" ? "Idea entendida" : "Entendiendo tu idea…"}
-                  </div>
-                  <div className={`loading-step ${genPhase === "drawing" ? "is-done" : ""}`}>
-                    <span className="loading-step__bullet" />
-                    {genPhase === "drawing" ? "3 estilos distintos listos para dibujar" : "Eligiendo 3 estilos distintos"}
-                  </div>
-                  <div className={`loading-step ${genPhase === "drawing" ? "is-active" : ""}`}>
-                    <span className="loading-step__bullet" />
-                    {genPhase === "drawing"
-                      ? `Dibujando: ${images.filter((img) => isReadyImage(img)).length} de ${images.length || 3} listas`
-                      : "Dibujar tus 3 propuestas"}
-                  </div>
-                </div>
+            {!prompt.trim() && (
+              <div className="ap-starters">
+                <span className="ap-starters__lead">Empieza con:</span>
+                {STARTERS[mode].map((s) => (
+                  <button key={s.label} type="button" className="ap-starter" onClick={() => applyStarter(s.opener)}>
+                    {s.label}
+                  </button>
+                ))}
               </div>
-            ) : null}
+            )}
 
-            {error ? <div className="error-box">{error}</div> : null}
-          </section>
-
-          {images.length > 0 ? (
-            <section className="results-block">
-              <div className="results-head">
-                <div>
-                  <div className="results-kicker">
-                    {copy.resultsKicker}
-                  </div>
-                  <h2 className="results-title">{copy.resultsTitle}</h2>
-                  <p className="results-sub">{copy.resultsSub}</p>
-                </div>
+            {showTextHint && (
+              <div className="ap-hint" role="status">
+                <Icon name="wand" />
+                <p>
+                  ¿Tu diseño lleva un nombre o frase? Escríbelo en <strong>Texto exacto</strong> para que salga tal cual.
+                </p>
+                <button type="button" className="ap-hint__yes" onClick={acceptTextHint}>
+                  Agregar
+                </button>
+                <button type="button" className="ap-hint__no" aria-label="No, gracias" onClick={() => setHintDismissed(true)}>
+                  <Icon name="x" />
+                </button>
               </div>
+            )}
 
-              <div className="results-grid results-grid--3">
-                {images.map((image, index) => {
-                  const isSelected = selectedIndex === index;
-                  const { style, concept } = splitLabel(labels[index], index);
+            {panel === "texto" && (
+              <div className="ap-panel">
+                <label htmlFor="ap-text" className="ap-panel__title">
+                  Texto que debe aparecer
+                </label>
+                <p className="ap-panel__help">Escríbelo como debe ir, con acentos. Entre más corto, mejor se lee.</p>
+                <div className="ap-field">
+                  <input
+                    id="ap-text"
+                    className="ap-input"
+                    type="text"
+                    maxLength={MAX_TEXT}
+                    value={exactText}
+                    placeholder="Nombre, frase o marca"
+                    autoComplete="off"
+                    onChange={(e) => setExactText(e.target.value)}
+                  />
+                  <span className="ap-count">
+                    {exactText.length}/{MAX_TEXT}
+                  </span>
+                </div>
+                {exactText && (
+                  <button type="button" className="ap-link" onClick={() => setExactText("")}>
+                    Quitar texto
+                  </button>
+                )}
+              </div>
+            )}
 
-                  if (image === "" || image === "__failed__") {
-                    const failed = image === "__failed__";
+            {panel === "colores" && (
+              <div className="ap-panel">
+                <p className="ap-panel__title">Colores principales</p>
+                <p className="ap-panel__help">Elige hasta 2. Si no eliges, la IA propone.</p>
+                <div className="ap-swatches">
+                  {COLOR_OPTIONS.map((c) => {
+                    const on = colors.includes(c.id);
                     return (
-                      <div
-                        key={index}
-                        className={`design-card design-card--pending ${failed ? "is-failed" : ""}`}
-                        aria-busy={!failed}
+                      <button
+                        key={c.id}
+                        type="button"
+                        className={`ap-swatch ${on ? "is-on" : ""}`}
+                        aria-pressed={on}
+                        onClick={() => toggleColor(c.id)}
                       >
-                        <div className="design-card__image-wrap">
-                          <div className="design-card__skeleton">
-                            <span>
-                              {failed
-                                ? "Esta propuesta no se pudo crear"
-                                : `Dibujando propuesta ${index + 1}…`}
-                            </span>
-                          </div>
-                          {style ? <div className="design-card__badge">{style}</div> : null}
-                        </div>
-                        <div className="design-card__body">
-                          <div className="design-card__title">{concept || style}</div>
-                          <div className="design-card__meta">
-                            {failed ? "Elige una de las otras opciones." : "Aparecerá aquí en unos segundos."}
-                          </div>
-                        </div>
-                      </div>
+                        <i style={{ background: c.swatch }} aria-hidden="true" />
+                        {c.label}
+                      </button>
                     );
-                  }
+                  })}
+                </div>
+                {colors.length > 0 && (
+                  <button type="button" className="ap-link" onClick={() => setColors([])}>
+                    Sin preferencia
+                  </button>
+                )}
+              </div>
+            )}
 
+            {panel === "estilo" && (
+              <div className="ap-panel">
+                <p className="ap-panel__title">Estilo</p>
+                <p className="ap-panel__help">Opcional. En «Automático» las 3 propuestas salen con estilos distintos.</p>
+                <div className="ap-styles" role="radiogroup" aria-label="Estilo">
+                  {STYLE_OPTIONS.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={styleId === s.id}
+                      className={`ap-style ${styleId === s.id ? "is-on" : ""}`}
+                      onClick={() => setStyleId(s.id)}
+                    >
+                      <span className="ap-style__name">{s.label}</span>
+                      <span className="ap-style__hint">{s.hint}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {error && !hasResults && (
+              <p className="ap-error" role="alert">
+                {error}
+              </p>
+            )}
+
+            <button type="button" className="ap-cta" disabled={!canGenerate} onClick={handleGenerate}>
+              <Icon name="spark" />
+              {hasResults ? "Crear 3 propuestas nuevas" : "Crear 3 propuestas"}
+            </button>
+            <p className="ap-cta__note">Después puedes ajustar la que elijas.</p>
+          </section>
+        ) : (
+          <section className="ap-summary" aria-label="Tu idea">
+            <div className="ap-summary__body">
+              <p className="ap-summary__label">Tu idea</p>
+              <p className="ap-summary__text">{prompt.trim()}</p>
+              {summaryChips.length > 0 && (
+                <div className="ap-summary__chips">
+                  {summaryChips.map((c) => (
+                    <span key={c}>{c}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button type="button" className="ap-btn ap-btn--ghost" disabled={loading} onClick={openComposer}>
+              <Icon name="edit" />
+              Editar idea
+            </button>
+          </section>
+        )}
+
+        {/* ---------- Paso 2: elegir ---------- */}
+        <div ref={resultsRef} className="ap-results-anchor" tabIndex={-1} aria-label="Tus propuestas" />
+        <p className="ap-sr" aria-live="polite">
+          {liveText}
+        </p>
+        {(loading || hasResults) && (
+          <section className="ap-results" aria-label="Propuestas">
+            <div className="ap-stage">
+              {selectedReady ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={selectedImage} alt={selectedLabel ? `${selectedLabel.style} ${selectedLabel.concept}` : "Propuesta"} />
+              ) : (
+                <div className="ap-stage__wait">
+                  <span className="ap-spinner" aria-hidden="true" />
+                  <p>{stageText}</p>
+                </div>
+              )}
+              {adjusting && (
+                <div className="ap-stage__veil">
+                  <span className="ap-spinner" aria-hidden="true" />
+                  <p>Creando tu versión ajustada…</p>
+                </div>
+              )}
+            </div>
+
+            <div className="ap-side">
+              {loading && (
+                <div className="ap-progress">
+                  <p>{progressText}</p>
+                  <div className="ap-progress__bar">
+                    <span style={{ width: `${progressPct}%` }} />
+                  </div>
+                </div>
+              )}
+
+              {selectedLabel && selectedReady && (
+                <div className="ap-picked">
+                  <p className="ap-picked__style">{selectedLabel.style}</p>
+                  {selectedLabel.concept && <h2 className="ap-picked__concept">{selectedLabel.concept}</h2>}
+                </div>
+              )}
+
+              <div className="ap-thumbs" role="radiogroup" aria-label="Tus propuestas">
+                {thumbSlots.map((img, i) => {
+                  const lab = splitLabel(labels[i], i);
+                  const failed = img === FAILED;
+                  const ready = !!img && !failed;
                   return (
-                    <div
-                      key={index}
-                      className={`design-card ${
-                        isSelected ? "is-selected" : ""
-                      }`}
-                      onClick={() => setSelectedIndex(index)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          setSelectedIndex(index);
-                        }
+                    <button
+                      key={i}
+                      type="button"
+                      role="radio"
+                      aria-checked={selectedIndex === i}
+                      aria-label={ready ? `${lab.style} ${lab.concept}` : failed ? "Esta propuesta no salió" : "Dibujando"}
+                      disabled={!ready}
+                      className={`ap-thumb ${selectedIndex === i ? "is-on" : ""} ${failed ? "is-failed" : ""} ${!img ? "is-wait" : ""}`}
+                      onClick={() => {
+                        setSelectedIndex(i);
+                        setAdjustOpen(false);
+                        setSaved(false);
                       }}
                     >
-                      <div className="design-card__image-wrap">
-                        <img
-                          src={image}
-                          alt={`Diseño generado ${index + 1}`}
-                          className="design-card__image"
-                        />
-
-                        <div className="design-card__badge">{style}</div>
-
-                        <button
-                          type="button"
-                          className="design-card__zoom"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openPreview(index);
-                          }}
-                          aria-label={`Ver diseño ${index + 1} en grande`}
-                        >
-                          🔍
-                        </button>
-
-                        {isSelected ? (
-                          <div className="design-card__check">✓</div>
-                        ) : null}
-                      </div>
-
-                      <div className="design-card__body">
-                        <div className="design-card__title">
-                          {concept || style}
-                        </div>
-                        <div className="design-card__meta">
-                          {isSelected
-                            ? copy.selectionReady
-                            : "Toca para elegir esta propuesta."}
-                        </div>
-                      </div>
-                    </div>
+                      <span className="ap-thumb__img">
+                        {ready ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={img} alt="" />
+                        ) : failed ? (
+                          <em>No salió</em>
+                        ) : (
+                          <span className="ap-shimmer" />
+                        )}
+                        {selectedIndex === i && ready && (
+                          <span className="ap-thumb__check">
+                            <Icon name="check" />
+                          </span>
+                        )}
+                      </span>
+                      <span className="ap-thumb__label">{ready || lab.style !== `Propuesta ${i + 1}` ? lab.style : `Propuesta ${i + 1}`}</span>
+                    </button>
                   );
                 })}
               </div>
 
-              <div className="studio-actionbar">
-                <div className="studio-actionbar__meta">
-                  <span className="studio-actionbar__eyebrow">
-                    Selección final
-                  </span>
-                  <strong className="studio-actionbar__title">
-                    {selectedLabel || "Elige una opción"}
-                  </strong>
-                  <span className="studio-actionbar__sub">
-                    {selectedImage
-                      ? copy.selectionReady
-                      : "Toca una opción para continuar."}
-                  </span>
-                </div>
+              {error && hasResults && (
+                <p className="ap-error" role="alert">
+                  {error}
+                </p>
+              )}
 
-                <div className="studio-actionbar__actions">
-                  <button
-                    type="button"
-                    className={`studio-secondary-btn ${adjustOpen ? "is-on" : ""}`}
-                    disabled={selectedIndex === null || adjusting || loading}
-                    onClick={() => {
-                      setAdjustError("");
-                      setAdjustOpen((open) => !open);
-                    }}
-                  >
-                    Ajustar esta
+              {!loading && (
+                <div className="ap-actions">
+                  <button type="button" className={`ap-cta ${saved ? "is-saved" : ""}`} disabled={!selectedReady || saving || saved || adjusting} onClick={handleUseDesign}>
+                    {saving ? (
+                      <>
+                        <span className="ap-spinner ap-spinner--light" aria-hidden="true" />
+                        Guardando…
+                      </>
+                    ) : saved ? (
+                      <>
+                        <Icon name="check" />
+                        Diseño agregado
+                      </>
+                    ) : (
+                      <>Usar este diseño</>
+                    )}
                   </button>
-
-                  <button
-                    type="button"
-                    className="studio-secondary-btn"
-                    disabled={selectedIndex === null}
-                    onClick={() => {
-                      if (selectedIndex !== null) openPreview(selectedIndex);
-                    }}
-                  >
-                    Ver grande
-                  </button>
-
-                  <button
-                    type="button"
-                    className="studio-primary-btn"
-                    disabled={selectedIndex === null}
-                    onClick={handleContinueWithDesign}
-                  >
-                    {copy.finalCta}
-                  </button>
-                </div>
-              </div>
-
-              {adjustOpen && selectedIndex !== null ? (
-                <div className="adjust-panel">
-                  <div className="adjust-panel__head">
-                    <strong>¿Qué le cambiamos a esta propuesta?</strong>
-                    <span>Elige hasta 3 opciones o escríbelo. Se crea 1 versión nueva y la original se queda.</span>
+                  <div className="ap-actions__row">
+                    <button
+                      type="button"
+                      className={`ap-btn ${adjustOpen ? "is-on" : ""}`}
+                      disabled={!selectedReady || adjusting}
+                      aria-expanded={adjustOpen}
+                      onClick={() => {
+                        setAdjustOpen((v) => !v);
+                        setAdjustError("");
+                      }}
+                    >
+                      <Icon name="wand" />
+                      Ajustar diseño
+                    </button>
+                    <button type="button" className="ap-btn" disabled={adjusting} onClick={handleGenerate}>
+                      <Icon name="redo" />
+                      3 propuestas más
+                    </button>
                   </div>
+                </div>
+              )}
 
-                  <div className="adjust-panel__chips">
-                    {ADJUST_OPTIONS.map((option) => {
-                      const on = adjustPresets.includes(option.id);
+              {adjustOpen && !loading && (
+                <div className="ap-panel ap-adjust">
+                  <p className="ap-panel__title">¿Qué le cambiamos?</p>
+                  <p className="ap-panel__help">Elige hasta 3 o escríbelo. Creamos 1 versión nueva y la original se queda.</p>
+                  <div className="ap-chips">
+                    {ADJUST_OPTIONS.map((o) => {
+                      const on = adjustPresets.includes(o.id);
                       return (
                         <button
-                          key={option.id}
+                          key={o.id}
                           type="button"
-                          className={`adjust-chip ${on ? "is-on" : ""}`}
+                          className={`ap-chip ${on ? "is-on" : ""}`}
                           aria-pressed={on}
                           disabled={adjusting}
-                          onClick={() => toggleAdjustPreset(option.id)}
+                          onClick={() => toggleAdjustPreset(o.id)}
                         >
-                          {option.label}
+                          {on && <Icon name="check" />}
+                          {o.label}
                         </button>
                       );
                     })}
                   </div>
-
                   <input
+                    className="ap-input"
                     type="text"
-                    className="adjust-panel__input"
-                    value={adjustNote}
                     maxLength={300}
+                    value={adjustNote}
                     disabled={adjusting}
-                    placeholder="O escribe qué cambiar, ej.: que el tigre sonría y quita las estrellas"
+                    placeholder="Otro cambio (opcional)"
                     onChange={(e) => {
                       setAdjustNote(e.target.value);
-                      if (adjustError) setAdjustError("");
+                      setAdjustError("");
                     }}
                   />
-
-                  {adjustError ? <div className="error-box">{adjustError}</div> : null}
-
-                  <div className="adjust-panel__foot">
-                    <button
-                      type="button"
-                      className="studio-secondary-btn"
-                      disabled={adjusting}
-                      onClick={() => setAdjustOpen(false)}
-                    >
+                  {adjustError && (
+                    <p className="ap-error" role="alert">
+                      {adjustError}
+                    </p>
+                  )}
+                  <div className="ap-actions__row">
+                    <button type="button" className="ap-btn ap-btn--primary" disabled={adjusting} onClick={handleAdjust}>
+                      {adjusting ? "Creando…" : "Crear versión ajustada"}
+                    </button>
+                    <button type="button" className="ap-btn ap-btn--ghost" disabled={adjusting} onClick={() => setAdjustOpen(false)}>
                       Cancelar
                     </button>
-                    <button
-                      type="button"
-                      className="studio-primary-btn"
-                      disabled={adjusting}
-                      onClick={handleAdjust}
-                    >
-                      {adjusting ? "Creando ajuste…" : "Crear versión ajustada"}
-                    </button>
                   </div>
                 </div>
-              ) : null}
-            </section>
-          ) : null}
-        </div>
-      </main>
+              )}
+            </div>
+          </section>
+        )}
+      </div>
 
-      {previewIndex !== null && typeof document !== "undefined"
-        ? createPortal(
-            <div
-              className="preview-modal"
-              onClick={() => setPreviewIndex(null)}
-            >
-              <div
-                className="preview-modal__dialog"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <button
-                  type="button"
-                  className="preview-modal__close"
-                  onClick={() => setPreviewIndex(null)}
-                >
-                  ×
-                </button>
-
-                <button
-                  type="button"
-                  className="preview-modal__nav preview-modal__nav--left"
-                  onClick={() =>
-                    setPreviewIndex(nextReadyIndex(previewIndex, -1))
-                  }
-                >
-                  ‹
-                </button>
-
-                <div className="preview-modal__image-wrap">
-                  <img
-                    src={images[previewIndex]}
-                    alt={`Vista previa ${previewIndex + 1}`}
-                    className="preview-modal__image"
-                  />
-                </div>
-
-                <button
-                  type="button"
-                  className="preview-modal__nav preview-modal__nav--right"
-                  onClick={() =>
-                    setPreviewIndex(nextReadyIndex(previewIndex, 1))
-                  }
-                >
-                  ›
-                </button>
-
-                <div className="preview-modal__foot">
-                  <div className="preview-modal__meta">
-                    {labels[previewIndex] ||
-                      `Concepto ${previewIndex + 1}`}
-                  </div>
-
-                  <button
-                    type="button"
-                    className={`preview-modal__select ${
-                      selectedIndex === previewIndex
-                        ? "is-selected"
-                        : ""
-                    }`}
-                    onClick={() => {
-                      setSelectedIndex(previewIndex);
-                      setPreviewIndex(null);
-                    }}
-                  >
-                    {selectedIndex === previewIndex
-                      ? "Diseño seleccionado"
-                      : copy.previewSelect}
-                  </button>
-                </div>
-              </div>
-            </div>,
-            document.body
-          )
-        : null}
-
-      <style jsx>{`
-        :global(html),
-        :global(body) {
-          margin: 0;
-          background: #0b1020 !important;
+      <style jsx global>{`
+        .ap-shell {
+          --ink: #0b1220;
+          --body: #3d4554;
+          --muted: #6b7382;
+          --faint: #9aa2af;
+          --line: #e4e7ec;
+          --line-h: #c9ced6;
+          --soft: #f7f8fa;
+          --tint: #f1f4f9;
+          --blue: #2347d6;
+          --blue-h: #1b39b0;
+          --blue-soft: #eef2fd;
+          --green: #067a57;
+          --red: #b42318;
           min-height: 100%;
-          overflow-x: hidden;
+          padding: 24px 16px;
+          background: #ffffff;
+          color: var(--body);
+          -webkit-font-smoothing: antialiased;
         }
-
-        .page-shell {
-          min-height: 100vh;
-          min-height: 100dvh;
-          padding: 24px;
-          background:
-            radial-gradient(
-              circle at 12% 0%,
-              rgba(124, 58, 237, 0.16),
-              transparent 22%
-            ),
-            radial-gradient(
-              circle at 100% 10%,
-              rgba(6, 182, 212, 0.12),
-              transparent 22%
-            ),
-            linear-gradient(
-              180deg,
-              #0c1120 0%,
-              #0d1424 46%,
-              #0b1020 100%
-            );
-          font-family: Inter, ui-sans-serif, system-ui, -apple-system,
-            BlinkMacSystemFont, "Segoe UI", sans-serif;
+        .ap-shell.is-embedded {
+          padding: 0;
+          background: transparent;
         }
-
-        .page-shell.is-embedded {
-          min-height: 100vh;
-          min-height: 100dvh;
-          padding: 18px;
-          background:
-            radial-gradient(
-              circle at 12% 0%,
-              rgba(124, 58, 237, 0.14),
-              transparent 24%
-            ),
-            radial-gradient(
-              circle at 100% 10%,
-              rgba(6, 182, 212, 0.1),
-              transparent 24%
-            ),
-            linear-gradient(
-              180deg,
-              #0d1323 0%,
-              #0e1527 55%,
-              #0b1020 100%
-            );
-        }
-
-        .page-wrap {
-          max-width: 1100px;
-          margin: 0 auto;
-          display: grid;
-          gap: 18px;
-          padding-bottom: 2px;
-        }
-
-        .is-embedded .page-wrap {
-          max-width: none;
-          gap: 16px;
-        }
-
-        .composer-card,
-        .results-block {
-          position: relative;
-          background: linear-gradient(
-            180deg,
-            rgba(19, 25, 42, 0.92),
-            rgba(14, 19, 33, 0.94)
-          );
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          border-radius: 28px;
-          padding: 22px;
-          box-shadow: 0 14px 32px rgba(0, 0, 0, 0.2),
-            inset 0 1px 0 rgba(255, 255, 255, 0.05);
-          overflow: hidden;
-        }
-
-        .composer-card::before,
-        .results-block::before {
-          content: "";
-          position: absolute;
-          inset: 0;
-          pointer-events: none;
-          background:
-            radial-gradient(
-              circle at top left,
-              rgba(124, 58, 237, 0.06),
-              transparent 26%
-            ),
-            radial-gradient(
-              circle at top right,
-              rgba(6, 182, 212, 0.05),
-              transparent 24%
-            );
-        }
-
-        .is-embedded .composer-card,
-        .is-embedded .results-block {
-          border-radius: 24px;
-          padding: 18px;
-        }
-
-        .studio-topbar {
-          position: relative;
-          z-index: 1;
-          display: flex;
-          justify-content: center;
-          margin-bottom: 18px;
-          text-align: center;
-        }
-
-        .studio-brand-stack {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .studio-brandmark {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 10px;
-          font-size: 15px;
-          font-weight: 1000;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-        }
-
-        .studio-brandmark__core {
-          color: #ffffff;
-        }
-
-        .studio-brandmark__accent {
-          background: linear-gradient(90deg, #8b5cf6 0%, #22d3ee 100%);
-          -webkit-background-clip: text;
-          background-clip: text;
-          color: transparent;
-          text-shadow: 0 0 18px rgba(124, 58, 237, 0.14);
-        }
-
-        .studio-brand-curve {
-          width: 220px;
-          height: 16px;
-          border-bottom: 1.5px solid rgba(139, 92, 246, 0.45);
-          border-radius: 0 0 999px 999px;
-          position: relative;
-        }
-
-        .studio-brand-curve::after {
-          content: "";
-          position: absolute;
-          left: 50%;
-          transform: translateX(-50%);
-          bottom: -1.5px;
-          width: 70px;
-          height: 2px;
-          background: linear-gradient(
-            90deg,
-            rgba(139, 92, 246, 0),
-            rgba(34, 211, 238, 0.9),
-            rgba(139, 92, 246, 0)
-          );
-          border-radius: 999px;
-        }
-
-        .composer-head {
-          position: relative;
-          z-index: 1;
-          margin-bottom: 16px;
-          text-align: center;
-        }
-
-        .composer-title {
-          margin: 0 0 10px;
-          font-size: 34px;
-          line-height: 1.02;
-          letter-spacing: -0.04em;
-          font-weight: 1000;
-          color: #f8fafc;
-          max-width: 760px;
-          margin-left: auto;
-          margin-right: auto;
-        }
-
-        .composer-subhelp {
-          margin: 0 auto;
-          font-size: 14px;
-          line-height: 1.58;
-          color: #b2bfd4;
-          font-weight: 700;
-          max-width: 760px;
-        }
-
-        .studio-tabs {
-          position: relative;
-          z-index: 1;
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 10px;
-          margin-bottom: 16px;
-        }
-
-        .studio-tab {
-          appearance: none;
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          background: rgba(255, 255, 255, 0.03);
-          color: #f8fafc;
-          border-radius: 18px;
-          padding: 14px 14px 13px;
-          text-align: left;
-          cursor: pointer;
-          display: grid;
-          gap: 6px;
-          transition: transform 0.18s ease,
-            border-color 0.18s ease, background 0.18s ease;
-        }
-
-        .studio-tab:hover {
-          transform: translateY(-1px);
-          border-color: rgba(139, 92, 246, 0.18);
-        }
-
-        .studio-tab.is-active {
-          border-color: rgba(34, 211, 238, 0.28);
-          background:
-            radial-gradient(
-              circle at top left,
-              rgba(124, 58, 237, 0.1),
-              transparent 36%
-            ),
-            linear-gradient(
-              180deg,
-              rgba(23, 30, 50, 0.95),
-              rgba(18, 24, 40, 0.98)
-            );
-          box-shadow: 0 10px 22px rgba(0, 0, 0, 0.16);
-        }
-
-        .studio-tab__title {
-          font-size: 15px;
-          font-weight: 950;
-          color: #f8fafc;
-        }
-
-        .studio-tab__sub {
-          font-size: 12px;
-          line-height: 1.45;
-          color: #aab8cc;
-          font-weight: 700;
-        }
-
-        .brief-shell {
-          position: relative;
-          z-index: 1;
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          border-radius: 24px;
-          background: linear-gradient(
-            180deg,
-            rgba(23, 30, 50, 0.9),
-            rgba(18, 24, 40, 0.92)
-          );
-          padding: 18px;
-        }
-
-        .brief-head {
-          display: grid;
-          gap: 6px;
-          margin-bottom: 14px;
-        }
-
-        .brief-label {
-          font-size: 19px;
-          font-weight: 950;
-          color: #f8fafc;
-          letter-spacing: -0.02em;
-        }
-
-        .brief-note {
-          font-size: 13px;
-          font-weight: 700;
-          color: #a9b8cc;
-          line-height: 1.5;
-        }
-
-        .prompt-textarea,
-        .small-textarea,
-        .text-input,
-        .select-input {
-          width: 100%;
-          border: 1.5px solid rgba(255, 255, 255, 0.1);
-          border-radius: 18px;
-          padding: 14px 16px;
-          font-size: 15px;
-          line-height: 1.55;
-          color: #f8fafc;
-          background: linear-gradient(
-            180deg,
-            rgba(18, 24, 40, 0.94),
-            rgba(21, 28, 47, 0.96)
-          );
-          outline: none;
-          transition: border-color 0.18s ease,
-            box-shadow 0.18s ease, background 0.18s ease;
+        .ap-shell *,
+        .ap-shell *::before,
+        .ap-shell *::after {
           box-sizing: border-box;
         }
-
-        .prompt-textarea {
-          resize: vertical;
-          min-height: 132px;
+        .ap-shell button,
+        .ap-shell input,
+        .ap-shell textarea {
+          font-family: inherit;
+        }
+        .ap-ic {
+          width: 18px;
+          height: 18px;
+          flex: 0 0 auto;
+        }
+        .ap-ic path {
+          fill: currentColor;
         }
 
-        .small-textarea {
-          resize: vertical;
-          min-height: 112px;
+        .ap-studio {
+          max-width: 920px;
+          margin: 0 auto;
+          padding: 32px 32px 36px;
+          background: #ffffff;
+          border-radius: 20px;
+        }
+        .is-embedded .ap-studio {
+          padding: 28px 24px 28px;
         }
 
-        .prompt-textarea::placeholder,
-        .small-textarea::placeholder,
-        .text-input::placeholder {
-          color: #8f9fb8;
+        /* Encabezado */
+        .ap-head {
+          max-width: 640px;
+          margin-bottom: 22px;
         }
-
-        .prompt-textarea:focus,
-        .small-textarea:focus,
-        .text-input:focus,
-        .select-input:focus {
-          border-color: rgba(139, 92, 246, 0.36);
-          box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
-        }
-
-        .event-profile-banner {
-          margin-bottom: 14px;
-          border: 1px solid rgba(34, 211, 238, 0.14);
-          background:
-            radial-gradient(
-              circle at top left,
-              rgba(6, 182, 212, 0.08),
-              transparent 34%
-            ),
-            linear-gradient(
-              180deg,
-              rgba(19, 28, 46, 0.94),
-              rgba(16, 23, 38, 0.96)
-            );
-          border-radius: 18px;
-          padding: 14px;
-        }
-
-        .event-profile-banner__title {
-          font-size: 15px;
-          font-weight: 950;
-          color: #f8fafc;
-          margin-bottom: 4px;
-        }
-
-        .event-profile-banner__note {
-          font-size: 13px;
-          line-height: 1.5;
-          color: #b6c4d7;
-          font-weight: 700;
-          margin-bottom: 8px;
-        }
-
-        .event-profile-banner__hint {
-          font-size: 12px;
-          line-height: 1.45;
-          color: #8fdcf0;
-          font-weight: 800;
-        }
-
-        .event-grid {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 14px;
-        }
-
-        .event-grid--lower {
-          margin-top: 14px;
-          align-items: start;
-        }
-
-        .field-block {
-          min-width: 0;
-        }
-
-        .field-block--full {
-          margin-top: 14px;
-        }
-
-        .field-block--stretch {
-          min-height: 100%;
-        }
-
-        .field-label {
-          display: block;
-          font-size: 13px;
-          font-weight: 900;
-          color: #f8fafc;
-          margin-bottom: 8px;
-        }
-
-        .field-helper {
-          font-size: 12px;
-          line-height: 1.45;
-          color: #9fb1c8;
-          font-weight: 700;
-          margin-bottom: 10px;
-        }
-
-        .text-input--top-space {
-          margin-top: 10px;
-        }
-
-        .color-pills {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 10px;
-        }
-
-        .color-pill {
-          appearance: none;
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          background: linear-gradient(
-            180deg,
-            rgba(255, 255, 255, 0.07),
-            rgba(255, 255, 255, 0.04)
-          );
-          color: #f8fafc;
-          min-height: 40px;
-          padding: 0 14px;
-          border-radius: 999px;
-          font-size: 13px;
-          font-weight: 900;
-          cursor: pointer;
-          transition: transform 0.18s ease,
-            border-color 0.18s ease, background 0.18s ease;
-          white-space: nowrap;
-        }
-
-        .color-pill:hover {
-          transform: translateY(-1px);
-          border-color: rgba(139, 92, 246, 0.2);
-        }
-
-        .color-pill.is-active {
-          color: #ffffff;
-          border-color: rgba(255, 255, 255, 0.12);
-          background: linear-gradient(
-            135deg,
-            #7c3aed 0%,
-            #8b5cf6 44%,
-            #06b6d4 100%
-          );
-          box-shadow: 0 10px 18px rgba(88, 28, 135, 0.2);
-        }
-
-        .priority-panel {
-          margin-top: 16px;
-          border: 1px solid rgba(34, 211, 238, 0.16);
-          background:
-            radial-gradient(
-              circle at top left,
-              rgba(6, 182, 212, 0.08),
-              transparent 34%
-            ),
-            linear-gradient(
-              180deg,
-              rgba(19, 28, 46, 0.94),
-              rgba(16, 23, 38, 0.96)
-            );
-          border-radius: 18px;
-          padding: 14px;
-        }
-
-        .priority-panel__head {
-          margin-bottom: 10px;
-        }
-
-        .priority-panel__title {
-          font-size: 14px;
-          font-weight: 950;
-          color: #f8fafc;
-          margin-bottom: 4px;
-        }
-
-        .priority-panel__sub {
-          font-size: 12px;
-          line-height: 1.45;
-          color: #9fb1c8;
-          font-weight: 700;
-        }
-
-        .priority-panel__grid {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 10px;
-        }
-
-        .priority-item {
-          min-width: 0;
-          border-radius: 14px;
-          padding: 11px 12px;
-          background: rgba(255, 255, 255, 0.04);
-          border: 1px solid rgba(255, 255, 255, 0.06);
-          display: grid;
-          gap: 3px;
-        }
-
-        .priority-item__label {
-          font-size: 11px;
-          font-weight: 900;
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
-          color: #8fdcf0;
-        }
-
-        .priority-item__value {
-          font-size: 13px;
-          line-height: 1.45;
-          color: #f8fafc;
-          font-weight: 800;
-          word-break: break-word;
-        }
-
-        .chips-zone {
-          margin-top: 18px;
-        }
-
-        .chips-head {
-          margin-bottom: 10px;
-        }
-
-        .chips-title {
-          font-size: 18px;
-          font-weight: 950;
-          color: #f8fafc;
-          margin-bottom: 4px;
-          letter-spacing: -0.02em;
-        }
-
-        .chips-sub {
-          font-size: 13px;
-          line-height: 1.45;
-          color: #a8b6ca;
-          font-weight: 700;
-          max-width: 760px;
-        }
-
-        .chips-status-row {
+        .ap-eyebrow {
           display: flex;
           align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-          flex-wrap: wrap;
-          margin-bottom: 12px;
-        }
-
-        .chips-status-row--compact {
-          margin-top: 10px;
-          margin-bottom: 0;
-        }
-
-        .chips-status {
-          font-size: 12px;
-          font-weight: 900;
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
-          color: #dbe4f1;
-        }
-
-        .chip-message {
-          font-size: 12px;
-          font-weight: 800;
-          color: #fbbf24;
-        }
-
-        .chip-groups-grid {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 14px;
-          min-width: 0;
-        }
-
-        .chip-group-card {
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          border-radius: 18px;
-          padding: 14px;
-          background: rgba(255, 255, 255, 0.03);
-          min-width: 0;
-          width: 100%;
-        }
-
-        .chip-group-card__title {
-          font-size: 14px;
-          font-weight: 950;
-          color: #f8fafc;
-          margin-bottom: 4px;
-        }
-
-        .chip-group-card__subtitle {
-          font-size: 12px;
-          line-height: 1.45;
-          color: #9eb0c8;
-          font-weight: 700;
-          margin-bottom: 12px;
-        }
-
-        .chip-group-card__chips {
-          display: flex;
-          flex-wrap: wrap;
           gap: 10px;
-          min-width: 0;
-        }
-
-        .chip-btn {
-          appearance: none;
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          background: linear-gradient(
-            180deg,
-            rgba(255, 255, 255, 0.07),
-            rgba(255, 255, 255, 0.04)
-          );
-          color: #f8fafc;
-          min-height: 40px;
-          padding: 0 14px;
-          border-radius: 999px;
-          font-size: 13px;
-          font-weight: 900;
-          letter-spacing: -0.01em;
-          cursor: pointer;
-          transition: transform 0.18s ease,
-            border-color 0.18s ease, background 0.18s ease;
-          box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
-          white-space: nowrap;
-        }
-
-        .chip-btn:hover {
-          transform: translateY(-1px);
-          border-color: rgba(139, 92, 246, 0.2);
-        }
-
-        .chip-btn.is-active {
-          color: #ffffff;
-          border-color: rgba(255, 255, 255, 0.12);
-          background: linear-gradient(
-            135deg,
-            #7c3aed 0%,
-            #8b5cf6 44%,
-            #06b6d4 100%
-          );
-          box-shadow: 0 10px 18px rgba(88, 28, 135, 0.22);
-        }
-
-        .chip-btn__text {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .direction-panel {
-          margin-top: 16px;
-          border: 1px solid rgba(139, 92, 246, 0.14);
-          background:
-            radial-gradient(
-              circle at top left,
-              rgba(124, 58, 237, 0.08),
-              transparent 32%
-            ),
-            linear-gradient(
-              180deg,
-              rgba(23, 30, 50, 0.92),
-              rgba(18, 24, 40, 0.94)
-            );
-          border-radius: 18px;
-          padding: 14px;
-        }
-
-        .direction-panel__head {
-          margin-bottom: 10px;
-        }
-
-        .direction-panel__kicker {
+          margin: 0 0 10px;
           font-size: 11px;
-          font-weight: 950;
-          letter-spacing: 0.09em;
+          font-weight: 600;
+          letter-spacing: 0.12em;
           text-transform: uppercase;
-          color: #8b5cf6;
-          margin-bottom: 4px;
+          color: var(--muted);
         }
-
-        .direction-panel__sub {
+        .ap-eyebrow::before {
+          content: "";
+          width: 22px;
+          height: 1.5px;
+          background: var(--line-h);
+        }
+        .ap-title {
           margin: 0;
-          font-size: 13px;
-          line-height: 1.45;
-          color: #b0bed2;
+          font-size: clamp(24px, 4vw, 32px);
+          line-height: 1.12;
           font-weight: 700;
+          letter-spacing: -0.025em;
+          color: var(--ink);
+        }
+        .ap-sub {
+          margin: 10px 0 0;
+          font-size: 15px;
+          line-height: 1.55;
+          color: var(--body);
+        }
+        .ap-mode {
+          display: inline-flex;
+          margin-top: 16px;
+          padding: 4px;
+          border-radius: 12px;
+          background: var(--tint);
+        }
+        .ap-mode__btn {
+          height: 36px;
+          padding: 0 16px;
+          border: 0;
+          border-radius: 9px;
+          background: transparent;
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--muted);
+          cursor: pointer;
+        }
+        .ap-mode__btn.is-on {
+          background: #fff;
+          color: var(--ink);
+          box-shadow: 0 1px 3px rgba(11, 18, 32, 0.12);
         }
 
-        .direction-panel__pills {
+        /* Cuadro de la idea */
+        .ap-label {
+          display: block;
+          margin-bottom: 8px;
+          font-size: 15px;
+          font-weight: 700;
+          color: var(--ink);
+        }
+        .ap-box {
+          border: 1px solid var(--line);
+          border-radius: 16px;
+          background: #fff;
+          transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .ap-box:hover {
+          border-color: var(--line-h);
+        }
+        .ap-box:focus-within {
+          border-color: var(--blue);
+          box-shadow: 0 0 0 4px rgba(35, 71, 214, 0.1);
+        }
+        .ap-box__input {
+          display: block;
+          width: 100%;
+          min-height: 96px;
+          padding: 16px 16px 8px;
+          border: 0;
+          outline: 0;
+          resize: vertical;
+          background: transparent;
+          font-size: 16px;
+          line-height: 1.5;
+          color: var(--ink);
+        }
+        .ap-box__input::placeholder {
+          color: var(--faint);
+        }
+        .ap-box__tools {
           display: flex;
           flex-wrap: wrap;
           gap: 8px;
+          padding: 8px 12px 12px;
         }
-
-        .direction-pill {
-          min-height: 34px;
+        .ap-tool {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          height: 34px;
+          max-width: 100%;
           padding: 0 12px;
+          border: 1px solid var(--line);
           border-radius: 999px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 12px;
-          font-weight: 900;
-          color: #f8fafc;
-          background: rgba(255, 255, 255, 0.08);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-        }
-
-        .composer-foot {
-          margin-top: 18px;
-          display: flex;
-          justify-content: center;
-        }
-
-        .ai-generate-btn {
-          position: relative;
-          isolation: isolate;
-          border: 0;
-          background: transparent;
-          padding: 0;
-          min-width: 320px;
-          height: 62px;
-          border-radius: 20px;
+          background: #fff;
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--body);
           cursor: pointer;
-          transition: transform 0.2s ease,
-            opacity 0.18s ease, filter 0.18s ease;
-          overflow: visible;
-        }
-
-        .ai-generate-btn:disabled {
-          opacity: 0.62;
-          cursor: not-allowed;
-        }
-
-        .ai-generate-btn:not(:disabled):hover {
-          transform: translateY(-2px) scale(1.01);
-          filter: saturate(1.04);
-        }
-
-        .ai-generate-btn__glow {
-          position: absolute;
-          inset: -6px;
-          border-radius: 22px;
-          background:
-            radial-gradient(
-              circle at 25% 50%,
-              rgba(236, 72, 153, 0.14),
-              transparent 34%
-            ),
-            radial-gradient(
-              circle at 80% 40%,
-              rgba(6, 182, 212, 0.14),
-              transparent 36%
-            );
-          filter: blur(12px);
-          z-index: 0;
-        }
-
-        .ai-generate-btn__border {
-          position: absolute;
-          inset: 0;
-          border-radius: 20px;
-          background: linear-gradient(
-            90deg,
-            #ec4899 0%,
-            #8b5cf6 25%,
-            #3b82f6 50%,
-            #06b6d4 75%,
-            #ec4899 100%
-          );
-          background-size: 220% 100%;
-          animation: borderFlow 4s linear infinite;
-          z-index: 1;
-        }
-
-        .ai-generate-btn__bg {
-          position: absolute;
-          inset: 2px;
-          border-radius: 18px;
-          background:
-            radial-gradient(
-              ellipse at center top,
-              rgba(255, 255, 255, 0.14) 0%,
-              transparent 45%
-            ),
-            linear-gradient(160deg, #1e1b4b 0%, #09090b 100%);
-          z-index: 2;
-        }
-
-        .ai-generate-btn__shine {
-          position: absolute;
-          inset: 2px;
-          border-radius: 18px;
+          white-space: nowrap;
           overflow: hidden;
-          z-index: 3;
+          text-overflow: ellipsis;
+          transition: border-color 0.15s, background 0.15s, color 0.15s;
         }
-
-        .ai-generate-btn__shine::before {
-          content: "";
-          position: absolute;
-          top: -20%;
-          left: -32%;
-          width: 34%;
-          height: 140%;
-          background: linear-gradient(
-            90deg,
-            transparent,
-            rgba(255, 255, 255, 0.16),
-            transparent
-          );
-          transform: rotate(14deg);
-          animation: shineSweep 3.2s ease-in-out infinite;
+        .ap-tool .ap-ic {
+          width: 16px;
+          height: 16px;
+          color: var(--muted);
         }
-
-        .ai-generate-btn__content {
-          position: relative;
-          z-index: 4;
-          height: 100%;
-          width: 100%;
+        .ap-tool:hover {
+          border-color: var(--line-h);
+          color: var(--ink);
+        }
+        .ap-tool.is-open {
+          border-color: var(--ink);
+          color: var(--ink);
+        }
+        .ap-tool.is-set {
+          border-color: var(--blue);
+          background: var(--blue-soft);
+          color: var(--blue);
+        }
+        .ap-tool.is-set .ap-ic {
+          color: var(--blue);
+        }
+        .ap-tool__dots {
           display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 12px;
-          color: #ffffff;
-          padding: 0 18px;
+        }
+        .ap-tool__dots i {
+          width: 14px;
+          height: 14px;
+          border-radius: 50%;
+          border: 2px solid #fff;
+          box-shadow: 0 0 0 1px var(--line);
+        }
+        .ap-tool__dots i + i {
+          margin-left: -5px;
         }
 
-        .ai-generate-btn__copy {
+        /* Arranques */
+        .ap-starters {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 8px;
+          margin-top: 12px;
+        }
+        .ap-starters__lead {
+          font-size: 13px;
+          color: var(--muted);
+        }
+        .ap-starter {
+          height: 32px;
+          padding: 0 12px;
+          border: 1px dashed var(--line-h);
+          border-radius: 999px;
+          background: var(--soft);
+          font-size: 13px;
+          font-weight: 500;
+          color: var(--body);
+          cursor: pointer;
+        }
+        .ap-starter:hover {
+          border-color: var(--blue);
+          border-style: solid;
+          color: var(--blue);
+          background: #fff;
+        }
+
+        /* Asistente de texto */
+        .ap-hint {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-top: 12px;
+          padding: 10px 10px 10px 14px;
+          border-radius: 12px;
+          background: var(--blue-soft);
+          color: var(--ink);
+          animation: apIn 0.25s ease both;
+        }
+        .ap-hint > .ap-ic {
+          color: var(--blue);
+        }
+        .ap-hint p {
+          flex: 1;
+          margin: 0;
+          font-size: 13px;
+          line-height: 1.45;
+        }
+        .ap-hint__yes {
+          height: 32px;
+          padding: 0 14px;
+          border: 0;
+          border-radius: 9px;
+          background: var(--blue);
+          color: #fff;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+        }
+        .ap-hint__yes:hover {
+          background: var(--blue-h);
+        }
+        .ap-hint__no {
+          display: grid;
+          place-items: center;
+          width: 32px;
+          height: 32px;
+          border: 0;
+          border-radius: 9px;
+          background: transparent;
+          color: var(--muted);
+          cursor: pointer;
+        }
+        .ap-hint__no:hover {
+          background: rgba(11, 18, 32, 0.06);
+        }
+
+        /* Paneles de detalle */
+        .ap-panel {
+          margin-top: 12px;
+          padding: 16px;
+          border: 1px solid var(--line);
+          border-radius: 14px;
+          background: var(--soft);
+          animation: apIn 0.2s ease both;
+        }
+        .ap-panel__title {
+          display: block;
+          margin: 0;
+          font-size: 14px;
+          font-weight: 700;
+          color: var(--ink);
+        }
+        .ap-panel__help {
+          margin: 4px 0 12px;
+          font-size: 13px;
+          line-height: 1.45;
+          color: var(--muted);
+        }
+        .ap-field {
+          position: relative;
+        }
+        .ap-input {
+          width: 100%;
+          height: 46px;
+          padding: 0 14px;
+          border: 1px solid var(--line);
+          border-radius: 12px;
+          background: #fff;
+          font-size: 16px;
+          color: var(--ink);
+          outline: 0;
+        }
+        .ap-field .ap-input {
+          padding-right: 62px;
+        }
+        .ap-input:focus {
+          border-color: var(--blue);
+          box-shadow: 0 0 0 4px rgba(35, 71, 214, 0.1);
+        }
+        .ap-input::placeholder {
+          color: var(--faint);
+        }
+        .ap-count {
+          position: absolute;
+          right: 14px;
+          top: 50%;
+          transform: translateY(-50%);
+          font-size: 12px;
+          color: var(--faint);
+          font-variant-numeric: tabular-nums;
+        }
+        .ap-link {
+          margin-top: 10px;
+          padding: 0;
+          border: 0;
+          background: none;
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--blue);
+          cursor: pointer;
+        }
+        .ap-link:hover {
+          text-decoration: underline;
+        }
+        .ap-swatches {
+          display: grid;
+          grid-template-columns: repeat(5, minmax(0, 1fr));
+          gap: 8px;
+        }
+        .ap-swatch {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          min-width: 0;
+          height: 40px;
+          padding: 0 10px;
+          border: 1px solid var(--line);
+          border-radius: 10px;
+          background: #fff;
+          font-size: 13px;
+          font-weight: 500;
+          color: var(--body);
+          cursor: pointer;
+          white-space: nowrap;
+        }
+        .ap-swatch i {
+          width: 18px;
+          height: 18px;
+          flex: 0 0 auto;
+          border-radius: 50%;
+          box-shadow: inset 0 0 0 1px rgba(11, 18, 32, 0.12);
+        }
+        .ap-swatch:hover {
+          border-color: var(--line-h);
+        }
+        .ap-swatch.is-on {
+          border-color: var(--blue);
+          box-shadow: 0 0 0 1px var(--blue);
+          color: var(--ink);
+          font-weight: 600;
+        }
+        .ap-styles {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 8px;
+        }
+        .ap-style {
           display: flex;
           flex-direction: column;
           align-items: flex-start;
-          justify-content: center;
-          line-height: 1;
-        }
-
-        .ai-generate-btn__label {
-          font-size: 16px;
-          font-weight: 1000;
-          letter-spacing: -0.02em;
-          color: #ffffff;
-        }
-
-        .ai-generate-btn__sub {
-          margin-top: 5px;
-          font-size: 10px;
-          font-weight: 900;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          color: rgba(255, 255, 255, 0.72);
-        }
-
-        .ai-stars {
-          position: relative;
-          width: 30px;
-          height: 22px;
-          display: inline-block;
-          flex-shrink: 0;
-        }
-
-        .ai-star {
-          position: absolute;
-          line-height: 1;
-          animation: sparkleFloat 2s ease-in-out infinite;
-        }
-
-        .ai-star--big {
-          font-size: 15px;
-          left: 0;
-          top: 3px;
-          color: #ffffff;
-        }
-
-        .ai-star--mid {
-          font-size: 10px;
-          left: 12px;
-          top: 0;
-          color: #c4b5fd;
-        }
-
-        .ai-star--small {
-          font-size: 9px;
-          left: 20px;
-          top: 11px;
-          color: #99f6e4;
-        }
-
-        .loading-panel {
-          position: relative;
-          z-index: 1;
-          margin-top: 18px;
-          border: 1px solid rgba(139, 92, 246, 0.14);
-          background:
-            radial-gradient(
-              circle at top left,
-              rgba(124, 58, 237, 0.08),
-              transparent 34%
-            ),
-            radial-gradient(
-              circle at bottom right,
-              rgba(6, 182, 212, 0.06),
-              transparent 30%
-            ),
-            linear-gradient(
-              180deg,
-              rgba(23, 29, 48, 0.98),
-              rgba(18, 24, 40, 0.98)
-            );
-          border-radius: 18px;
-          padding: 16px;
-        }
-
-        .loading-top {
-          display: flex;
-          align-items: center;
-          gap: 14px;
-        }
-
-        .loading-orbit {
-          position: relative;
-          width: 48px;
-          height: 48px;
-          min-width: 48px;
-          border-radius: 999px;
-          border: 1px solid rgba(139, 92, 246, 0.14);
-          background: radial-gradient(
-            circle at center,
-            rgba(99, 102, 241, 0.08),
-            rgba(18, 24, 40, 0.92)
-          );
-        }
-
-        .loading-dot {
-          position: absolute;
-          width: 10px;
-          height: 10px;
-          border-radius: 999px;
-          animation: orbitPulse 1.5s ease-in-out infinite;
-        }
-
-        .loading-dot--1 {
-          top: 6px;
-          left: 19px;
-          background: #38bdf8;
-        }
-
-        .loading-dot--2 {
-          right: 7px;
-          bottom: 10px;
-          background: #8b5cf6;
-        }
-
-        .loading-dot--3 {
-          left: 8px;
-          bottom: 10px;
-          background: #00b8a9;
-        }
-
-        .loading-copy {
-          display: grid;
-          gap: 4px;
-        }
-
-        .loading-title {
-          font-size: 15px;
-          font-weight: 950;
-          color: #f8fafc;
-          line-height: 1.15;
-        }
-
-        .loading-subtitle {
-          font-size: 13px;
-          font-weight: 750;
-          color: #aebed3;
-          line-height: 1.45;
-        }
-
-        .loading-steps {
-          margin-top: 14px;
-          display: grid;
-          gap: 8px;
-        }
-
-        .loading-step {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          font-size: 13px;
-          font-weight: 850;
-          color: #d8e1ee;
-        }
-
-        .loading-step__bullet {
-          width: 8px;
-          height: 8px;
-          border-radius: 999px;
-          background: linear-gradient(180deg, #38bdf8, #8b5cf6);
-          flex-shrink: 0;
-        }
-
-        .error-box {
-          position: relative;
-          z-index: 1;
-          margin-top: 14px;
-          border: 1px solid rgba(239, 68, 68, 0.16);
-          background: rgba(127, 29, 29, 0.22);
-          color: #fecaca;
-          border-radius: 14px;
-          padding: 13px 14px;
-          font-size: 14px;
-          font-weight: 800;
-          line-height: 1.45;
-        }
-
-        .results-head {
-          position: relative;
-          z-index: 1;
-          margin-bottom: 14px;
-        }
-
-        .results-kicker {
-          font-size: 11px;
-          font-weight: 950;
-          letter-spacing: 0.09em;
-          text-transform: uppercase;
-          color: #8b5cf6;
-          margin-bottom: 8px;
-        }
-
-        .results-title {
-          margin: 0 0 8px;
-          font-size: 28px;
-          line-height: 1;
-          font-weight: 1000;
-          color: #f8fafc;
-          letter-spacing: -0.04em;
-        }
-
-        .results-sub {
-          margin: 0;
-          font-size: 13px;
-          line-height: 1.5;
-          color: #aab8cc;
-          font-weight: 700;
-          max-width: 760px;
-        }
-
-        .results-grid {
-          position: relative;
-          z-index: 1;
-          display: grid;
-          gap: 14px;
-        }
-
-        .results-grid--3 {
-          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        }
-
-        .design-card {
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          background: linear-gradient(
-            180deg,
-            rgba(23, 29, 48, 0.96),
-            rgba(18, 24, 40, 0.98)
-          );
-          border-radius: 22px;
-          overflow: hidden;
-          padding: 8px;
-          cursor: pointer;
+          gap: 2px;
+          min-width: 0;
+          padding: 10px 12px;
+          border: 1px solid var(--line);
+          border-radius: 12px;
+          background: #fff;
           text-align: left;
-          transition: transform 0.18s ease,
-            border-color 0.18s ease, box-shadow 0.18s ease;
-          box-shadow: 0 10px 20px rgba(0, 0, 0, 0.14);
+          cursor: pointer;
+        }
+        .ap-style:hover {
+          border-color: var(--line-h);
+        }
+        .ap-style.is-on {
+          border-color: var(--blue);
+          box-shadow: 0 0 0 1px var(--blue);
+        }
+        .ap-style__name {
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--ink);
+        }
+        .ap-style__hint {
+          font-size: 12px;
+          color: var(--muted);
         }
 
-        .design-card:hover {
-          transform: translateY(-2px);
-          border-color: rgba(139, 92, 246, 0.2);
-          box-shadow: 0 16px 26px rgba(0, 0, 0, 0.18);
-        }
-
-        .design-card.is-selected {
-          border-color: rgba(34, 211, 238, 0.34);
-          box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.08),
-            0 16px 26px rgba(0, 0, 0, 0.2);
-        }
-
-        .design-card__image-wrap {
-          position: relative;
-          aspect-ratio: 1 / 1;
-          border-radius: 16px;
-          overflow: hidden;
-          background:
-            radial-gradient(
-              circle at top left,
-              rgba(124, 58, 237, 0.08),
-              transparent 24%
-            ),
-            linear-gradient(180deg, #1b2439, #151c2e);
-          border: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .design-card__image {
+        /* Botón principal */
+        .ap-cta {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
           width: 100%;
-          height: 100%;
-          object-fit: contain;
-          display: block;
-          padding: 12px;
+          height: 54px;
+          margin-top: 18px;
+          border: 0;
+          border-radius: 12px;
+          background: var(--blue);
+          color: #fff;
+          font-size: 16px;
+          font-weight: 700;
+          letter-spacing: -0.01em;
+          cursor: pointer;
+          transition: background 0.15s, transform 0.1s;
+        }
+        .ap-cta:hover:not(:disabled) {
+          background: var(--blue-h);
+        }
+        .ap-cta:active:not(:disabled) {
+          transform: translateY(1px);
+        }
+        .ap-cta:disabled {
+          background: #c9d1ee;
+          cursor: not-allowed;
+        }
+        .ap-cta.is-saved:disabled {
+          background: var(--green);
+          cursor: default;
+        }
+        .ap-cta__note {
+          margin: 10px 0 0;
+          text-align: center;
+          font-size: 13px;
+          color: var(--muted);
+        }
+        .ap-error {
+          margin: 12px 0 0;
+          padding: 10px 14px;
+          border-radius: 10px;
+          background: #fef3f2;
+          color: var(--red);
+          font-size: 14px;
+          line-height: 1.45;
         }
 
-        .adjust-panel {
-          margin-top: 14px;
-          padding: 16px;
-          border-radius: 18px;
-          background: rgba(255, 255, 255, 0.04);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          display: grid;
-          gap: 12px;
+        /* Resumen de la idea */
+        .ap-summary {
+          display: flex;
+          align-items: flex-start;
+          gap: 16px;
+          padding: 14px 14px 14px 18px;
+          border: 1px solid var(--line);
+          border-radius: 14px;
+          background: var(--soft);
         }
-        .adjust-panel__head {
-          display: grid;
-          gap: 4px;
-          color: #f8fafc;
+        .ap-summary__body {
+          flex: 1;
+          min-width: 0;
+        }
+        .ap-summary__label {
+          margin: 0 0 2px;
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          color: var(--muted);
+        }
+        .ap-summary__text {
+          margin: 0;
           font-size: 15px;
+          line-height: 1.45;
+          color: var(--ink);
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          overflow-wrap: anywhere;
         }
-        .adjust-panel__head span {
-          font-size: 13px;
-          color: rgba(226, 232, 240, 0.72);
-        }
-        .adjust-panel__chips {
+        .ap-summary__chips {
           display: flex;
           flex-wrap: wrap;
-          gap: 8px;
+          gap: 6px;
+          margin-top: 8px;
         }
-        .adjust-chip,
-        .idea-example {
-          appearance: none;
-          font: inherit;
-          cursor: pointer;
-          min-height: 38px;
-          padding: 0 14px;
+        .ap-summary__chips span {
+          padding: 3px 10px;
           border-radius: 999px;
-          border: 1px solid rgba(255, 255, 255, 0.12);
-          background: rgba(255, 255, 255, 0.05);
-          color: #e2e8f0;
-          font-size: 13px;
-          font-weight: 700;
-          transition: border-color 0.15s ease, background-color 0.15s ease;
+          background: #fff;
+          border: 1px solid var(--line);
+          font-size: 12px;
+          color: var(--body);
         }
-        .adjust-chip:hover,
-        .idea-example:hover {
-          border-color: rgba(255, 255, 255, 0.28);
+
+        /* Botones secundarios */
+        .ap-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 7px;
+          height: 46px;
+          padding: 0 16px;
+          border: 1px solid var(--line);
+          border-radius: 12px;
+          background: #fff;
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--ink);
+          cursor: pointer;
+          white-space: nowrap;
+          transition: border-color 0.15s, background 0.15s;
         }
-        .adjust-chip.is-on {
-          border-color: #38bdf8;
-          background: rgba(56, 189, 248, 0.16);
-          color: #ffffff;
+        .ap-btn .ap-ic {
+          width: 17px;
+          height: 17px;
+          color: var(--muted);
         }
-        .adjust-chip:disabled {
+        .ap-btn:hover:not(:disabled) {
+          border-color: var(--line-h);
+          background: var(--soft);
+        }
+        .ap-btn.is-on {
+          border-color: var(--ink);
+        }
+        .ap-btn:disabled {
           opacity: 0.5;
           cursor: not-allowed;
         }
-        .adjust-panel__input {
-          width: 100%;
-          min-height: 46px;
-          padding: 0 14px;
-          border-radius: 14px;
-          border: 1px solid rgba(255, 255, 255, 0.12);
-          background: rgba(15, 23, 42, 0.6);
-          color: #f8fafc;
-          font: inherit;
-          font-size: 14px;
+        .ap-btn--ghost {
+          background: transparent;
         }
-        .adjust-panel__foot {
-          display: flex;
-          justify-content: flex-end;
-          gap: 10px;
-          flex-wrap: wrap;
+        .ap-summary .ap-btn {
+          height: 40px;
+          background: #fff;
         }
-        .studio-secondary-btn.is-on {
-          border-color: #38bdf8;
+        .ap-btn--primary {
+          border-color: var(--blue);
+          background: var(--blue);
+          color: #fff;
         }
-        .idea-examples {
-          display: flex;
-          flex-wrap: wrap;
-          align-items: center;
-          gap: 8px;
-          margin-top: 10px;
-        }
-        .idea-examples__label {
-          font-size: 12px;
-          font-weight: 700;
-          color: rgba(226, 232, 240, 0.7);
-        }
-        .idea-example {
-          min-height: 32px;
-          font-size: 12px;
-          text-align: left;
+        .ap-btn--primary:hover:not(:disabled) {
+          border-color: var(--blue-h);
+          background: var(--blue-h);
         }
 
-        .design-card--pending {
-          cursor: default;
+        /* Resultados */
+        .ap-results-anchor {
+          scroll-margin-top: 16px;
+          outline: none;
         }
-        .design-card__skeleton {
+        .ap-sr {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          margin: -1px;
+          padding: 0;
+          overflow: hidden;
+          clip: rect(0 0 0 0);
+          white-space: nowrap;
+          border: 0;
+        }
+        .ap-mode__btn:disabled {
+          cursor: not-allowed;
+          opacity: 0.6;
+        }
+        .ap-results {
+          display: grid;
+          grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+          gap: 28px;
+          margin-top: 24px;
+          animation: apIn 0.3s ease both;
+        }
+        .ap-stage {
+          position: relative;
+          aspect-ratio: 1 / 1;
+          border: 1px solid var(--line);
+          border-radius: 18px;
+          background: var(--soft);
+          overflow: hidden;
+        }
+        .ap-stage img {
+          display: block;
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          background: #fff;
+          animation: apFade 0.35s ease both;
+        }
+        .ap-stage__wait,
+        .ap-stage__veil {
           position: absolute;
           inset: 0;
           display: flex;
+          flex-direction: column;
           align-items: center;
           justify-content: center;
-          padding: 16px;
+          gap: 14px;
+          padding: 24px;
           text-align: center;
-          font-size: 13px;
-          font-weight: 700;
-          color: rgba(255, 255, 255, 0.72);
-          background: linear-gradient(110deg, rgba(255,255,255,0.04) 8%, rgba(255,255,255,0.12) 18%, rgba(255,255,255,0.04) 33%);
-          background-size: 200% 100%;
-          animation: apSkeleton 1.4s linear infinite;
         }
-        .design-card--pending.is-failed .design-card__skeleton {
-          animation: none;
-          background: rgba(255, 255, 255, 0.04);
-          color: rgba(255, 255, 255, 0.55);
+        .ap-stage__wait {
+          background: linear-gradient(110deg, #f7f8fa 30%, #eef0f4 50%, #f7f8fa 70%);
+          background-size: 220% 100%;
+          animation: apShimmer 1.6s linear infinite;
         }
-        @keyframes apSkeleton {
-          to { background-position: -200% 0; }
+        .ap-stage__veil {
+          background: rgba(255, 255, 255, 0.82);
+          backdrop-filter: blur(2px);
         }
-        .loading-step.is-done { opacity: 0.6; }
-        .loading-step.is-active { font-weight: 800; }
-        @media (prefers-reduced-motion: reduce) {
-          .design-card__skeleton { animation: none; }
+        .ap-stage__wait p,
+        .ap-stage__veil p {
+          margin: 0;
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--ink);
         }
-
-        .design-card__badge {
-          position: absolute;
-          top: 10px;
-          left: 10px;
-          right: 52px;
+        .ap-spinner {
+          width: 26px;
+          height: 26px;
+          border-radius: 50%;
+          border: 3px solid rgba(35, 71, 214, 0.18);
+          border-top-color: var(--blue);
+          animation: apSpin 0.8s linear infinite;
+        }
+        .ap-spinner--light {
+          width: 18px;
+          height: 18px;
+          border-width: 2px;
+          border-color: rgba(255, 255, 255, 0.35);
+          border-top-color: #fff;
+        }
+        .ap-side {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          min-width: 0;
+        }
+        .ap-progress p {
+          margin: 0 0 8px;
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--ink);
+        }
+        .ap-progress__bar {
+          height: 6px;
           border-radius: 999px;
-          padding: 6px 10px;
-          font-size: 10px;
-          font-weight: 900;
-          line-height: 1.1;
-          color: #eef2ff;
-          background: rgba(15, 23, 42, 0.66);
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: var(--tint);
+          overflow: hidden;
+        }
+        .ap-progress__bar span {
+          display: block;
+          height: 100%;
+          border-radius: inherit;
+          background: var(--blue);
+          transition: width 0.6s ease;
+        }
+        .ap-picked__style {
+          margin: 0;
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          color: var(--muted);
+        }
+        .ap-picked__concept {
+          margin: 4px 0 0;
+          font-size: 22px;
+          line-height: 1.2;
+          font-weight: 700;
+          letter-spacing: -0.02em;
+          color: var(--ink);
+        }
+        .ap-thumbs {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 10px;
+        }
+        .ap-thumb {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          min-width: 0;
+          padding: 0;
+          border: 0;
+          background: none;
+          text-align: left;
+          cursor: pointer;
+        }
+        .ap-thumb:disabled {
+          cursor: default;
+        }
+        .ap-thumb__img {
+          position: relative;
+          display: grid;
+          place-items: center;
+          aspect-ratio: 1 / 1;
+          border: 1px solid var(--line);
+          border-radius: 12px;
+          background: #fff;
+          overflow: hidden;
+          transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .ap-thumb__img img {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          animation: apFade 0.35s ease both;
+        }
+        .ap-thumb:not(:disabled):hover .ap-thumb__img {
+          border-color: var(--line-h);
+        }
+        .ap-thumb.is-on .ap-thumb__img {
+          border-color: var(--blue);
+          box-shadow: 0 0 0 2px var(--blue);
+        }
+        .ap-thumb.is-failed .ap-thumb__img {
+          background: var(--soft);
+        }
+        .ap-thumb em {
+          font-style: normal;
+          font-size: 12px;
+          color: var(--faint);
+        }
+        .ap-thumb__check {
+          position: absolute;
+          right: 6px;
+          top: 6px;
+          display: grid;
+          place-items: center;
+          width: 22px;
+          height: 22px;
+          border-radius: 50%;
+          background: var(--blue);
+          color: #fff;
+        }
+        .ap-thumb__check .ap-ic {
+          width: 14px;
+          height: 14px;
+        }
+        .ap-thumb__label {
+          font-size: 12px;
+          font-weight: 500;
+          color: var(--muted);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
         }
-
-        .design-card__zoom {
+        .ap-thumb.is-on .ap-thumb__label {
+          color: var(--ink);
+          font-weight: 600;
+        }
+        .ap-shimmer {
           position: absolute;
-          right: 10px;
-          bottom: 10px;
-          width: 34px;
-          height: 34px;
-          border: none;
-          border-radius: 999px;
-          background: rgba(15, 23, 42, 0.8);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          color: #f8fafc;
-          font-size: 14px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          box-shadow: 0 6px 14px rgba(0, 0, 0, 0.16);
-        }
-
-        .design-card__check {
-          position: absolute;
-          top: 8px;
-          right: 8px;
-          width: 28px;
-          height: 28px;
-          border-radius: 999px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: linear-gradient(180deg, #22d3ee, #0891b2);
-          color: #fff;
-          font-size: 13px;
-          font-weight: 1000;
-          box-shadow: 0 8px 16px rgba(8, 145, 178, 0.18);
-        }
-
-        .design-card__body {
-          padding: 12px 6px 4px;
-        }
-
-        .design-card__title {
-          font-size: 14px;
-          font-weight: 950;
-          color: #f8fafc;
-          line-height: 1.15;
-        }
-
-        .design-card__meta {
-          margin-top: 5px;
-          font-size: 12px;
-          line-height: 1.45;
-          color: #acbbcf;
-          font-weight: 700;
-        }
-
-        .studio-actionbar {
-          position: sticky;
-          bottom: 0;
-          z-index: 2;
-          margin-top: 18px;
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          background: linear-gradient(
-            180deg,
-            rgba(20, 26, 44, 0.92),
-            rgba(14, 19, 32, 0.94)
-          );
-          border-radius: 22px;
-          padding: 14px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 14px;
-          flex-wrap: wrap;
-          box-shadow: 0 14px 24px rgba(0, 0, 0, 0.16);
-        }
-
-        .studio-actionbar__meta {
-          display: grid;
-          gap: 3px;
-        }
-
-        .studio-actionbar__eyebrow {
-          font-size: 11px;
-          font-weight: 950;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          color: #8b5cf6;
-        }
-
-        .studio-actionbar__title {
-          font-size: 16px;
-          line-height: 1.15;
-          color: #f8fafc;
-        }
-
-        .studio-actionbar__sub {
-          font-size: 13px;
-          line-height: 1.45;
-          color: #aebed3;
-          font-weight: 700;
-        }
-
-        .studio-actionbar__actions {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          flex-wrap: wrap;
-        }
-
-        .studio-secondary-btn,
-        .studio-primary-btn {
-          appearance: none;
-          border: none;
-          cursor: pointer;
-          transition: transform 0.18s ease,
-            opacity 0.18s ease, filter 0.18s ease;
-          font: inherit;
-        }
-
-        .studio-secondary-btn:disabled,
-        .studio-primary-btn:disabled {
-          opacity: 0.54;
-          cursor: not-allowed;
-        }
-
-        .studio-secondary-btn:not(:disabled):hover,
-        .studio-primary-btn:not(:disabled):hover {
-          transform: translateY(-1px);
-        }
-
-        .studio-secondary-btn {
-          min-height: 46px;
-          padding: 0 16px;
-          border-radius: 14px;
-          background: rgba(255, 255, 255, 0.07);
-          color: #f8fafc;
-          font-size: 14px;
-          font-weight: 900;
-          border: 1px solid rgba(255, 255, 255, 0.08);
-        }
-
-        .studio-primary-btn {
-          min-height: 48px;
-          padding: 0 18px;
-          border-radius: 14px;
-          background: linear-gradient(
-            135deg,
-            #7c3aed 0%,
-            #8b5cf6 44%,
-            #06b6d4 100%
-          );
-          color: #fff;
-          font-size: 14px;
-          font-weight: 950;
-          box-shadow: 0 10px 18px rgba(88, 28, 135, 0.18);
-        }
-
-        .preview-modal {
-          position: fixed;
           inset: 0;
-          z-index: 9999;
-          background: rgba(2, 6, 23, 0.72);
+          background: linear-gradient(110deg, #f4f5f8 30%, #e9ecf1 50%, #f4f5f8 70%);
+          background-size: 220% 100%;
+          animation: apShimmer 1.6s linear infinite;
+        }
+        .ap-actions .ap-cta {
+          margin-top: 0;
+        }
+        .ap-actions__row {
           display: grid;
-          place-items: center;
-          padding: 14px;
-          min-height: 100dvh;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+          margin-top: 10px;
         }
-
-        .preview-modal__dialog {
-          width: min(920px, calc(100vw - 28px));
-          max-width: 920px;
-          height: min(84dvh, 760px);
-          margin: 0 auto;
-          background: linear-gradient(
-            180deg,
-            rgba(20, 26, 44, 0.98),
-            rgba(14, 19, 32, 0.98)
-          );
-          border-radius: 24px;
-          overflow: hidden;
-          position: relative;
-          box-shadow: 0 20px 46px rgba(0, 0, 0, 0.28);
-          display: grid;
-          grid-template-rows: 1fr auto;
-          border: 1px solid rgba(255, 255, 255, 0.08);
+        .ap-adjust {
+          margin-top: 0;
         }
-
-        .preview-modal__close {
-          position: absolute;
-          top: 12px;
-          right: 12px;
-          width: 42px;
-          height: 42px;
-          border: none;
+        .ap-chips {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          margin-bottom: 10px;
+        }
+        .ap-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          height: 34px;
+          padding: 0 12px;
+          border: 1px solid var(--line);
           border-radius: 999px;
-          background: rgba(255, 255, 255, 0.08);
-          color: #f8fafc;
-          font-size: 24px;
-          font-weight: 700;
-          cursor: pointer;
-          z-index: 3;
-          border: 1px solid rgba(255, 255, 255, 0.08);
-        }
-
-        .preview-modal__nav {
-          position: absolute;
-          top: 50%;
-          transform: translateY(-50%);
-          width: 50px;
-          height: 50px;
-          border: none;
-          border-radius: 999px;
-          background: rgba(15, 23, 42, 0.82);
-          color: #f8fafc;
-          font-size: 32px;
+          background: #fff;
+          font-size: 13px;
           font-weight: 500;
-          line-height: 1;
-          display: flex;
-          align-items: center;
-          justify-content: center;
+          color: var(--body);
           cursor: pointer;
-          z-index: 2;
-          border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .ap-chip .ap-ic {
+          width: 15px;
+          height: 15px;
+        }
+        .ap-chip:hover:not(:disabled) {
+          border-color: var(--line-h);
+        }
+        .ap-chip.is-on {
+          border-color: var(--blue);
+          background: var(--blue-soft);
+          color: var(--blue);
+          font-weight: 600;
         }
 
-        .preview-modal__nav--left {
-          left: 16px;
-        }
-
-        .preview-modal__nav--right {
-          right: 16px;
-        }
-
-        .preview-modal__image-wrap {
-          background:
-            radial-gradient(
-              circle at top left,
-              rgba(124, 58, 237, 0.08),
-              transparent 24%
-            ),
-            radial-gradient(
-              circle at top right,
-              rgba(6, 182, 212, 0.06),
-              transparent 22%
-            ),
-            linear-gradient(180deg, #1a2238, #151c2e);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 22px 24px 14px;
-          min-height: 0;
-        }
-
-        .preview-modal__image {
-          max-width: 100%;
-          max-height: 100%;
-          object-fit: contain;
-          display: block;
-        }
-
-        .preview-modal__foot {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 16px;
-          padding: 16px 18px 18px;
-          border-top: 1px solid rgba(255, 255, 255, 0.08);
-          background: rgba(255, 255, 255, 0.03);
-        }
-
-        .preview-modal__meta {
-          font-size: 14px;
-          font-weight: 900;
-          color: #f8fafc;
-        }
-
-        .preview-modal__select {
-          appearance: none;
-          border: none;
-          border-radius: 14px;
-          background: linear-gradient(
-            135deg,
-            #7c3aed 0%,
-            #8b5cf6 44%,
-            #06b6d4 100%
-          );
-          color: #ffffff;
-          min-height: 46px;
-          padding: 0 16px;
-          font-size: 14px;
-          font-weight: 950;
-          cursor: pointer;
-          box-shadow: 0 10px 18px rgba(88, 28, 135, 0.18);
-        }
-
-        .preview-modal__select.is-selected {
-          background: linear-gradient(180deg, #22d3ee, #0891b2);
-        }
-
-        @keyframes sparkleFloat {
-          0%,
-          100% {
-            transform: scale(1) translateY(0);
-            opacity: 0.9;
-          }
-          50% {
-            transform: scale(1.16) translateY(-1px);
-            opacity: 1;
-          }
-        }
-
-        @keyframes borderFlow {
-          0% {
-            background-position: 0% 50%;
-          }
-          100% {
-            background-position: 220% 50%;
-          }
-        }
-
-        @keyframes shineSweep {
-          0% {
-            left: -32%;
-            opacity: 0;
-          }
-          12% {
-            opacity: 1;
-          }
-          45% {
-            left: 115%;
-            opacity: 0.9;
-          }
-          100% {
-            left: 115%;
-            opacity: 0;
-          }
-        }
-
-        @keyframes orbitPulse {
-          0%,
-          100% {
-            transform: scale(1);
-            opacity: 0.8;
-          }
-          50% {
-            transform: scale(1.22);
-            opacity: 1;
-          }
-        }
-
-        @media (max-width: 900px) {
-          .composer-title {
-            font-size: 28px;
-          }
-
-          .results-title {
-            font-size: 24px;
-          }
-
-          .chip-groups-grid,
-          .priority-panel__grid,
-          .event-grid {
-            grid-template-columns: 1fr;
-          }
-        }
-
+        /* Celular */
         @media (max-width: 760px) {
-          .page-shell {
-            padding: 14px;
+          .ap-studio,
+          .is-embedded .ap-studio {
+            padding: 22px 16px 24px;
           }
-
-          .page-shell.is-embedded {
-            padding: 12px;
-            background: linear-gradient(
-              180deg,
-              #0d1323 0%,
-              #0c1120 100%
-            );
+          .ap-results {
+            grid-template-columns: minmax(0, 1fr);
+            gap: 16px;
           }
-
-          .composer-card,
-          .results-block {
-            border-radius: 22px;
-            padding: 14px;
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
+          .ap-swatches {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
           }
-
-          .composer-card::before,
-          .results-block::before {
-            background: none;
+          .ap-styles {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
           }
-
-          .studio-brandmark {
-            font-size: 14px;
-          }
-
-          .studio-brand-curve {
-            width: 180px;
-          }
-
-          .composer-title {
-            font-size: 24px;
-          }
-
-          .composer-subhelp {
-            font-size: 13px;
-          }
-
-          .studio-tabs {
-            grid-template-columns: 1fr;
-          }
-
-          .brief-shell {
-            border-radius: 18px;
-            padding: 14px;
-          }
-
-          .brief-label {
-            font-size: 17px;
-          }
-
-          .prompt-textarea {
-            min-height: 118px;
-            border-radius: 16px;
-          }
-
-          .small-textarea,
-          .text-input,
-          .select-input {
-            border-radius: 16px;
-          }
-
-          .color-pills {
-            flex-wrap: nowrap;
-            overflow-x: auto;
-            overflow-y: hidden;
-            -webkit-overflow-scrolling: touch;
-            touch-action: pan-x;
-            padding-bottom: 4px;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-          }
-
-          .color-pills::-webkit-scrollbar {
-            display: none;
-          }
-
-          .color-pill {
-            flex: 0 0 auto;
-          }
-
-          .chip-groups-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .chip-group-card__chips {
-            display: flex;
-            flex-wrap: nowrap;
-            overflow-x: auto;
-            overflow-y: hidden;
-            -webkit-overflow-scrolling: touch;
-            touch-action: pan-x;
-            padding-bottom: 4px;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
+          .ap-summary {
+            flex-direction: column;
             gap: 10px;
           }
-
-          .chip-group-card__chips::-webkit-scrollbar {
-            display: none;
+          .ap-summary .ap-btn {
+            align-self: stretch;
           }
-
-          .chip-btn {
-            flex: 0 0 auto;
-            min-height: 38px;
-            padding: 0 13px;
-            font-size: 12px;
-            box-shadow: none;
-          }
-
-          .chip-btn.is-active {
-            box-shadow: 0 8px 14px rgba(88, 28, 135, 0.16);
-          }
-
-          .composer-foot {
-            align-items: stretch;
-          }
-
-          .ai-generate-btn {
-            width: 100%;
-            min-width: 0;
-            height: 56px;
-          }
-
-          .ai-generate-btn__glow {
-            display: none;
-          }
-
-          .ai-generate-btn__border {
-            animation: none;
-          }
-
-          .ai-generate-btn__shine::before {
-            animation: none;
-            opacity: 0;
-          }
-
-          .ai-generate-btn__label {
-            font-size: 15px;
-          }
-
-          .ai-generate-btn__sub {
-            font-size: 9px;
-          }
-
-          .results-grid--3 {
+        }
+        @media (max-width: 420px) {
+          .ap-actions__row {
             grid-template-columns: 1fr;
           }
-
-          .studio-actionbar {
-            position: static;
-            border-radius: 18px;
-            box-shadow: none;
+          .ap-hint {
+            flex-wrap: wrap;
           }
-
-          .studio-actionbar__actions {
-            width: 100%;
+          .ap-hint p {
+            flex-basis: calc(100% - 40px);
           }
+        }
 
-          .studio-secondary-btn,
-          .studio-primary-btn {
-            flex: 1 1 auto;
-            min-width: 0;
+        @keyframes apIn {
+          from {
+            opacity: 0;
+            transform: translateY(6px);
           }
-
-          .preview-modal {
-            padding: 10px;
+          to {
+            opacity: 1;
+            transform: none;
           }
-
-          .preview-modal__dialog {
-            width: calc(100vw - 20px);
-            max-width: calc(100vw - 20px);
-            height: min(72dvh, 600px);
-            border-radius: 20px;
+        }
+        @keyframes apFade {
+          from {
+            opacity: 0;
           }
-
-          .preview-modal__image-wrap {
-            padding: 18px 12px 10px;
+          to {
+            opacity: 1;
           }
-
-          .preview-modal__nav {
-            width: 42px;
-            height: 42px;
-            font-size: 26px;
+        }
+        @keyframes apShimmer {
+          to {
+            background-position: -220% 0;
           }
-
-          .preview-modal__nav--left {
-            left: 8px;
+        }
+        @keyframes apSpin {
+          to {
+            transform: rotate(360deg);
           }
-
-          .preview-modal__nav--right {
-            right: 8px;
-          }
-
-          .preview-modal__close {
-            width: 38px;
-            height: 38px;
-            top: 8px;
-            right: 8px;
-          }
-
-          .preview-modal__foot {
-            flex-direction: column;
-            align-items: stretch;
-            padding: 12px;
-          }
-
-          .preview-modal__select {
-            width: 100%;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .ap-shell *,
+          .ap-shell *::before,
+          .ap-shell *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition: none !important;
           }
         }
       `}</style>
-    </>
+    </main>
   );
 }
 
 export default function HomePage() {
   return (
-    <Suspense fallback={<div style={{ padding: 16 }}>Cargando...</div>}>
-      <HomePageInner />
+    <Suspense fallback={<div style={{ padding: 16 }}>Cargando…</div>}>
+      <StudioInner />
     </Suspense>
   );
 }
