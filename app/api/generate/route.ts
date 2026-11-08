@@ -2340,7 +2340,7 @@ STICKER OUTPUT RESTRICTIONS:
 }
 LABEL RULES (very important, the customer reads these):
 - Every label MUST be in Spanish (Mexico), never in English.
-- Format: "<Ruta> · <concepto>" where <Ruta> is exactly "Ilustrado", "Tipográfico", "Icónico" or "Insignia", and <concepto> is 2 to 4 simple Spanish words that describe that specific design (for example: "Ilustrado · Montaña festiva", "Tipográfico · Ian en grande", "Insignia · Escudo de cumpleaños").
+- Format: "<Ruta> · <concepto>" where <Ruta> is exactly "Ilustrado", "Tipográfico", "Icónico" or "Insignia", and <concepto> is 2 to 4 simple Spanish words that describe that specific design (for example, for a coffee shop: "Ilustrado · Taza sonriente", "Tipográfico · Café Luna en grande", "Insignia · Sello cafetero"). These are only format examples: never copy them, always describe the actual design you are writing.
 Return exactly:
 {
   "option_a_label": "...",
@@ -2618,10 +2618,147 @@ async function generateOneImage(prompt: string): Promise<string | null> {
   }
 }
 
+
+
+   
+const FLUX_EDIT_ENDPOINT = "https://api.bfl.ai/v1/flux-2-pro";
+
+// «Ajustar esta»: cambios rápidos sobre una propuesta ya generada (1 sola imagen).
+const ADJUST_PRESETS: Record<string, { es: string; en: string }> = {
+  simple: {
+    es: "Más simple",
+    en: "Make it simpler and cleaner: fewer elements, fewer colors, bolder shapes.",
+  },
+  colorido: {
+    es: "Más colorido",
+    en: "Make the colors more vivid and cheerful.",
+  },
+  colores: {
+    es: "Otros colores",
+    en: "Change the color palette to a different harmonious palette with good contrast.",
+  },
+  sintexto: {
+    es: "Sin texto",
+    en: "Remove all text and lettering, keep only the artwork.",
+  },
+  textogrande: {
+    es: "Texto más grande",
+    en: "Make the text bigger and easier to read, keeping the exact same spelling.",
+  },
+  tierno: {
+    es: "Más tierno",
+    en: "Make it cuter and friendlier: rounder shapes and a softer expression.",
+  },
+  elegante: {
+    es: "Más elegante",
+    en: "Make it more elegant and premium: refined shapes and a restrained palette.",
+  },
+};
+
+async function generateEditImage(prompt: string, base64Image: string): Promise<string | null> {
+  if (!BFL_API_KEY) {
+    throw new Error("Falta BFL_API_KEY en .env.local");
+  }
+
+  try {
+    const response = await fetch(FLUX_EDIT_ENDPOINT, {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "Content-Type": "application/json",
+        "x-key": BFL_API_KEY,
+      },
+      body: JSON.stringify({
+        prompt,
+        input_image: base64Image,
+        output_format: "png",
+        safety_tolerance: 2,
+      }),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`FLUX edit submit error: ${text}`);
+    }
+
+    const submitted = (await response.json()) as { polling_url: string };
+    const signedUrl = await pollFluxResult(submitted.polling_url);
+    return await signedUrlToDataUrl(signedUrl);
+  } catch (error: any) {
+    console.warn(`FLUX no pudo ajustar la imagen: ${error.message}`);
+    return null;
+  }
+}
+
+async function handleAdjust(body: any) {
+  const mode: DesignMode =
+    body?.mode === "playera" || body?.mode === "shirt" ? "playera" : "sticker";
+
+  const image = typeof body?.image === "string" ? body.image : "";
+  const match = image.match(/^data:(image\/(?:png|jpeg|webp));base64,(.+)$/);
+  if (!match) {
+    return NextResponse.json({ error: "Falta la imagen a ajustar." }, { status: 400 });
+  }
+  if (match[2].length > 11_000_000) {
+    return NextResponse.json({ error: "La imagen es demasiado grande." }, { status: 400 });
+  }
+
+  const presetIds: string[] = Array.isArray(body?.presets)
+    ? body.presets
+        .map((id: unknown) => String(id))
+        .filter((id: string) => ADJUST_PRESETS[id])
+        .slice(0, 3)
+    : [];
+  const note = cleanInput(String(body?.note || "")).slice(0, 300);
+
+  if (!presetIds.length && !note) {
+    return NextResponse.json(
+      { error: "Elige qué quieres cambiar o escríbelo." },
+      { status: 400 }
+    );
+  }
+
+  const instructions = presetIds.map((id) => ADJUST_PRESETS[id].en);
+  if (note) {
+    instructions.push(`Customer request (in Spanish, follow it faithfully): "${note}"`);
+  }
+
+  const editPrompt = `Edit this ${mode === "playera" ? "t-shirt graphic" : "sticker design"}. Apply these changes:
+- ${instructions.join("\n- ")}
+Keep everything else the same: same main subject, same overall composition, and the exact same spelling of any text that is kept.
+Keep a pure solid white background, clean print-ready artwork, no mockup, no scenery, no checkerboard pattern.`;
+
+  if (DEBUG_PROMPTS) {
+    console.log("ADJUST PROMPT:", editPrompt);
+  }
+
+  const result = await generateEditImage(editPrompt, match[2]);
+
+  if (!result) {
+    return NextResponse.json(
+      { error: "No pudimos crear el ajuste. Intenta con otra indicación." },
+      { status: 400 }
+    );
+  }
+
+  const labelParts = presetIds.map((id) => ADJUST_PRESETS[id].es);
+  if (note) {
+    labelParts.push(note.length > 24 ? `${note.slice(0, 24)}…` : note);
+  }
+
+  return NextResponse.json({
+    image: result,
+    label: `Ajuste · ${labelParts.join(", ")}`,
+  });
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
 
+    if (body?.action === "adjust") {
+      return await handleAdjust(body);
+    }
     const rawPrompt = cleanInput(body?.prompt);
     const mode: DesignMode =
       body?.mode === "playera" || body?.mode === "shirt" ? "playera" : "sticker";
@@ -2633,7 +2770,6 @@ export async function POST(req: Request) {
 
     const rawBusinessData = normalizeBusinessData(body?.businessData);
     const businessData = sanitizeBusinessData(rawBusinessData);
-
     const userPrompt = sanitizeProtectedReferences(rawPrompt);
 
     if (!userPrompt) {
