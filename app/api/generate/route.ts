@@ -2943,7 +2943,7 @@ export async function POST(req: Request) {
           controller.enqueue(encoder.encode(JSON.stringify(payload) + "\n"));
         };
 
-        send({ type: "start", total: prompts.length, send({ type: "start", total: prompts.length, labels: optionLabels, brief: brief?.summary || [] });
+    send({ type: "start", total: prompts.length, labels: optionLabels, brief: brief?.summary || [] });
 
         let okCount = 0;
         await Promise.all(
