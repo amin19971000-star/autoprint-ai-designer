@@ -43,6 +43,22 @@ export async function POST(req: Request) {
     }
 
     const { buffer, mimeType } = dataUrlToBuffer(image);
+
+    // Solo imágenes reales y de tamaño razonable (las del estudio pesan 1–3 MB).
+    const allowedTypes = ["image/png", "image/jpeg", "image/webp"];
+    if (!allowedTypes.includes(mimeType)) {
+      return NextResponse.json(
+        { error: "Formato de imagen no permitido." },
+        { status: 400 }
+      );
+    }
+    if (buffer.length > 8 * 1024 * 1024) {
+      return NextResponse.json(
+        { error: "La imagen es demasiado grande." },
+        { status: 400 }
+      );
+    }
+
     const ext = getExtensionFromMime(mimeType);
 
     const safeMode = mode === "playera" ? "playera" : "sticker";
