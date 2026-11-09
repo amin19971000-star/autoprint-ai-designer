@@ -3091,7 +3091,7 @@ export async function POST(req: Request) {
         let okCount = 0;
         await Promise.all(
           prompts.map(async (optionPrompt, index) => {
-            const image = await generateOneImage(optionPrompt);
+                        const { image } = await generateOneImageGpt(`${optionPrompt} Render only the exact text requested above; add no other words, slogans, labels, numbers, measurements, ® or ™.`);
             if (image) {
               okCount += 1;
               send({ type: "image", index, image, label: optionLabels[index] });
