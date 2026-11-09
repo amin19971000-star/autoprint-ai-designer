@@ -2762,6 +2762,30 @@ Keep a pure solid white background, clean print-ready artwork, no mockup, no sce
   });
 }
 
+// «Laboratorio»: genera la misma propuesta con GPT Image para compararla contra FLUX.
+// Solo se usa desde la página /laboratorio con la clave LAB_KEY (variable de entorno en Vercel).
+const GPT_IMAGE_MODEL = process.env.GPT_IMAGE_MODEL || "gpt-image-2.5-sunburst";
+
+async function generateOneImageGpt(prompt: string): Promise<{ image: string | null; reason: string }> {
+  try {
+    const result: any = await openai.images.generate({
+      model: GPT_IMAGE_MODEL,
+      prompt,
+      size: "1024x1024",
+      quality: "high",
+      background: "opaque",
+      output_format: "png",
+    } as any);
+    const b64 = result?.data?.[0]?.b64_json;
+    if (!b64) return { image: null, reason: "GPT Image no regresó imagen." };
+    return { image: `data:image/png;base64,${b64}`, reason: "" };
+  } catch (error: any) {
+    const reason = String(error?.message || error || "Error desconocido").slice(0, 300);
+    console.warn(`GPT Image falló: ${reason}`);
+    return { image: null, reason };
+  }
+}
+
 // «Intérprete»: el cliente escribe como habla (con faltas, desordenado). Esta función saca lo importante
 // (ocasión, para quién, tema, elementos, textos exactos, colores, estilo) y lo convierte en un pedido
 // claro para el ilustrador. Si falla, el estudio sigue con lo que escribió el cliente.
@@ -2930,8 +2954,6 @@ For "summary": 3 to 6 short items in Spanish (Mexico), each value under 45 chara
   }
 }
 
-
-
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -3033,7 +3055,38 @@ export async function POST(req: Request) {
           controller.enqueue(encoder.encode(JSON.stringify(payload) + "\n"));
         };
 
-    send({ type: "start", total: prompts.length, labels: optionLabels, brief: brief?.summary || [] });
+            // Laboratorio: con la clave correcta, cada propuesta se genera con FLUX y con GPT Image.
+        const labKey = process.env.LAB_KEY;
+        const compare = !!labKey && body?.compare === true && body?.labKey === labKey;
+
+        if (compare) {
+          const labLabels = [
+            ...optionLabels.map((l) => `FLUX · ${l}`),
+            ...optionLabels.map((l) => `GPT Image · ${l}`),
+          ];
+          send({ type: "start", total: prompts.length * 2, labels: labLabels, brief: brief?.summary || [], prompts });
+          await Promise.all([
+            ...prompts.map(async (optionPrompt, index) => {
+              const t0 = Date.now();
+              const image = await generateOneImage(optionPrompt);
+              const ms = Date.now() - t0;
+              send(image ? { type: "image", index, image, label: labLabels[index], ms } : { type: "failed", index, reason: "FLUX no regresó imagen (bloqueo o error).", ms });
+            }),
+            ...prompts.map(async (optionPrompt, i) => {
+              const index = i + prompts.length;
+              const t0 = Date.now();
+              const { image, reason } = await generateOneImageGpt(optionPrompt);
+              const ms = Date.now() - t0;
+              send(image ? { type: "image", index, image, label: labLabels[index], ms } : { type: "failed", index, reason, ms });
+            }),
+          ]);
+          send({ type: "done", ok: 1 });
+          controller.close();
+          return;
+        }
+
+        send({ type: "start", total: prompts.length, labels: optionLabels, brief: brief?.summary || [] });
+
 
         let okCount = 0;
         await Promise.all(
