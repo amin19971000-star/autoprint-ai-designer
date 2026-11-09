@@ -2798,7 +2798,7 @@ Extract:
 - colors, style or mood if mentioned. If not mentioned, infer a fitting mood from the occasion and recipient (for example: a 5-year-old's birthday → cheerful, friendly, bright).
 
 DESIGN LANGUAGE — first decide which one fits the customer's world and audience. This decides the tone, not your personal taste:
-1. Industrial & technical (machining, CNC, welding, mechanics, auto repair, construction, electrical, logistics, manufacturing): professional, strong, precise. Emblem or badge built with clean geometric linework, accurate tools/parts/machines of the trade, technical or blueprint details, bold condensed or slab-serif lettering, steel and graphite palette with ONE accent color (safety orange, signal red or electric blue). No faces on machines, no cute mascots, no cartoon style.
+1. Industrial & technical (machining, CNC, welding, mechanics, auto repair, construction, electrical, logistics, manufacturing; NOT print shops or design studios): professional, strong, precise. Emblem or badge built with clean geometric linework, accurate tools/parts/machines of the trade, technical or blueprint details, bold condensed or slab-serif lettering, steel and graphite palette with ONE accent color (safety orange, signal red or electric blue). No faces on machines, no cute mascots, no cartoon style.
 2. Corporate & professional services (accounting, legal, consulting, medical, real estate, technology): clean, modern, trustworthy. Minimal mark, generous spacing, refined sans-serif lettering, 2–3 color palette. No cartoon.
 3. Food, coffee & drinks: appetizing, warm and inviting, crafted illustration of the product as the hero; a friendly character is allowed.
 4. Fashion, beauty & cosmetics: elegant, refined, editorial; fine lines, restrained palette.
@@ -2809,6 +2809,9 @@ DESIGN LANGUAGE — first decide which one fits the customer's world and audienc
 9. Personal, pets & hobbies: expressive illustration matching the vibe the customer describes.
 10. Artisanal & boutique retail (florist, bakery, pastry, gift shop, crafts, local boutique, barber shop): warm, crafted and characterful — rich botanical or engraved illustration, hand lettering or elegant script, harmonious palette. Small local businesses are NOT corporate: do not choose language 2 for them.
 - Faces or eyes on objects (machines, food, products) are ONLY allowed in languages 3, 6 and 9, or when the customer asks for something cute or funny.
+11. Creative & graphic businesses (print shop, design studio, photography, marketing, advertising): bold, colorful, modern and creative graphic language; never steel-industrial.
+- OCCASION FIRST: when the request is for a celebration or holiday (Mexican Independence Day, Christmas, Halloween, Día de Muertos, Valentine's Day, Mother's Day…), the occasion drives the design language and the palette; the business only contributes its name and, at most, one subtle motif. Mexican national holidays → proud and festive Mexican imagery: tricolor green-white-red, papel picado, fireworks, folk or charro-style ornamental lettering, festive patterns.
+- Never reproduce the official Mexican coat of arms (eagle on a cactus devouring a snake) or any official national emblem; use generic festive motifs instead.
 - If the customer explicitly asks for a tone (fun, serious, elegant, cute, aggressive), that wins over the category.
 
 ${
@@ -2820,14 +2823,15 @@ ${
 - Línea fina: elegant continuous fine line art in one color, minimal and sophisticated.
 - Monograma minimalista: refined small chest mark (monoline icon + beautiful lettering), one or two colors.
 - Tipografía con carácter: big expressive lettering lockup (script mixed with condensed caps) where the name or phrase is the hero, with a small icon.
-- Insignia retro: vintage badge or crest with banner and arched lettering. Never invent founding years or "EST." dates.
+- Insignia retro: vintage badge or crest with banner and arched lettering. Never invent founding years or "EST." dates. Only for sports teams, clubs, workshops or when the customer asks for a badge/emblem.
 - Técnico blueprint: technical drawing / exploded-view look with precise lines, steel palette (industrial).
 - Streetwear gráfico: bold oversized graphic, high contrast, edgy type (youth and urban brands).
 - Ilustración divertida: playful cartoon with bright colors (kids and fun celebrations only).
-Write them at the END of enriched_prompt exactly like this, one per line:
-AutoPrint style A: <Spanish style name> — <one sentence in English applying it to this design>
-AutoPrint style B: <Spanish style name> — <one sentence in English applying it to this design>
-AutoPrint style C: <Spanish style name> — <one sentence in English applying it to this design>
+T-SHIRT COMPOSITION RULES (a shirt is not a sticker or a logo):
+- Use OPEN compositions by default: an illustration with a lettering lockup above or below it, a lettering-led statement, a vertical poster layout, or a small chest mark. NO enclosing circles, round badges, rings, wreaths or frames around the whole design unless the customer asks for a badge, emblem, seal or circular design.
+- At most ONE of the 3 styles may be a framed badge composition; the other two must be open.
+- Each style "direction" must state its composition explicitly (for example "open composition, no circular frame").
+Return them in the "styles" field: exactly 3 items, each with "name" (the Spanish style name from the library) and "direction" (one sentence in English applying that style to this specific design).
 
 `
     : ""
@@ -2854,7 +2858,7 @@ Other rules:
 
 Return ONLY valid JSON:
 {
-  "enriched_prompt": "One rich English paragraph (80–140 words) describing the design to create: start with the design language (for example "Professional industrial emblem:"), then the creative concept, occasion, recipient, main subject, every requested element, composition, mood, palette and craft, and the exact texts written as: Text to render exactly: \\"...\\" (fully visible, nothing covering the letters). If there is no text requested, say: No text.",
+  "enriched_prompt": "One rich English paragraph (80–140 words) describing the design to create: start with the design language that fits this request, then the creative concept, occasion, recipient, main subject, every requested element, composition, mood, palette and craft, and the exact texts written as: Text to render exactly: \\"...\\" (fully visible, nothing covering the letters). If there is no text requested, say: No text.",
   "summary": [
     { "label": "Idea", "value": "..." },
     { "label": "Estilo", "value": "..." },
@@ -2862,10 +2866,10 @@ Return ONLY valid JSON:
     { "label": "Tema", "value": "..." },
     { "label": "Texto", "value": "..." },
     { "label": "Colores", "value": "..." }
-  ]
+  ]${mode === "playera" ? ',\n  "styles": [ { "name": "...", "direction": "..." }, { "name": "...", "direction": "..." }, { "name": "...", "direction": "..." } ]' : ""}
 }
 Never output placeholder or guessed values; if you do not know something, leave it out.
-${mode === "playera" ? 'In "summary" also include an item "Estilos" with the three Spanish style names separated by commas. ' : ""}For "summary": 3 to 6 short items in Spanish (Mexico), each value under 45 characters (the "Estilos" item may be longer). The FIRST item is always "Idea": the creative concept in a few words (for example "Corona de engranes de acero"). The SECOND is always "Estilo": the design language in Spanish (for example "Profesional industrial", "Corporativo", "Infantil divertido", "Elegante"). Then use labels from: Ocasión, Para, Tema, Texto, Colores. Omit items you do not know.
+For "summary": 3 to 6 short items in Spanish (Mexico), each value under 45 characters. The FIRST item is always "Idea": the creative concept in a few words (for example "Corona de engranes de acero"). The SECOND is always "Estilo": the design language in Spanish (for example "Profesional industrial", "Corporativo", "Infantil divertido", "Elegante"). Then use labels from: Ocasión, Para, Tema, Texto, Colores. Omit items you do not know.
           `.trim(),
         },
         { role: "user", content: customerText.slice(0, 600) },
@@ -2888,7 +2892,7 @@ ${mode === "playera" ? 'In "summary" also include an item "Estilos" with the thr
     const enrichedPrompt = cleanInput(String(parsed?.enriched_prompt || ""));
     if (!enrichedPrompt) return null;
 
-    const summary = Array.isArray(parsed?.summary)
+    let summary: { label: string; value: string }[] = Array.isArray(parsed?.summary)
       ? parsed.summary
           .map((item: any) => ({
             label: cleanInput(String(item?.label || "")).slice(0, 20),
@@ -2898,8 +2902,26 @@ ${mode === "playera" ? 'In "summary" also include an item "Estilos" with the thr
           .slice(0, 7)
       : [];
 
+    // Playeras: los 3 estilos de la biblioteca se agregan siempre en el mismo formato, para que el
+    // paso que escribe las propuestas los encuentre y los respete.
+    let enriched = enrichedPrompt;
+    const styles = Array.isArray(parsed?.styles)
+      ? parsed.styles
+          .map((item: any) => ({
+            name: cleanInput(String(item?.name || "")).slice(0, 40),
+            direction: cleanInput(String(item?.direction || "")).slice(0, 300),
+          }))
+          .filter((item: { name: string; direction: string }) => item.name && item.direction)
+          .slice(0, 3)
+      : [];
+    if (mode === "playera" && styles.length === 3) {
+      enriched += " " + styles.map((st: { name: string; direction: string }, i: number) => `AutoPrint style ${"ABC"[i]}: ${st.name} — ${st.direction}.`).join(" ");
+      summary = summary.filter((item) => item.label !== "Estilos");
+      summary.push({ label: "Estilos", value: styles.map((st: { name: string }) => st.name).join(", ") });
+    }
+
     return {
-      enriched: enrichedPrompt,
+      enriched,
       summary,
     };
   } catch (error: any) {
