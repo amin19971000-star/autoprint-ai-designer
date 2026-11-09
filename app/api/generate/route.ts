@@ -2787,9 +2787,21 @@ Extract:
 - exact texts that must appear (names, phrases, brand names, ages). Keep names and brand names EXACTLY as the customer wrote them, even if unusual (for example "Jozue" stays "Jozue"); inside a requested phrase you may only fix obvious typos in common words. Never invent text the customer did not ask for.
 - colors, style or mood if mentioned. If not mentioned, infer a fitting mood from the occasion and recipient (for example: a 5-year-old's birthday → cheerful, friendly, bright).
 
-Creative direction (this is what makes the result great instead of generic clip-art):
-- Find ONE clever concept that merges the customer's world (their business, hobby, the person's tastes) with the occasion. Example of the thinking: a print shop that wants Christmas stickers → a cheerful printer character wearing a Santa hat with ink drops as ornaments, instead of a generic Christmas tree. Never fall back to the most obvious stock image.
-- Give the design personality: expression, attitude, a small story or wit.
+DESIGN LANGUAGE — first decide which one fits the customer's world and audience. This decides the tone, not your personal taste:
+1. Industrial & technical (machining, CNC, welding, mechanics, auto repair, construction, electrical, logistics, manufacturing): professional, strong, precise. Emblem or badge built with clean geometric linework, accurate tools/parts/machines of the trade, technical or blueprint details, bold condensed or slab-serif lettering, steel and graphite palette with ONE accent color (safety orange, signal red or electric blue). No faces on machines, no cute mascots, no cartoon style.
+2. Corporate & professional services (accounting, legal, consulting, medical, real estate, technology): clean, modern, trustworthy. Minimal mark, generous spacing, refined sans-serif lettering, 2–3 color palette. No cartoon.
+3. Food, coffee & drinks: appetizing, warm and inviting, crafted illustration of the product as the hero; a friendly character is allowed.
+4. Fashion, beauty & cosmetics: elegant, refined, editorial; fine lines, restrained palette.
+5. Sports teams & clubs: athletic emblem, dynamic and bold; a fierce mascot is allowed.
+6. Kids (anything for children): playful, cute and colorful cartoon characters are welcome.
+7. Adult celebrations (birthday, anniversary, party): stylish and fun around the person's tastes; not childish unless asked.
+8. Religious & ceremonial (baptism, first communion, wedding): elegant, delicate, symbolic, soft palette.
+9. Personal, pets & hobbies: expressive illustration matching the vibe the customer describes.
+- Faces or eyes on objects (machines, food, products) are ONLY allowed in languages 3, 6 and 9, or when the customer asks for something cute or funny.
+- If the customer explicitly asks for a tone (fun, serious, elegant, cute, aggressive), that wins over the category.
+
+CREATIVE CONCEPT (what makes it great instead of generic clip-art):
+- Find ONE strong concept, coherent with the chosen design language, that merges the customer's world with the occasion. Examples of the thinking: a machining shop + Christmas → a precise steel gear wreath framing the shop name, with a star milled from metal (professional, no faces); a coffee shop + Christmas → a steaming cup wearing a tiny Santa hat (friendly). Never fall back to the most obvious stock image.
 - Craft: ${productCraft}
 - Avoid: generic clip-art, stock-photo realism, cheap gradients, clutter, tiny details, random sparkles, extra frames.
 
@@ -2811,9 +2823,10 @@ Other rules:
 
 Return ONLY valid JSON:
 {
-  "enriched_prompt": "One rich English paragraph (80–140 words) describing the design to create: the creative concept, occasion, recipient, main subject, every requested element, composition, mood, palette and craft, and the exact texts written as: Text to render exactly: \\"...\\" (fully visible, nothing covering the letters). If there is no text requested, say: No text.",
+  "enriched_prompt": "One rich English paragraph (80–140 words) describing the design to create: start with the design language (for example "Professional industrial emblem:"), then the creative concept, occasion, recipient, main subject, every requested element, composition, mood, palette and craft, and the exact texts written as: Text to render exactly: \\"...\\" (fully visible, nothing covering the letters). If there is no text requested, say: No text.",
   "summary": [
     { "label": "Idea", "value": "..." },
+    { "label": "Estilo", "value": "..." },
     { "label": "Ocasión", "value": "..." },
     { "label": "Tema", "value": "..." },
     { "label": "Texto", "value": "..." },
@@ -2821,7 +2834,7 @@ Return ONLY valid JSON:
   ]
 }
 Never output placeholder or guessed values; if you do not know something, leave it out.
-For "summary": 3 to 5 short items in Spanish (Mexico), each value under 45 characters. The FIRST item is always "Idea": the creative concept in a few words (for example "Impresora navideña con gorro de Santa"). Then use labels from: Ocasión, Para, Tema, Texto, Colores, Estilo. Omit items you do not know.
+For "summary": 3 to 5 short items in Spanish (Mexico), each value under 45 characters. The FIRST item is always "Idea": the creative concept in a few words (for example "Corona de engranes de acero"). The SECOND is always "Estilo": the design language in Spanish (for example "Profesional industrial", "Corporativo", "Infantil divertido", "Elegante"). Then use labels from: Ocasión, Para, Tema, Texto, Colores. Omit items you do not know.
           `.trim(),
         },
         { role: "user", content: customerText.slice(0, 600) },
@@ -2851,7 +2864,7 @@ For "summary": 3 to 5 short items in Spanish (Mexico), each value under 45 chara
             value: cleanInput(String(item?.value || "")).slice(0, 60),
           }))
           .filter((item: { label: string; value: string }) => item.label && item.value)
-          .slice(0, 5)
+          .slice(0, 6)
       : [];
 
     return {
