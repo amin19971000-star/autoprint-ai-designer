@@ -977,8 +977,9 @@ Design requirements for t-shirts:
 - Use a PURE SOLID WHITE BACKGROUND for generation.
 - DO NOT attempt transparency.
 - DO NOT create checkerboard transparency patterns.
-- Favor premium apparel graphics, bold center chest graphics, statement graphics, mascot art, badge style, or poster-like compositions when appropriate.
-- Prefer clean vector-inspired rendering, bold outlines, controlled shading, and print-friendly color separation.
+- Design it like a best-selling premium graphic tee, not like a corporate logo: real illustration craft, a strong composition and lettering with character.
+- The rendering technique comes from the chosen AutoPrint style (detailed engraving, vintage screen print with spot colors and subtle texture inside the art, watercolor illustration, fine line art, bold graphic, playful cartoon, technical drawing…). Flat vector is only one option, not the default.
+- Keep it print-friendly: crisp edges, no photographic backgrounds, controlled number of colors when the style asks for it.
 - If text is included, integrate it elegantly and intentionally.
 - Avoid cluttered backgrounds.
 - Avoid mockups or product photos.
@@ -2303,9 +2304,14 @@ Mode requirements:
 ${getModeSystemRules(mode)}
 
 Variation logic (THREE DIFFERENT ART ROUTES, not three versions of the same image):
-- Option A = ILUSTRADO: illustration-led. The subject/character is the hero, drawn with personality and expression. Any requested text is secondary and small.
+${
+  mode === "playera"
+    ? `- If the idea contains "AutoPrint style A", "AutoPrint style B" and "AutoPrint style C", Option A, B and C MUST follow those three styles exactly (technique, composition, palette and lettering). They come from the AutoPrint T-shirt style library and are the main art direction.
+- If they are missing: Option A = detailed illustration with the subject as hero; Option B = lettering-led statement with the name or phrase as hero; Option C = vintage badge or crest.`
+    : `- Option A = ILUSTRADO: illustration-led. The subject/character is the hero, drawn with personality and expression. Any requested text is secondary and small.
 - Option B = TIPOGRÁFICO: lettering-led. The requested name/phrase/number is the hero, with expressive custom lettering; the subject becomes a small integrated accent. If NO text was requested, Option B becomes ICÓNICO instead: a bold, flat, simplified iconic version of the subject (2 to 4 flat colors, thick clean outline, no text).
-- Option C = INSIGNIA: badge/emblem/seal composition (circle, shield or crest) that contains the subject and the text in an organized, logo-like layout.
+- Option C = INSIGNIA: badge/emblem/seal composition (circle, shield or crest) that contains the subject and the text in an organized, logo-like layout.`
+}
 - The three options MUST differ in composition, rendering style and color treatment. Never repeat the same layout with small changes.
 
 SPECIAL PERSONALIZATION RULES:
@@ -2322,7 +2328,7 @@ Each prompt should explicitly include:
 - the selected visual family
 - print-friendly detail control
 - apparel/sticker-ready commercial execution
-- clean vector-inspired rendering
+- ${mode === "playera" ? "the rendering technique of its AutoPrint style (not necessarily flat vector)" : "clean vector-inspired rendering"}
 - pure solid white background
 - the right palette direction
 - the intended support elements when useful
@@ -2340,7 +2346,11 @@ STICKER OUTPUT RESTRICTIONS:
 }
 LABEL RULES (very important, the customer reads these):
 - Every label MUST be in Spanish (Mexico), never in English.
-- Format: "<Ruta> · <concepto>" where <Ruta> is exactly "Ilustrado", "Tipográfico", "Icónico" or "Insignia", and <concepto> is 2 to 4 simple Spanish words that describe that specific design (for example, for a coffee shop: "Ilustrado · Taza sonriente", "Tipográfico · Café Luna en grande", "Insignia · Sello cafetero"). These are only format examples: never copy them, always describe the actual design you are writing.
+${
+  mode === "playera"
+    ? `- Format: "<Estilo> · <concepto>" where <Estilo> is the Spanish name of the AutoPrint style used by that option (for example "Grabado detallado", "Serigrafía vintage", "Monograma minimalista"), and <concepto> is 2 to 4 simple Spanish words that describe that specific design. These are only format examples: never copy them, always describe the actual design you are writing.`
+    : `- Format: "<Ruta> · <concepto>" where <Ruta> is exactly "Ilustrado", "Tipográfico", "Icónico" or "Insignia", and <concepto> is 2 to 4 simple Spanish words that describe that specific design (for example, for a coffee shop: "Ilustrado · Taza sonriente", "Tipográfico · Café Luna en grande", "Insignia · Sello cafetero"). These are only format examples: never copy them, always describe the actual design you are writing.`
+}
 Return exactly:
 {
   "option_a_label": "...",
@@ -2797,10 +2807,31 @@ DESIGN LANGUAGE — first decide which one fits the customer's world and audienc
 7. Adult celebrations (birthday, anniversary, party): stylish and fun around the person's tastes; not childish unless asked.
 8. Religious & ceremonial (baptism, first communion, wedding): elegant, delicate, symbolic, soft palette.
 9. Personal, pets & hobbies: expressive illustration matching the vibe the customer describes.
+10. Artisanal & boutique retail (florist, bakery, pastry, gift shop, crafts, local boutique, barber shop): warm, crafted and characterful — rich botanical or engraved illustration, hand lettering or elegant script, harmonious palette. Small local businesses are NOT corporate: do not choose language 2 for them.
 - Faces or eyes on objects (machines, food, products) are ONLY allowed in languages 3, 6 and 9, or when the customer asks for something cute or funny.
 - If the customer explicitly asks for a tone (fun, serious, elegant, cute, aggressive), that wins over the category.
 
-CREATIVE CONCEPT (what makes it great instead of generic clip-art):
+${
+  mode === "playera"
+    ? `AUTOPRINT T-SHIRT STYLE LIBRARY (proven styles of best-selling graphic tees). Choose the 3 styles that best fit the design language and audience, and make them clearly different from each other (ideally one illustration-led, one lettering-led and one emblem or minimal):
+- Grabado detallado: vintage engraving/etching illustration with fine cross-hatching, 1 or 2 ink colors, classic serif or elegant script lettering.
+- Serigrafía vintage: retro screen-print poster look, 3 spot colors, subtle halftone and worn texture inside the art only, bold retro lettering.
+- Acuarela ilustrada: soft watercolor illustration with delicate hand lettering, airy and refined.
+- Línea fina: elegant continuous fine line art in one color, minimal and sophisticated.
+- Monograma minimalista: refined small chest mark (monoline icon + beautiful lettering), one or two colors.
+- Tipografía con carácter: big expressive lettering lockup (script mixed with condensed caps) where the name or phrase is the hero, with a small icon.
+- Insignia retro: vintage badge or crest with banner and arched lettering. Never invent founding years or "EST." dates.
+- Técnico blueprint: technical drawing / exploded-view look with precise lines, steel palette (industrial).
+- Streetwear gráfico: bold oversized graphic, high contrast, edgy type (youth and urban brands).
+- Ilustración divertida: playful cartoon with bright colors (kids and fun celebrations only).
+Write them at the END of enriched_prompt exactly like this, one per line:
+AutoPrint style A: <Spanish style name> — <one sentence in English applying it to this design>
+AutoPrint style B: <Spanish style name> — <one sentence in English applying it to this design>
+AutoPrint style C: <Spanish style name> — <one sentence in English applying it to this design>
+
+`
+    : ""
+}CREATIVE CONCEPT (what makes it great instead of generic clip-art):
 - Find ONE strong concept, coherent with the chosen design language, that merges the customer's world with the occasion. Examples of the thinking: a machining shop + Christmas → a precise steel gear wreath framing the shop name, with a star milled from metal (professional, no faces); a coffee shop + Christmas → a steaming cup wearing a tiny Santa hat (friendly). Never fall back to the most obvious stock image.
 - Craft: ${productCraft}
 - Avoid: generic clip-art, stock-photo realism, cheap gradients, clutter, tiny details, random sparkles, extra frames.
@@ -2834,7 +2865,7 @@ Return ONLY valid JSON:
   ]
 }
 Never output placeholder or guessed values; if you do not know something, leave it out.
-For "summary": 3 to 5 short items in Spanish (Mexico), each value under 45 characters. The FIRST item is always "Idea": the creative concept in a few words (for example "Corona de engranes de acero"). The SECOND is always "Estilo": the design language in Spanish (for example "Profesional industrial", "Corporativo", "Infantil divertido", "Elegante"). Then use labels from: Ocasión, Para, Tema, Texto, Colores. Omit items you do not know.
+${mode === "playera" ? 'In "summary" also include an item "Estilos" with the three Spanish style names separated by commas. ' : ""}For "summary": 3 to 6 short items in Spanish (Mexico), each value under 45 characters (the "Estilos" item may be longer). The FIRST item is always "Idea": the creative concept in a few words (for example "Corona de engranes de acero"). The SECOND is always "Estilo": the design language in Spanish (for example "Profesional industrial", "Corporativo", "Infantil divertido", "Elegante"). Then use labels from: Ocasión, Para, Tema, Texto, Colores. Omit items you do not know.
           `.trim(),
         },
         { role: "user", content: customerText.slice(0, 600) },
@@ -2861,10 +2892,10 @@ For "summary": 3 to 5 short items in Spanish (Mexico), each value under 45 chara
       ? parsed.summary
           .map((item: any) => ({
             label: cleanInput(String(item?.label || "")).slice(0, 20),
-            value: cleanInput(String(item?.value || "")).slice(0, 60),
+            value: cleanInput(String(item?.value || "")).slice(0, 80),
           }))
           .filter((item: { label: string; value: string }) => item.label && item.value)
-          .slice(0, 6)
+          .slice(0, 7)
       : [];
 
     return {
