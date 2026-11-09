@@ -458,7 +458,7 @@ function StudioInner() {
               msg.brief
                 .map((b: any) => ({ label: String(b?.label || ""), value: String(b?.value || "") }))
                 .filter((b: { label: string; value: string }) => b.label && b.value)
-                .slice(0, 6)
+                .slice(0, 7)
             );
           }
         } else if (msg.type === "image") {
